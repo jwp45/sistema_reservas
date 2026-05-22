@@ -1,11 +1,14 @@
 import tkinter as tk
 from tkinter import ttk
+from controllers.property_controller import PropertyController
+from controllers.client_controller import ClientController
+from controllers.reservation_controller import ReservationController
 
 class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Sistema de Reservas Profesional")
-        
+
         # Crear instancias de los controladores (mantenemos la estructura existente)
         self.property_controller = PropertyController()
         self.client_controller = ClientController()
@@ -13,7 +16,7 @@ class MainWindow:
 
     def setup_ui(self):
         """Configurar y mostrar la interfaz gráfica principal"""
-        
+
         # Configuración general de la ventana
         self.root.geometry("800x600")
         self.root.configure(bg="#f0f0f0")
@@ -39,7 +42,7 @@ class MainWindow:
             command=self.handle_new_reservation,
             **button_style
         )
-        
+
         # Botón para ver historial de reservas
         self.btn_my_reservations = ttk.Button(
             nav_frame,
@@ -47,7 +50,7 @@ class MainWindow:
             command=self.handle_my_reservations,
             **button_style
         )
-        
+
         # Botón para contactar al administrador
         self.btn_contact = ttk.Button(
             nav_frame,
