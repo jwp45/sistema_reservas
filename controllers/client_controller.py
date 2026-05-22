@@ -1,3 +1,5 @@
+from controllers.database import Database
+
 class ClientController:
     def __init__(self):
         pass
