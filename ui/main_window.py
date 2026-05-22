@@ -170,7 +170,6 @@ class MainWindow:
     def save_client(self):
         """Guardar los datos del cliente en la base de datos"""
         client_data = (
-            self.client_fields["id_clientes"].get(),
             self.client_fields["nombre"].get(),
             self.client_fields["apellido"].get(),
             self.client_fields["email"].get(),
