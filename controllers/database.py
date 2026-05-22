@@ -25,9 +25,11 @@ class Database:
     def insert_client(self, client_data):
         try:
             cursor = self.connection.cursor()
-            query = "INSERT INTO clientes (id_clientes, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)"
+            query = "INSERT INTO clientes (client_id, first_name, last_name, email, phone) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(query, client_data)
             self.connection.commit()
             print("Cliente guardado exitosamente")
         except Exception as e:
             print(f"Error al guardar el cliente: {e}")
+
+
