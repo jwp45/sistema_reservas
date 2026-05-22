@@ -2,7 +2,10 @@ class ClientController:
     def __init__(self):
         pass
 
-    def create_client(self):
+    def create_client(self, client_data):
         # Lógica para crear un nuevo cliente
-        print("Crear Cliente")
-        # Aquí se llamará a la función que abre la ventana de creación de clientes
+        db = Database()
+        if db.connect():
+            db.insert_client(client_data)
+        else:
+            print("No se pudo conectar a la base de datos")
