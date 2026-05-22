@@ -1,7 +1,8 @@
 import tkinter as tk
-from tkinter import ttk
-from controllers.property_controller import PropertyController
+from tkinter import ttk, messagebox, StringVar, Frame
+from datetime import date
 from controllers.client_controller import ClientController
+from controllers.property_controller import PropertyController
 from controllers.reservation_controller import ReservationController
 
 class MainWindow:
@@ -13,6 +14,15 @@ class MainWindow:
         self.property_controller = PropertyController()
         self.client_controller = ClientController()
         self.reservation_controller = ReservationController()
+
+        # Variables para el formulario de clientes
+        self.client_fields = {
+            "first_name": StringVar(),
+            "last_name": StringVar(),
+            "email": StringVar(),
+            "phone": StringVar(),
+            "birth_date": StringVar()
+        }
 
     def setup_ui(self):
         """Configurar y mostrar la interfaz gráfica principal"""
@@ -107,8 +117,72 @@ class MainWindow:
 
     def handle_clients(self):
         """Manejar la lógica para clientes"""
-        print("Manejando clientes")
-        # Aquí puedes agregar la lógica para manejar los clientes
+        # Crear una nueva ventana para el formulario de clientes
+        client_window = tk.Toplevel(self.root)
+        client_window.title("Gestión de Clientes")
+        client_window.geometry("600x500")
+
+        # Frame principal del formulario
+        form_frame = ttk.Frame(client_window)
+        form_frame.pack(padx=10, pady=10, expand=True)
+
+        # Campos del formulario
+        fields = [
+            ("Nombre:", "first_name"),
+            ("Apellido:", "last_name"),
+            ("Correo electrónico:", "email"),
+            ("Teléfono:", "phone"),
+            ("Fecha de nacimiento:", "birth_date")
+        ]
+
+        for field in fields:
+            row = ttk.Frame(form_frame)
+            row.pack(fill=tk.X, padx=5, pady=2)
+
+            label = ttk.Label(row, text=field[0], width=15)
+            label.pack(side=tk.LEFT)
+
+            if field[1] == "birth_date":
+                # Crear un widget de fecha
+                today = date.today()
+                self.client_fields[field[1]].set(today.strftime("%d/%m/%Y"))
+                
+                button = ttk.Button(
+                    row,
+                    text="Seleccionar fecha",
+                    command=lambda: self.select_date(field[1], client_window),
+                    style="TButton"
+                )
+                button.pack(side=tk.RIGHT, padx=5)
+            else:
+                entry = ttk.Entry(row, textvariable=self.client_fields[field[1]])
+                entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+
+        # Botón para guardar
+        save_button = ttk.Button(
+            form_frame,
+            text="Guardar Cliente",
+            command=lambda: self.save_client(),
+            style="TButton"
+        )
+        save_button.pack(pady=10, side=tk.BOTTOM)
+
+        # Mensaje para notificaciones
+        self.message_label = ttk.Label(form_frame, text="")
+        self.message_label.pack(side=tk.BOTTOM, padx=5, pady=5)
+
+    def select_date(self, field_name, master):
+        """Manejar la selección de fecha de nacimiento"""
+        date_dialog = tk.Toplevel(master)
+        date_dialog.title("Seleccionar Fecha")
+        
+        today = date.today()
+        self.client_fields[field_name].set(today.strftime("%d/%m/%Y"))
+
+    def save_client(self):
+        """Guardar los datos del cliente en el futuro"""
+        # Aquí irá la implementación para guardar los datos
+        pass
 
     def handle_properties(self):
         """Manejar la lógica para inmuebles"""
