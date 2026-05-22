@@ -17,11 +17,11 @@ class MainWindow:
 
         # Variables para el formulario de clientes
         self.client_fields = {
+            "client_id": StringVar(),
             "first_name": StringVar(),
             "last_name": StringVar(),
             "email": StringVar(),
-            "phone": StringVar(),
-            "birth_date": StringVar()
+            "phone": StringVar()
         }
 
     def setup_ui(self):
@@ -120,7 +120,7 @@ class MainWindow:
         # Crear una nueva ventana para el formulario de clientes
         client_window = tk.Toplevel(self.root)
         client_window.title("Gestión de Clientes")
-        client_window.geometry("600x500")
+        client_window.geometry("600x450")
 
         # Frame principal del formulario
         form_frame = ttk.Frame(client_window)
@@ -128,11 +128,11 @@ class MainWindow:
 
         # Campos del formulario
         fields = [
+            ("ID Cliente:", "client_id"),
             ("Nombre:", "first_name"),
             ("Apellido:", "last_name"),
             ("Correo electrónico:", "email"),
-            ("Teléfono:", "phone"),
-            ("Fecha de nacimiento:", "birth_date")
+            ("Teléfono:", "phone")
         ]
 
         for field in fields:
@@ -142,21 +142,8 @@ class MainWindow:
             label = ttk.Label(row, text=field[0], width=15)
             label.pack(side=tk.LEFT)
 
-            if field[1] == "birth_date":
-                # Crear un widget de fecha
-                today = date.today()
-                self.client_fields[field[1]].set(today.strftime("%d/%m/%Y"))
-                
-                button = ttk.Button(
-                    row,
-                    text="Seleccionar fecha",
-                    command=lambda: self.select_date(field[1], client_window),
-                    style="TButton"
-                )
-                button.pack(side=tk.RIGHT, padx=5)
-            else:
-                entry = ttk.Entry(row, textvariable=self.client_fields[field[1]])
-                entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+            entry = ttk.Entry(row, textvariable=self.client_fields[field[1]])
+            entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
 
         # Botón para guardar
         save_button = ttk.Button(
@@ -168,8 +155,8 @@ class MainWindow:
         save_button.pack(pady=10, side=tk.BOTTOM)
 
         # Mensaje para notificaciones
-        self.message_label = ttk.Label(form_frame, text="")
-        self.message_label.pack(side=tk.BOTTOM, padx=5, pady=5)
+        message_label = ttk.Label(form_frame, text="Ingrese los datos del cliente")
+        message_label.pack(side=tk.TOP, padx=5, pady=5)
 
     def select_date(self, field_name, master):
         """Manejar la selección de fecha de nacimiento"""
