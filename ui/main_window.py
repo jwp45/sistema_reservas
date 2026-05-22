@@ -120,11 +120,15 @@ class MainWindow:
         # Crear una nueva ventana para el formulario de clientes
         client_window = tk.Toplevel(self.root)
         client_window.title("Gestión de Clientes")
-        client_window.geometry("600x450")
+        client_window.geometry("450x300")
 
         # Frame principal del formulario
         form_frame = ttk.Frame(client_window)
         form_frame.pack(padx=10, pady=10, expand=True)
+
+        # Mensaje para notificaciones
+        message_label = ttk.Label(form_frame, text="Ingrese los datos del cliente", font=('Arial', 14))
+        message_label.pack(side=tk.TOP, padx=5, pady=5)
 
         # Campos del formulario
         fields = [
@@ -154,9 +158,7 @@ class MainWindow:
         )
         save_button.pack(pady=10, side=tk.BOTTOM)
 
-        # Mensaje para notificaciones
-        message_label = ttk.Label(form_frame, text="Ingrese los datos del cliente")
-        message_label.pack(side=tk.TOP, padx=5, pady=5)
+        
 
     def select_date(self, field_name, master):
         """Manejar la selección de fecha de nacimiento"""
