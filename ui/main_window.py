@@ -169,6 +169,11 @@ class MainWindow:
 
     def save_client(self):
         """Guardar los datos del cliente en la base de datos"""
+        # Validación de entradas
+        if not self.client_fields["nombre"].get() or not self.client_fields["apellido"].get() or not self.client_fields["email"].get() or not self.client_fields["telefono"].get():
+            messagebox.showerror("Error", "Todos los campos son obligatorios")
+            return
+
         client_data = (
             self.client_fields["nombre"].get(),
             self.client_fields["apellido"].get(),
