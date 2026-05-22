@@ -154,7 +154,7 @@ class MainWindow:
         save_button = ttk.Button(
             form_frame,
             text="Guardar Cliente",
-            command=lambda: self.save_client(),
+            command=lambda: self.save_client(client_window),
             style="TButton"
         )
         save_button.pack(pady=10, side=tk.BOTTOM)
@@ -167,11 +167,11 @@ class MainWindow:
         today = date.today()
         self.client_fields[field_name].set(today.strftime("%d/%m/%Y"))
 
-    def save_client(self):
+    def save_client(self, client_window):
         """Guardar los datos del cliente en la base de datos"""
         # Validación de entradas
         if not self.client_fields["nombre"].get() or not self.client_fields["apellido"].get() or not self.client_fields["email"].get() or not self.client_fields["telefono"].get():
-            messagebox.showerror("Error", "Todos los campos son obligatorios")
+            messagebox.showerror("Error", "Todos los campos son obligatorios", parent=client_window)
             return
 
         client_data = (
@@ -187,9 +187,9 @@ class MainWindow:
             if next_id is not None:
                 self.client_fields["id_clientes"].set(next_id)
             db.insert_client(client_data)
-            messagebox.showinfo("Éxito", "Cliente guardado exitosamente")
+            messagebox.showinfo("Éxito", "Cliente guardado exitosamente", parent=client_window)
         else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=client_window)
 
     def handle_properties(self):
         """Manejar la lógica para inmuebles"""
