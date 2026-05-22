@@ -5,7 +5,7 @@ class Database:
         self.host = "localhost"
         self.user = "root"
         self.password = ""
-        self.database = "clientes"
+        self.database = "reservas"
 
     def connect(self):
         try:
@@ -15,33 +15,20 @@ class Database:
                 password=self.password,
                 database=self.database
             )
-            if self.connection.is_connected():
-                print("Conexión exitosa a la base de datos")
-                return True
-        except Exception as e:
-            print(f"Error al conectar a la base de datos: {e}")
+            return True
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
             return False
 
-    def insert_client(self, client_data):
-        try:
-            cursor = self.connection.cursor()
-            query = "INSERT INTO clientes (nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s)"
-            cursor.execute(query, client_data)
-            self.connection.commit()
-            print("Cliente guardado exitosamente")
-        except Exception as e:
-            print(f"Error al guardar el cliente: {e}")
+    def cursor(self):
+        if self.connection.is_connected():
+            return self.connection.cursor()
+        else:
+            raise Exception("No se ha establecido una conexión a la base de datos")
 
-    def get_next_id(self):
-        try:
-            cursor = self.connection.cursor()
-            query = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'clientes' AND TABLE_NAME = 'clientes'"
-            cursor.execute(query)
-            result = cursor.fetchone()
-            if result:
-                return result[0]
-            else:
-                return None
-        except Exception as e:
-            print(f"Error al obtener el próximo ID: {e}")
-            return None
+    def execute_query(self, query):
+        cursor = self.db.cursor()
+        cursor.execute(query)
+        result = cursor.fetchall()
+        cursor.close()
+        return result
