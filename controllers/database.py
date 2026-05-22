@@ -1,5 +1,4 @@
 import mysql.connector
-from mysql.connector import Error
 
 class Database:
     def __init__(self):
@@ -18,7 +17,7 @@ class Database:
             )
             if self.connection.is_connected():
                 print("Conexión exitosa a la base de datos")
-        except Error as e:
+        except Exception as e:
             print(f"Error al conectar a la base de datos: {e}")
             return None
 
@@ -29,5 +28,5 @@ class Database:
             cursor.execute(query, client_data)
             self.connection.commit()
             print("Cliente guardado exitosamente")
-        except Error as e:
+        except Exception as e:
             print(f"Error al guardar el cliente: {e}")
