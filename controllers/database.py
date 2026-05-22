@@ -5,7 +5,7 @@ class Database:
         self.host = "localhost"
         self.user = "root"
         self.password = ""
-        self.database = "clientes"
+        self.database = "reservas_profesionales"
 
     def connect(self):
         try:
@@ -15,33 +15,39 @@ class Database:
                 password=self.password,
                 database=self.database
             )
-            if self.connection.is_connected():
-                print("Conexión exitosa a la base de datos")
-                return True
-        except Exception as e:
-            print(f"Error al conectar a la base de datos: {e}")
+            return True
+        except mysql.connector.Error as err:
+            print(f"Error al conectar a la base de datos: {err}")
             return False
 
+    def get_next_id(self):
+        if self.connect():
+            cursor = self.connection.cursor()
+            query = "SELECT MAX(id_clientes) FROM clientes"
+            cursor.execute(query)
+            result = cursor.fetchone()
+            cursor.close()
+            self.connection.close()
+            if result[0] is None:
+                return 1
+            else:
+                return result[0] + 1
+
     def insert_client(self, client_data):
-        try:
+        if self.connect():
             cursor = self.connection.cursor()
             query = "INSERT INTO clientes (nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s)"
             cursor.execute(query, client_data)
             self.connection.commit()
-            print("Cliente guardado exitosamente")
-        except Exception as e:
-            print(f"Error al guardar el cliente: {e}")
+            cursor.close()
+            self.connection.close()
 
-    def get_next_id(self):
-        try:
+    def get_all_clients(self):
+        if self.connect():
             cursor = self.connection.cursor()
-            query = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'clientes' AND TABLE_NAME = 'clientes'"
+            query = "SELECT id_clientes, nombre, apellido, email, telefono FROM clientes"
             cursor.execute(query)
-            result = cursor.fetchone()
-            if result:
-                return result[0]
-            else:
-                return None
-        except Exception as e:
-            print(f"Error al obtener el próximo ID: {e}")
-            return None
+            clients = cursor.fetchall()
+            cursor.close()
+            self.connection.close()
+            return clients
