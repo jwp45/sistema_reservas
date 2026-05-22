@@ -55,10 +55,28 @@ class MainWindow:
             style="TButton"
         )
 
+        # Nuevo botón para clientes
+        self.btn_clients = ttk.Button(
+            nav_frame,
+            text="Clientes",
+            command=self.handle_clients,
+            style="TButton"
+        )
+
+        # Nuevo botón para inmuebles
+        self.btn_properties = ttk.Button(
+            nav_frame,
+            text="Inmuebles",
+            command=self.handle_properties,
+            style="TButton"
+        )
+
         # Ubicar los botones en el frame de navegación
         self.btn_new_reservation.pack(side=tk.LEFT, padx=2)
         self.btn_my_reservations.pack(side=tk.LEFT, padx=2)
         self.btn_contact.pack(side=tk.LEFT, padx=2)
+        self.btn_clients.pack(side=tk.LEFT, padx=2)
+        self.btn_properties.pack(side=tk.LEFT, padx=2)
 
         # Crear un area principal para el contenido
         main_content = ttk.Frame(self.root)
@@ -86,6 +104,16 @@ class MainWindow:
         """Manejar la sección de contacto y soporte"""
         # Implementación futura para el contacto y soporte al usuario
         pass
+
+    def handle_clients(self):
+        """Manejar la lógica para clientes"""
+        print("Manejando clientes")
+        # Aquí puedes agregar la lógica para manejar los clientes
+
+    def handle_properties(self):
+        """Manejar la lógica para inmuebles"""
+        print("Manejando inmuebles")
+        # Aquí puedes agregar la lógica para manejar los inmuebles
 
     def run(self):
         self.root.mainloop()
