@@ -31,3 +31,17 @@ class Database:
             print("Cliente guardado exitosamente")
         except Exception as e:
             print(f"Error al guardar el cliente: {e}")
+
+    def get_next_id(self):
+        try:
+            cursor = self.connection.cursor()
+            query = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'clientes' AND TABLE_NAME = 'clientes'"
+            cursor.execute(query)
+            result = cursor.fetchone()
+            if result:
+                return result[0]
+            else:
+                return None
+        except Exception as e:
+            print(f"Error al obtener el próximo ID: {e}")
+            return None

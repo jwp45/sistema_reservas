@@ -178,6 +178,9 @@ class MainWindow:
 
         db = Database()
         if db.connect():
+            next_id = db.get_next_id()
+            if next_id is not None:
+                self.client_fields["id_clientes"].set(next_id)
             db.insert_client(client_data)
             messagebox.showinfo("Éxito", "Cliente guardado exitosamente")
         else:
