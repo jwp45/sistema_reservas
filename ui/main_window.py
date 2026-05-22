@@ -4,6 +4,7 @@ from datetime import date
 from controllers.client_controller import ClientController
 from controllers.property_controller import PropertyController
 from controllers.reservation_controller import ReservationController
+from controllers.database import Database
 
 class MainWindow:
     def __init__(self):
@@ -158,20 +159,30 @@ class MainWindow:
         )
         save_button.pack(pady=10, side=tk.BOTTOM)
 
-        
-
     def select_date(self, field_name, master):
         """Manejar la selección de fecha de nacimiento"""
         date_dialog = tk.Toplevel(master)
         date_dialog.title("Seleccionar Fecha")
-        
+
         today = date.today()
         self.client_fields[field_name].set(today.strftime("%d/%m/%Y"))
 
     def save_client(self):
-        """Guardar los datos del cliente en el futuro"""
-        # Aquí irá la implementación para guardar los datos
-        pass
+        """Guardar los datos del cliente en la base de datos"""
+        client_data = (
+            self.client_fields["client_id"].get(),
+            self.client_fields["first_name"].get(),
+            self.client_fields["last_name"].get(),
+            self.client_fields["email"].get(),
+            self.client_fields["phone"].get()
+        )
+
+        db = Database()
+        if db.connect():
+            db.insert_client(client_data)
+            messagebox.showinfo("Éxito", "Cliente guardado exitosamente")
+        else:
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
 
     def handle_properties(self):
         """Manejar la lógica para inmuebles"""
