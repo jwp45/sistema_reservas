@@ -5,7 +5,7 @@ class Database:
         self.host = "localhost"
         self.user = "root"
         self.password = ""
-        self.database = "clientes"
+        self.database = "sistema_reservas"
 
     def connect(self):
         try:
@@ -15,11 +15,9 @@ class Database:
                 password=self.password,
                 database=self.database
             )
-            if self.connection.is_connected():
-                print("Conexión exitosa a la base de datos")
-                return True
-        except Exception as e:
-            print(f"Error al conectar a la base de datos: {e}")
+            return True
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
             return False
 
     def insert_client(self, client_data):
@@ -28,20 +26,32 @@ class Database:
             query = "INSERT INTO clientes (nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s)"
             cursor.execute(query, client_data)
             self.connection.commit()
-            print("Cliente guardado exitosamente")
-        except Exception as e:
-            print(f"Error al guardar el cliente: {e}")
+            return True
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
+            return False
 
     def get_next_id(self):
         try:
             cursor = self.connection.cursor()
-            query = "SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'clientes' AND TABLE_NAME = 'clientes'"
+            query = "SELECT MAX(id_clientes) FROM clientes"
             cursor.execute(query)
             result = cursor.fetchone()
-            if result:
-                return result[0]
+            if result[0] is None:
+                return 1
             else:
-                return None
-        except Exception as e:
-            print(f"Error al obtener el próximo ID: {e}")
+                return result[0] + 1
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
             return None
+
+    def get_all_clients(self):
+        try:
+            cursor = self.connection.cursor()
+            query = "SELECT * FROM clientes"
+            cursor.execute(query)
+            result = cursor.fetchall()
+            return result
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
+            return []

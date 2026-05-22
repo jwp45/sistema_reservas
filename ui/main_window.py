@@ -118,78 +118,8 @@ class MainWindow:
 
     def handle_clients(self):
         """Manejar la lógica para clientes"""
-        # Crear una nueva ventana para el formulario de clientes
-        client_window = tk.Toplevel(self.root)
-        client_window.title("Gestión de Clientes")
-        client_window.geometry("450x300")
-
-        # Frame principal del formulario
-        form_frame = ttk.Frame(client_window)
-        form_frame.pack(padx=10, pady=10, expand=True)
-
-        # Mensaje para notificaciones
-        message_label = ttk.Label(form_frame, text="Ingrese los datos del cliente", font=('Arial', 14))
-        message_label.pack(side=tk.TOP, padx=5, pady=5)
-
-        # Campos del formulario
-        fields = [
-            ("ID Cliente:", "id_clientes"),
-            ("Nombre:", "nombre"),
-            ("Apellido:", "apellido"),
-            ("Correo electrónico:", "email"),
-            ("Teléfono:", "telefono")
-        ]
-
-        for field in fields:
-            row = ttk.Frame(form_frame)
-            row.pack(fill=tk.X, padx=5, pady=2)
-
-            label = ttk.Label(row, text=field[0], width=15)
-            label.pack(side=tk.LEFT)
-
-            entry = ttk.Entry(row, textvariable=self.client_fields[field[1]])
-            entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
-
-        # Botón para guardar
-        save_button = ttk.Button(
-            form_frame,
-            text="Guardar Cliente",
-            command=lambda: self.save_client(client_window),
-            style="TButton"
-        )
-        save_button.pack(pady=10, side=tk.BOTTOM)
-
-    def select_date(self, field_name, master):
-        """Manejar la selección de fecha de nacimiento"""
-        date_dialog = tk.Toplevel(master)
-        date_dialog.title("Seleccionar Fecha")
-
-        today = date.today()
-        self.client_fields[field_name].set(today.strftime("%d/%m/%Y"))
-
-    def save_client(self, client_window):
-        """Guardar los datos del cliente en la base de datos"""
-        # Validación de entradas
-        if not self.client_fields["nombre"].get() or not self.client_fields["apellido"].get() or not self.client_fields["email"].get() or not self.client_fields["telefono"].get():
-            messagebox.showerror("Error", "Todos los campos son obligatorios", parent=client_window)
-            return
-
-        client_data = (
-            self.client_fields["nombre"].get(),
-            self.client_fields["apellido"].get(),
-            self.client_fields["email"].get(),
-            self.client_fields["telefono"].get()
-        )
-
-        db = Database()
-        if db.connect():
-            next_id = db.get_next_id()
-            if next_id is not None:
-                self.client_fields["id_clientes"].set(next_id)
-            db.insert_client(client_data)
-            messagebox.showinfo("Éxito", "Cliente guardado exitosamente", parent=client_window)
-        else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=client_window)
+        client_list_window = ClientListWindow(self.root)
+        client_list_window.run()
 
     def handle_properties(self):
         """Manejar la lógica para inmuebles"""
