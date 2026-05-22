@@ -17,9 +17,10 @@ class Database:
             )
             if self.connection.is_connected():
                 print("Conexión exitosa a la base de datos")
+                return True
         except Exception as e:
             print(f"Error al conectar a la base de datos: {e}")
-            return None
+            return False
 
     def insert_client(self, client_data):
         try:
