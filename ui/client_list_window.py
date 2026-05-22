@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, StringVar, Frame
+from controllers.client_controller import ClientController  # Importar la clase ClientController
 
 class ClientListWindow:
     def __init__(self, parent):

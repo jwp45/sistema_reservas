@@ -5,6 +5,7 @@ from controllers.client_controller import ClientController
 from controllers.property_controller import PropertyController
 from controllers.reservation_controller import ReservationController
 from controllers.database import Database
+from ui.client_list_window import ClientListWindow  # Importar la clase ClientListWindow
 
 class MainWindow:
     def __init__(self):
