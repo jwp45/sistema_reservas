@@ -45,3 +45,15 @@ class Database:
         except Exception as e:
             print(f"Error al obtener el próximo ID: {e}")
             return None
+
+    def get_all_clients(self):
+        """Obtener todos los clientes desde la base de datos"""
+        try:
+            cursor = self.connection.cursor()
+            query = "SELECT id_clientes, nombre, apellido, email, telefono FROM clientes"
+            cursor.execute(query)
+            result = cursor.fetchall()
+            return result
+        except Exception as e:
+            print(f"Error al obtener los clientes: {e}")
+            return []
