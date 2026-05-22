@@ -18,11 +18,11 @@ class MainWindow:
 
         # Variables para el formulario de clientes
         self.client_fields = {
-            "client_id": StringVar(),
-            "first_name": StringVar(),
-            "last_name": StringVar(),
+            "id_clientes": StringVar(),
+            "nombre": StringVar(),
+            "apellido": StringVar(),
             "email": StringVar(),
-            "phone": StringVar()
+            "telefono": StringVar()
         }
 
     def setup_ui(self):
@@ -133,11 +133,11 @@ class MainWindow:
 
         # Campos del formulario
         fields = [
-            ("ID Cliente:", "client_id"),
-            ("Nombre:", "first_name"),
-            ("Apellido:", "last_name"),
+            ("ID Cliente:", "id_clientes"),
+            ("Nombre:", "nombre"),
+            ("Apellido:", "apellido"),
             ("Correo electrónico:", "email"),
-            ("Teléfono:", "phone")
+            ("Teléfono:", "telefono")
         ]
 
         for field in fields:
@@ -170,11 +170,11 @@ class MainWindow:
     def save_client(self):
         """Guardar los datos del cliente en la base de datos"""
         client_data = (
-            self.client_fields["client_id"].get(),
-            self.client_fields["first_name"].get(),
-            self.client_fields["last_name"].get(),
+            self.client_fields["id_clientes"].get(),
+            self.client_fields["nombre"].get(),
+            self.client_fields["apellido"].get(),
             self.client_fields["email"].get(),
-            self.client_fields["phone"].get()
+            self.client_fields["telefono"].get()
         )
 
         db = Database()
