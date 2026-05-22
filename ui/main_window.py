@@ -26,21 +26,17 @@ class MainWindow:
         nav_frame.pack(fill=tk.X, side=tk.TOP, padx=5, pady=5)
 
         # Estilos consistentes para los botones
-        button_style = {
-            'font': ('Arial', 12),
-            'padding': 10,
-            'bg': '#4CAF50',
-            'fg': 'white',
-            'relief': tk.RAISED,
-            'borderwidth': 3
-        }
+        style = ttk.Style()
+        style.configure("TButton", font=('Arial', 12), padding=10,
+                        background='#4CAF50', foreground='white',
+                        relief="raised", borderwidth=3)
 
         # Botón para crear una nueva reserva
         self.btn_new_reservation = ttk.Button(
             nav_frame,
             text="Iniciar Reserva",
             command=self.handle_new_reservation,
-            **button_style
+            style="TButton"
         )
 
         # Botón para ver historial de reservas
@@ -48,7 +44,7 @@ class MainWindow:
             nav_frame,
             text="Mis Reservas",
             command=self.handle_my_reservations,
-            **button_style
+            style="TButton"
         )
 
         # Botón para contactar al administrador
@@ -56,7 +52,7 @@ class MainWindow:
             nav_frame,
             text="Contacto",
             command=self.handle_contact,
-            **button_style
+            style="TButton"
         )
 
         # Ubicar los botones en el frame de navegación
