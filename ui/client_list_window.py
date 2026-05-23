@@ -141,12 +141,12 @@ class ClientListWindow:
         self.client_table.pack(fill=tk.BOTH, expand=True)
 
         # Crear un botón para eliminar cliente
-        delete_button = ttk.Button(client_frame, text="Eliminar Cliente", command=self.delete_client)
-        delete_button.pack(side=tk.LEFT, padx=5)
+        delete_button = ttk.Button(client_frame, text="Eliminar Cliente", command=self.delete_client, padding=(5,1))
+        delete_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Crear un botón para editar cliente
-        edit_button = ttk.Button(client_frame, text="Editar Cliente", command=self.edit_client)
-        edit_button.pack(side=tk.LEFT, padx=5)
+        edit_button = ttk.Button(client_frame, text="Editar Cliente", command=self.edit_client, padding=(5,1))
+        edit_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Cargar los clientes desde la base de datos
         self.load_clients()
