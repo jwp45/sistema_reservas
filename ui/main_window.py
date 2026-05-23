@@ -115,8 +115,56 @@ class MainWindow:
 
     def handle_new_reservation(self):
         """Manejar la lógica para iniciar una nueva reserva"""
-        # En el futuro implementaremos aquí la funcionalidad de reserva
-        pass
+        # Crear una nueva ventana para el formulario de reserva
+        reservation_window = tk.Toplevel(self.root)
+        reservation_window.title("Detalle de Reserva")
+        reservation_window.geometry("800x600")
+
+        # Frame principal del formulario
+        form_frame = ttk.Frame(reservation_window)
+        form_frame.pack(padx=10, pady=10, expand=True)
+
+        # Mensaje para notificaciones
+        message_label = ttk.Label(form_frame, text="Ingrese los datos de la reserva", font=('Arial', 14))
+        message_label.pack(side=tk.TOP, padx=5, pady=5)
+
+        # Campos del formulario
+        fields = [
+            ("ID Cliente:", "id_clientes"),
+            ("Nombre:", "nombre"),
+            ("Apellido:", "apellido"),
+            ("Correo electrónico:", "email"),
+            ("Teléfono:", "telefono"),
+            ("Provincia:", "provincia"),
+            ("Fecha de registro:", "fecha_registro"),
+            ("Cantidad de personas:", "cantidad_personas"),
+            ("Porcentaje de adelanto:", "porcentaje_adelanto"),
+            ("Adelanto:", "adelanto"),
+            ("Porcentaje de descuento:", "porcentaje_descuento"),
+            ("Descuento:", "descuento"),
+            ("Inmueble:", "inmueble"),
+            ("Fecha de ingreso:", "fecha_ingreso"),
+            ("Fecha de egreso:", "fecha_egreso")
+        ]
+
+        for field in fields:
+            row = ttk.Frame(form_frame)
+            row.pack(fill=tk.X, padx=5, pady=2)
+
+            label = ttk.Label(row, text=field[0], width=15)
+            label.pack(side=tk.LEFT)
+
+            entry = ttk.Entry(row, textvariable=self.client_fields[field[1]])
+            entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+
+        # Botón para reservar
+        reserve_button = ttk.Button(
+            form_frame,
+            text="Reservar",
+            command=lambda: self.save_reservation(reservation_window),
+            style="TButton"
+        )
+        reserve_button.pack(pady=10, side=tk.BOTTOM)
 
     def handle_my_reservations(self):
         """Mostrar las reservas del usuario"""
@@ -202,6 +250,11 @@ class MainWindow:
             messagebox.showinfo("Éxito", "Cliente guardado exitosamente", parent=client_window)
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=client_window)
+
+    def save_reservation(self, reservation_window):
+        """Guardar los datos de la reserva en la base de datos"""
+        # Implementación futura para guardar la reserva
+        pass
 
     def handle_properties(self):
         """Manejar la lógica para inmuebles"""
