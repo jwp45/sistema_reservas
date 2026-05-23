@@ -70,14 +70,8 @@ class ReservationController:
             entry = ttk.Entry(row, textvariable=client_fields[field[1]])
             entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
 
-        # Botón para buscar cliente por ID
-        search_button = ttk.Button(
-            form_frame,
-            text="Buscar Cliente",
-            command=lambda: self.autofill_client_data(client_fields),
-            style="TButton"
-        )
-        search_button.pack(pady=10, side=tk.BOTTOM)
+        # Agregar un evento de cambio a la variable 'id_clientes'
+        client_fields["id_clientes"].trace("w", lambda *args: self.autofill_client_data(client_fields))
 
         # Botón para reservar
         reserve_button = ttk.Button(
@@ -93,7 +87,6 @@ class ReservationController:
         client_id = client_fields["id_clientes"].get()
         
         if not client_id:
-            messagebox.showerror("Error", "Por favor ingrese un ID de cliente", parent=self.master)
             return
 
         # Buscar el cliente en la base de datos
