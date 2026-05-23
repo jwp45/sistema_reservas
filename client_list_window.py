@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from controllers.database import Database
-
+from controllers.client_controller import ClientController
 
 class ClientListWindow:
     def __init__(self, master):
@@ -59,15 +59,12 @@ class ClientListWindow:
             return
 
         client_id = self.client_table.item(selected_item)['values'][0]
-        db = Database()
-        if db.connect():
-            if db.delete_client(client_id):
-                self.client_table.delete(selected_item)
-                messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
-            else:
-                messagebox.showerror("Error", "No se pudo eliminar el cliente")
+        client_controller = ClientController()
+        if client_controller.delete_client(client_id):
+            self.client_table.delete(selected_item)
+            messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
         else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+            messagebox.showerror("Error", "No se pudo eliminar el cliente")
 
     def show(self):
         """Mostrar la ventana"""
