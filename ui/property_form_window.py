@@ -10,7 +10,7 @@ class PropertyFormWindow:
 
         self.window = tk.Toplevel(master)
         self.window.title("Agregar Inmueble")
-        self.window.geometry("450x300")
+        self.window.geometry("450x400")
 
         # Frame principal del formulario
         form_frame = ttk.Frame(self.window)
@@ -33,7 +33,7 @@ class PropertyFormWindow:
 
         fields_order = [
             ("Nombre:", "nombre"),
-            ("Cantidad de Personas:", "cantidad_personas"),
+            ("Cantidad:", "cantidad_personas"),
             ("Dirección:", "direccion"),
             ("Localidad:", "localidad"),
             ("Provincia:", "provincia"),

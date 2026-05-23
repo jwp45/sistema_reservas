@@ -69,7 +69,7 @@ class EditPropertyWindow:
         """Cargar los datos del inmueble desde la base de datos"""
         db = Database()
         if db.connect():
-            query = "SELECT nombre, cantidad_personas, direccion, localidad, provincia, tipo, valor_dia FROM inmuebles WHERE id_inmuebles = %s"
+            query = "SELECT nombre, cantidad_personas, direccion, localidad, provincia, tipo, valor_dia FROM inmuebles WHERE id_inmueble = %s"
             cursor = db.connection.cursor()
             cursor.execute(query, (self.property_id,))
             result = cursor.fetchone()
@@ -103,7 +103,7 @@ class EditPropertyWindow:
 
         db = Database()
         if db.connect():
-            query = "UPDATE inmuebles SET nombre=%s, cantidad_personas=%s, direccion=%s, localidad=%s, provincia=%s, tipo=%s, valor_dia=%s WHERE id_inmuebles=%s"
+            query = "UPDATE inmuebles SET nombre=%s, cantidad_personas=%s, direccion=%s, localidad=%s, provincia=%s, tipo=%s, valor_dia=%s WHERE id_inmueble=%s"
             cursor = db.connection.cursor()
             cursor.execute(query, property_data + (self.property_id,))
             db.connection.commit()

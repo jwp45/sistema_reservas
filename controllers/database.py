@@ -58,6 +58,18 @@ class Database:
             print(f"Error al obtener los clientes: {e}")
             return []
 
+    def get_all_properties(self):
+        """Obtener todos los inmuebles desde la base de datos"""
+        try:
+            cursor = self.connection.cursor()
+            query = "SELECT id_inmueble, nombre, cantidad_personas, direccion, localidad, provincia, tipo, valor_dia FROM inmuebles"
+            cursor.execute(query)
+            result = cursor.fetchall()
+            return result
+        except Exception as e:
+            print(f"Error al obtener los inmuebles: {e}")
+            return []
+
     def delete_client(self, client_id):
         """Eliminar un cliente de la base de datos"""
         try:
@@ -69,4 +81,17 @@ class Database:
             return True
         except Exception as e:
             print(f"Error al eliminar el cliente: {e}")
+            return False
+
+    def delete_property(self, property_id):
+        """Eliminar un inmueble de la base de datos"""
+        try:
+            cursor = self.connection.cursor()
+            query = "DELETE FROM inmuebles WHERE id_inmueble = %s"
+            cursor.execute(query, (property_id,))
+            self.connection.commit()
+            print("Inmueble eliminado exitosamente")
+            return True
+        except Exception as e:
+            print(f"Error al eliminar el inmueble: {e}")
             return False
