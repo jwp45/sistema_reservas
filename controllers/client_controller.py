@@ -1,18 +1,13 @@
-import mysql.connector
 from controllers.database import Database
 
 class ClientController:
     def __init__(self):
-        self.db = Database()
+        pass
 
-    def get_all_clients(self):
-        query = "SELECT * FROM clientes"
-        result = self.db.execute_query(query)
-        return result
-
-    def execute_query(self, query):
-        cursor = self.db.cursor()
-        cursor.execute(query)
-        result = cursor.fetchall()
-        cursor.close()
-        return result
+    def create_client(self, client_data):
+        # Lógica para crear un nuevo cliente
+        db = Database()
+        if db.connect():
+            db.insert_client(client_data)
+        else:
+            print("No se pudo conectar a la base de datos")
