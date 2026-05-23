@@ -14,6 +14,9 @@ class EditClientWindow:
         self.window.title("Editar Cliente")
         self.window.geometry("450x300")
 
+        # Hacer que la ventana de edición sea transitoria de la ventana principal
+        self.window.transient(master)
+
         # Frame principal del formulario
         form_frame = ttk.Frame(self.window)
         form_frame.pack(padx=10, pady=10, expand=True)
