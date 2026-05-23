@@ -24,7 +24,7 @@ class ClientListWindow:
         search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        search_button = ttk.Button(search_frame, text="Buscar", command=self.filter_clients)
+        search_button = ttk.Button(search_frame, text="Buscar", command=self.filter_clients, padding=(5,1))
         search_button.pack(side=tk.RIGHT, padx=5)
 
         # Crear una tabla para mostrar los clientes
