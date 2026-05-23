@@ -25,7 +25,8 @@ class MainWindow:
             "nombre": StringVar(),
             "apellido": StringVar(),
             "email": StringVar(),
-            "telefono": StringVar()
+            "telefono": StringVar(),
+            "provincia": StringVar()  # Añadir la variable 'provincia'
         }
 
     def setup_ui(self):
