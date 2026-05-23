@@ -1,25 +1,34 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+
 from controllers.database import Database
+from controllers.client_controller import ClientController
 
 class ClientListWindow:
     def __init__(self, master):
         self.master = master
+
         self.window = tk.Toplevel(master)
         self.window.title("Lista de Clientes")
-        self.window.geometry("700x500")
+        self.window.geometry("600x400")
 
-        # Crear un frame principal
-        main_frame = ttk.Frame(self.window)
-        main_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        # Crear un frame para la lista de clientes
+        client_frame = ttk.Frame(self.window)
+        client_frame.pack(padx=10, pady=10, expand=True)
 
-        # Crear un frame para la tabla
-        table_frame = ttk.Frame(main_frame)
-        table_frame.pack(fill=tk.BOTH, expand=True)
+        # Crear una entrada de búsqueda
+        search_frame = ttk.Frame(client_frame)
+        search_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        self.search_var = tk.StringVar()
+        search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        search_button = ttk.Button(search_frame, text="Buscar", command=self.filter_clients)
+        search_button.pack(side=tk.RIGHT, padx=5)
 
         # Crear una tabla para mostrar los clientes
-        self.client_table = ttk.Treeview(table_frame, columns=("ID", "Nombre", "Apellido", "Email", "Teléfono"), show="headings")
-        
+        self.client_table = ttk.Treeview(client_frame, columns=("ID", "Nombre", "Apellido", "Email", "Teléfono"), show="headings")
         self.client_table.heading("ID", text="ID")
         self.client_table.heading("Nombre", text="Nombre")
         self.client_table.heading("Apellido", text="Apellido")
@@ -27,87 +36,57 @@ class ClientListWindow:
         self.client_table.heading("Teléfono", text="Teléfono")
 
         # Configurar el ancho de las columnas
-        self.client_table.column("ID", width=50, anchor="center")
+        self.client_table.column("ID", width=50)
         self.client_table.column("Nombre", width=100)
         self.client_table.column("Apellido", width=100)
-        self.client_table.column("Email", width=200)
+        self.client_table.column("Email", width=150)
         self.client_table.column("Teléfono", width=100)
 
-        # Añadir scrollbar
-        scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.client_table.yview)
-        self.client_table.configure(yscroll=scrollbar.set)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # Añadir la tabla al frame
         self.client_table.pack(fill=tk.BOTH, expand=True)
 
-        # Frame para botones de acción
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=(10, 0))
-
-        # Botón para eliminar cliente
-        self.btn_delete = ttk.Button(
-            button_frame, 
-            text="Eliminar Cliente Seleccionado", 
-            command=self.handle_delete_client
-        )
-        self.btn_delete.pack(side=tk.LEFT, padx=5)
-
-        # Botón para refrescar la lista
-        self.btn_refresh = ttk.Button(
-            button_frame, 
-            text="Refrescar Lista", 
-            command=self.load_clients
-        )
-        self.btn_refresh.pack(side=tk.LEFT, padx=5)
+        # Crear un botón para eliminar cliente
+        delete_button = ttk.Button(client_frame, text="Eliminar Cliente", command=self.delete_client)
+        delete_button.pack(pady=10)
 
         # Cargar los clientes desde la base de datos
         self.load_clients()
 
     def load_clients(self):
         """Cargar los clientes desde la base de datos y mostrarlos en la tabla"""
-        # Limpiar la tabla antes de cargar
-        for item in self.client_table.get_children():
-            self.client_table.delete(item)
-
         db = Database()
         if db.connect():
-            clients = db.get_all_clients()
+            clients = db.get_all_clients()  # Asumimos que este método existe en la clase Database
             for client in clients:
                 self.client_table.insert("", "end", values=client)
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos")
 
-    def handle_delete_client(self):
-        """Manejar la eliminación del cliente seleccionado"""
+    def filter_clients(self):
+        """Filtrar los clientes según el texto ingresado en el campo de búsqueda"""
+        search_text = self.search_var.get().lower()
+        for item in self.client_table.get_children():
+            values = self.client_table.item(item, 'values')
+            if any(search_text in str(value).lower() for value in values):
+                self.client_table.item(item, open=True)
+            else:
+                self.client_table.delete(item)
+
+    def delete_client(self):
+        """Eliminar el cliente seleccionado"""
         selected_item = self.client_table.selection()
-        
         if not selected_item:
-            messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente de la lista.")
+            messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente para eliminar.")
             return
 
-        # Obtener los datos de la fila seleccionada (el ID es el primer elemento)
-        item_values = self.client_table.item(selected_item, 'values')
-        client_id = item_values[0]
-        client_name = f"{item_values[1]} {item_values[2]}"
-
-        # Confirmar eliminación
-        confirm = messagebox.askyesno(
-            "Confirmar Eliminación", 
-            f"¿Está seguro de que desea eliminar al cliente {client_name} (ID: {client_id})?"
-        )
-
-        if confirm:
-            db = Database()
-            if db.connect():
-                if db.delete_client(client_id):
-                    messagebox.showinfo("Éxito", "Cliente eliminado correctamente.")
-                    self.load_clients()  # Refrescar la tabla
-                else:
-                    messagebox.showerror("Error", "No se pudo eliminar el cliente.")
-            else:
-                messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+        client_id = self.client_table.item(selected_item)['values'][0]
+        client_controller = ClientController()
+        if client_controller.delete_client(client_id):
+            self.client_table.delete(selected_item)
+            messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
+        else:
+            messagebox.showerror("Error", "No se pudo eliminar el cliente")
 
     def show(self):
         """Mostrar la ventana"""
-        self.window.focus_set()
-        self.window.grab_set() # Hacer la ventana modal
-        self.window.wait_window()
+        self.window.mainloop()
