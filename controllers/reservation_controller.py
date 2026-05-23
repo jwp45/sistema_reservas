@@ -3,15 +3,16 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 class ReservationController:
-    def __init__(self):
+    def __init__(self, master):
+        self.master = master
         self.db = Database()
 
-    def create_reservation(self, master):
+    def create_reservation(self):
         # Lógica para crear una nueva reserva
         print("Crear Reserva")
         
         # Crear una nueva ventana para el formulario de reserva
-        reservation_window = tk.Toplevel(master)
+        reservation_window = tk.Toplevel(self.master)
         reservation_window.title("Detalle de Reserva")
         reservation_window.geometry("800x600")
 
