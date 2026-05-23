@@ -6,6 +6,7 @@ class Database:
         self.user = "root"
         self.password = ""
         self.database = "clientes"
+        self.connection = None
 
     def connect(self):
         try:
@@ -95,3 +96,15 @@ class Database:
         except Exception as e:
             print(f"Error al eliminar el inmueble: {e}")
             return False
+
+    def get_client_by_id(self, client_id):
+        if not self.connection:
+            return None
+
+        cursor = self.connection.cursor()
+        query = "SELECT * FROM clientes WHERE id_clientes = %s"
+        cursor.execute(query, (client_id,))
+        result = cursor.fetchone()
+        cursor.close()
+
+        return result
