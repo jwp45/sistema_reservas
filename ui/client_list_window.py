@@ -5,9 +5,10 @@ from controllers.database import Database
 from controllers.client_controller import ClientController
 
 class EditClientWindow:
-    def __init__(self, master, client_id):
+    def __init__(self, master, client_id, client_list_window):
         self.master = master
         self.client_id = client_id
+        self.client_list_window = client_list_window
 
         self.window = tk.Toplevel(master)
         self.window.title("Editar Cliente")
@@ -96,6 +97,7 @@ class EditClientWindow:
             db.connection.commit()
             messagebox.showinfo("Éxito", "Cliente actualizado exitosamente", parent=self.window)
             self.window.destroy()
+            self.client_list_window.refresh_clients()  # Refrescar la lista de clientes
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
@@ -141,11 +143,11 @@ class ClientListWindow:
         self.client_table.pack(fill=tk.BOTH, expand=True)
 
         # Crear un botón para eliminar cliente
-        delete_button = ttk.Button(client_frame, text="Eliminar Cliente", command=self.delete_client, padding=(5,1))
+        delete_button = ttk.Button(client_frame, text="Eliminar Cliente", command=self.delete_client)
         delete_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Crear un botón para editar cliente
-        edit_button = ttk.Button(client_frame, text="Editar Cliente", command=self.edit_client, padding=(5,1))
+        edit_button = ttk.Button(client_frame, text="Editar Cliente", command=self.edit_client)
         edit_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         # Cargar los clientes desde la base de datos
@@ -183,6 +185,7 @@ class ClientListWindow:
         if client_controller.delete_client(client_id):
             self.client_table.delete(selected_item)
             messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
+            self.refresh_clients()  # Refrescar la lista de clientes
         else:
             messagebox.showerror("Error", "No se pudo eliminar el cliente")
 
@@ -194,7 +197,13 @@ class ClientListWindow:
             return
 
         client_id = self.client_table.item(selected_item)['values'][0]
-        edit_window = EditClientWindow(self.master, client_id)
+        edit_window = EditClientWindow(self.master, client_id, self)
+
+    def refresh_clients(self):
+        """Refrescar la lista de clientes"""
+        for item in self.client_table.get_children():
+            self.client_table.delete(item)
+        self.load_clients()
 
     def show(self):
         """Mostrar la ventana"""
