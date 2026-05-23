@@ -67,6 +67,9 @@ class PropertyFormWindow:
             messagebox.showerror("Error", "Todos los campos son obligatorios", parent=self.window)
             return
 
+        # Limpiar el separador de miles antes de guardar por si el usuario lo puso manualmente
+        valor_dia_clean = self.fields["valor_dia"].get().replace(".", "")
+
         property_data = (
             self.fields["nombre"].get(),
             self.fields["cantidad_personas"].get(),
@@ -74,7 +77,7 @@ class PropertyFormWindow:
             self.fields["localidad"].get(),
             self.fields["provincia"].get(),
             self.fields["tipo"].get(),
-            self.fields["valor_dia"].get()
+            valor_dia_clean
         )
 
         db = Database()

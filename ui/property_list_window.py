@@ -80,7 +80,12 @@ class EditPropertyWindow:
                 self.fields["localidad"].set(result[3])
                 self.fields["provincia"].set(result[4])
                 self.fields["tipo"].set(result[5])
-                self.fields["valor_dia"].set(result[6])
+                # Formatear valor_dia con separador de miles
+                try:
+                    valor = float(result[6])
+                    self.fields["valor_dia"].set(f"{valor:,.0f}".replace(",", "."))
+                except (ValueError, TypeError):
+                    self.fields["valor_dia"].set(result[6])
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos")
 
@@ -91,6 +96,9 @@ class EditPropertyWindow:
             messagebox.showerror("Error", "Todos los campos son obligatorios", parent=self.window)
             return
 
+        # Limpiar el separador de miles antes de guardar
+        valor_dia_clean = self.fields["valor_dia"].get().replace(".", "")
+
         property_data = (
             self.fields["nombre"].get(),
             self.fields["cantidad_personas"].get(),
@@ -98,7 +106,7 @@ class EditPropertyWindow:
             self.fields["localidad"].get(),
             self.fields["provincia"].get(),
             self.fields["tipo"].get(),
-            self.fields["valor_dia"].get()
+            valor_dia_clean
         )
 
         db = Database()
@@ -176,8 +184,15 @@ class PropertyListWindow:
         db = Database()
         if db.connect():
             properties = db.get_all_properties()  # Asumimos que este método existe en la clase Database
-            for property in properties:
-                self.property_table.insert("", "end", values=property)
+            for prop in properties:
+                # Formatear el valor_dia (índice 7) con separador de miles
+                formatted_prop = list(prop)
+                try:
+                    valor = float(formatted_prop[7])
+                    formatted_prop[7] = f"{valor:,.0f}".replace(",", ".")
+                except (ValueError, TypeError):
+                    pass
+                self.property_table.insert("", "end", values=formatted_prop)
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos")
 
