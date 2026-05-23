@@ -36,7 +36,11 @@ class ClientListWindow:
 
         # Crear un botón para eliminar cliente
         delete_button = ttk.Button(client_frame, text="Eliminar Cliente", command=self.delete_client)
-        delete_button.pack(pady=10)
+        delete_button.pack(pady=5)
+
+        # Crear un botón para editar cliente
+        edit_button = ttk.Button(client_frame, text="Editar Cliente", command=self.edit_client)
+        edit_button.pack(pady=5)
 
         # Cargar los clientes desde la base de datos
         self.load_clients()
@@ -65,6 +69,18 @@ class ClientListWindow:
             messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
         else:
             messagebox.showerror("Error", "No se pudo eliminar el cliente")
+
+    def edit_client(self):
+        """Editar el cliente seleccionado"""
+        selected_item = self.client_table.selection()
+        if not selected_item:
+            messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente para editar.")
+            return
+
+        client_id = self.client_table.item(selected_item)['values'][0]
+        # Aquí puedes agregar la lógica para abrir una ventana de edición del cliente
+        # Por ejemplo, puedes crear una nueva ventana o usar una existente
+        messagebox.showinfo("Edición", f"Editando cliente con ID: {client_id}")
 
     def show(self):
         """Mostrar la ventana"""
