@@ -181,13 +181,18 @@ class ClientListWindow:
             return
 
         client_id = self.client_table.item(selected_item)['values'][0]
-        client_controller = ClientController()
-        if client_controller.delete_client(client_id):
-            self.client_table.delete(selected_item)
-            messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
-            self.refresh_clients()  # Refrescar la lista de clientes
-        else:
-            messagebox.showerror("Error", "No se pudo eliminar el cliente")
+        client_name = self.client_table.item(selected_item)['values'][1]
+
+        # Preguntar al usuario si está seguro de eliminar el cliente
+        confirm = messagebox.askyesno("Confirmación", f"¿Está seguro de eliminar a {client_name}?")
+        if confirm:
+            client_controller = ClientController()
+            if client_controller.delete_client(client_id):
+                self.client_table.delete(selected_item)
+                messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
+                self.refresh_clients()  # Refrescar la lista de clientes
+            else:
+                messagebox.showerror("Error", "No se pudo eliminar el cliente")
 
     def edit_client(self):
         """Editar el cliente seleccionado"""
