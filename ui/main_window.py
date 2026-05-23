@@ -6,6 +6,7 @@ from controllers.property_controller import PropertyController
 from controllers.reservation_controller import ReservationController
 from controllers.database import Database
 from ui.client_list_window import ClientListWindow
+from ui.property_form_window import PropertyFormWindow
 
 class MainWindow:
     def __init__(self):
@@ -202,8 +203,8 @@ class MainWindow:
 
     def handle_properties(self):
         """Manejar la lógica para inmuebles"""
-        print("Manejando inmuebles")
-        # Aquí puedes agregar la lógica para manejar los inmuebles
+        property_form = PropertyFormWindow(self.root)
+        property_form.show()
 
     def show_client_list(self):
         """Mostrar la ventana de lista de clientes"""
