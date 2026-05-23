@@ -7,6 +7,7 @@ from controllers.reservation_controller import ReservationController
 from controllers.database import Database
 from ui.client_list_window import ClientListWindow
 from ui.property_form_window import PropertyFormWindow
+from ui.property_list_window import PropertyListWindow  # Importar la nueva ventana de lista de inmuebles
 
 class MainWindow:
     def __init__(self):
@@ -91,7 +92,7 @@ class MainWindow:
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Ver", menu=file_menu)
         file_menu.add_command(label="Clientes", command=self.show_client_list)
-        file_menu.add_command(label="Inmuebles", command=self.handle_properties)  # Nuevo menú para inmuebles
+        file_menu.add_command(label="Inmuebles", command=self.show_property_list)  # Nuevo menú para inmuebles
 
         # Ubicar los botones en el frame de navegación
         self.btn_new_reservation.pack(side=tk.LEFT, padx=2)
@@ -211,6 +212,11 @@ class MainWindow:
         """Mostrar la ventana de lista de clientes"""
         client_list_window = ClientListWindow(self.root)
         client_list_window.show()
+
+    def show_property_list(self):
+        """Mostrar la ventana de lista de inmuebles"""
+        property_list_window = PropertyListWindow(self.root)
+        property_list_window.show()
 
     def run(self):
         self.setup_ui()
