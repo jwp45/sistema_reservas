@@ -57,3 +57,16 @@ class Database:
         except Exception as e:
             print(f"Error al obtener los clientes: {e}")
             return []
+
+    def delete_client(self, client_id):
+        """Eliminar un cliente de la base de datos"""
+        try:
+            cursor = self.connection.cursor()
+            query = "DELETE FROM clientes WHERE id_clientes = %s"
+            cursor.execute(query, (client_id,))
+            self.connection.commit()
+            print("Cliente eliminado exitosamente")
+            return True
+        except Exception as e:
+            print(f"Error al eliminar el cliente: {e}")
+            return False
