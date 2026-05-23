@@ -26,7 +26,16 @@ class MainWindow:
             "apellido": StringVar(),
             "email": StringVar(),
             "telefono": StringVar(),
-            "provincia": StringVar()  # Añadir la variable 'provincia'
+            "provincia": StringVar(),  # Añadir la variable 'provincia'
+            "fecha_registro": StringVar(),  # Añadir la variable 'fecha_registro'
+            "cantidad_personas": StringVar(),  # Añadir la variable 'cantidad_personas'
+            "porcentaje_adelanto": StringVar(),  # Añadir la variable 'porcentaje_adelanto'
+            "adelanto": StringVar(),  # Añadir la variable 'adelanto'
+            "porcentaje_descuento": StringVar(),  # Añadir la variable 'porcentaje_descuento'
+            "descuento": StringVar(),  # Añadir la variable 'descuento'
+            "inmueble": StringVar(),  # Añadir la variable 'inmueble'
+            "fecha_ingreso": StringVar(),  # Añadir la variable 'fecha_ingreso'
+            "fecha_egreso": StringVar()  # Añadir la variable 'fecha_egreso'
         }
 
     def setup_ui(self):
