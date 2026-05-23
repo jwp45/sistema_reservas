@@ -91,6 +91,7 @@ class MainWindow:
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Ver", menu=file_menu)
         file_menu.add_command(label="Clientes", command=self.show_client_list)
+        file_menu.add_command(label="Inmuebles", command=self.handle_properties)  # Nuevo menú para inmuebles
 
         # Ubicar los botones en el frame de navegación
         self.btn_new_reservation.pack(side=tk.LEFT, padx=2)
