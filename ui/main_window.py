@@ -5,6 +5,7 @@ from controllers.client_controller import ClientController
 from controllers.property_controller import PropertyController
 from controllers.reservation_controller import ReservationController
 from controllers.database import Database
+from ui.client_list_window import ClientListWindow
 
 class MainWindow:
     def __init__(self):
@@ -81,6 +82,14 @@ class MainWindow:
             command=self.handle_properties,
             style="TButton"
         )
+
+        # Menú desplegable superior
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Ver", menu=file_menu)
+        file_menu.add_command(label="Clientes", command=self.show_client_list)
 
         # Ubicar los botones en el frame de navegación
         self.btn_new_reservation.pack(side=tk.LEFT, padx=2)
@@ -196,5 +205,11 @@ class MainWindow:
         print("Manejando inmuebles")
         # Aquí puedes agregar la lógica para manejar los inmuebles
 
+    def show_client_list(self):
+        """Mostrar la ventana de lista de clientes"""
+        client_list_window = ClientListWindow(self.root)
+        client_list_window.show()
+
     def run(self):
+        self.setup_ui()
         self.root.mainloop()
