@@ -18,3 +18,13 @@ CREATE TABLE inmuebles (
   tipo VARCHAR(30) NOT NULL,
   valor_dia INTEGER NOT NULL
 );
+
+CREATE TABLE reservas (
+  id_reserva INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_inmueble INTEGER,
+  id_cliente INTEGER,
+  fecha_inicio DATE NOT NULL,
+  fecha_fin DATE NOT NULL,
+  FOREIGN KEY (id_inmueble) REFERENCES inmuebles(id_inmueble),
+  FOREIGN KEY (id_cliente) REFERENCES clientes(id_clientes)
+);
