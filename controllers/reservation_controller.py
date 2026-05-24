@@ -70,9 +70,12 @@ class ReservationController:
 
             if field[1] == "inmueble":
                 # Cargar los inmuebles desde la base de datos
+                if not self.db.connection or not self.db.connection.is_connected():
+                    self.db.connect()
+                
                 properties = self.db.get_all_properties()
                 property_names = [property_data[1] for property_data in properties]
-                entry = ttk.Combobox(row, textvariable=client_fields[field[1]], values=property_names)
+                entry = ttk.Combobox(row, textvariable=client_fields[field[1]], values=property_names, state="readonly")
             else:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
 
