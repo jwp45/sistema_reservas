@@ -102,7 +102,7 @@ class Database:
             return None
 
         cursor = self.connection.cursor()
-        query = "SELECT * FROM clientes WHERE id_clientes = %s"
+        query = "SELECT id_clientes, nombre, apellido, email, telefono FROM clientes WHERE id_clientes = %s"
         cursor.execute(query, (client_id,))
         result = cursor.fetchone()
         cursor.close()

@@ -71,8 +71,9 @@ class ReservationController:
             entry = ttk.Entry(row, textvariable=client_fields[field[1]])
             entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
 
-        # Agregar un evento de cambio a la variable 'id_clientes'
-        client_fields["id_clientes"].trace("w", lambda *args: self.autofill_client_data(client_fields))
+            # Si es el campo ID Cliente, vincular la tecla Enter para autocompletar
+            if field[1] == "id_clientes":
+                entry.bind("<Return>", lambda event: self.autofill_client_data(client_fields))
 
         # Botón para reservar
         reserve_button = ttk.Button(
@@ -89,6 +90,12 @@ class ReservationController:
         
         if not client_id:
             return
+
+        # Asegurar que la base de datos esté conectada
+        if not self.db.connection or not self.db.connection.is_connected():
+            if not self.db.connect():
+                messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.master)
+                return
 
         # Buscar el cliente en la base de datos
         client_data = self.db.get_client_by_id(client_id)
