@@ -106,7 +106,7 @@ class MainWindow:
 
         # Ubicar los botones en el frame de navegación
         self.btn_new_reservation.pack(side=tk.LEFT, padx=2)
-        self.btn_my_reservas.pack(side=tk.LEFT, padx=2)
+        self.btn_my_reservations.pack(side=tk.LEFT, padx=2)
         self.btn_contact.pack(side=tk.LEFT, padx=2)
         self.btn_clients.pack(side=tk.LEFT, padx=2)
         self.btn_properties.pack(side=tk.LEFT, padx=2)
