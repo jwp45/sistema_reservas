@@ -68,7 +68,14 @@ class ReservationController:
             label = ttk.Label(row, text=field[0], width=15)
             label.pack(side=tk.LEFT)
 
-            entry = ttk.Entry(row, textvariable=client_fields[field[1]])
+            if field[1] == "inmueble":
+                # Cargar los inmuebles desde la base de datos
+                properties = self.db.get_all_properties()
+                property_names = [property_data[1] for property_data in properties]
+                entry = ttk.Combobox(row, textvariable=client_fields[field[1]], values=property_names)
+            else:
+                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
+
             entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
 
             # Si es el campo ID Cliente, vincular la tecla Enter para autocompletar
