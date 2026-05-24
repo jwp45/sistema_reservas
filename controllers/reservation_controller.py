@@ -1,11 +1,97 @@
 from controllers.database import Database
 import tkinter as tk
 from tkinter import ttk, messagebox
+from datetime import date
+
+import calendar
+
+class CalendarDialog(tk.Toplevel):
+    def __init__(self, parent, callback):
+        super().__init__(parent)
+        self.title("Seleccionar Fecha")
+        self.geometry("400x380") # Aumentado el ancho de 300 a 400
+        self.callback = callback
+        self.now = date.today()
+        self.year = self.now.year
+        self.month = self.now.month
+        
+        self.setup_ui()
+        self.draw_calendar()
+        self.grab_set() # Hacer el diálogo modal
+
+    def setup_ui(self):
+        header = ttk.Frame(self)
+        header.pack(fill=tk.X, padx=10, pady=10)
+        
+        ttk.Button(header, text="<<", width=5, command=self.prev_month).pack(side=tk.LEFT)
+        self.month_label = ttk.Label(header, text="", font=('Arial', 12, 'bold'))
+        self.month_label.pack(side=tk.LEFT, expand=True)
+        ttk.Button(header, text=">>", width=5, command=self.next_month).pack(side=tk.RIGHT)
+        
+        days_header = ttk.Frame(self)
+        days_header.pack(fill=tk.X, padx=10)
+        # Nombres de días con un poco más de espacio
+        for d in ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]:
+            ttk.Label(days_header, text=d, width=5, anchor="center", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, expand=True)
+            
+        self.days_frame = ttk.Frame(self)
+        self.days_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    def draw_calendar(self):
+        for widget in self.days_frame.winfo_children():
+            widget.destroy()
+            
+        # Nombres de meses en español (manual para evitar dependencia de locale)
+        meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        
+        self.month_label.config(text=f"{meses[self.month]} {self.year}")
+        
+        cal = calendar.monthcalendar(self.year, self.month)
+        for row_idx, week in enumerate(cal):
+            for col_idx, day in enumerate(week):
+                if day == 0:
+                    ttk.Label(self.days_frame, text="").grid(row=row_idx, column=col_idx, sticky="nsew")
+                else:
+                    # Botones más anchos y con padding
+                    btn = ttk.Button(self.days_frame, text=str(day), width=5,
+                                    command=lambda d=day: self.select_day(d))
+                    btn.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="nsew")
+                    
+                    if day == self.now.day and self.month == self.now.month and self.year == self.now.year:
+                        # Resaltar el día actual si es posible
+                        pass
+
+        for i in range(7):
+            self.days_frame.columnconfigure(i, weight=1)
+        for i in range(len(cal)):
+            self.days_frame.rowconfigure(i, weight=1)
+
+    def prev_month(self):
+        self.month -= 1
+        if self.month == 0:
+            self.month = 12
+            self.year -= 1
+        self.draw_calendar()
+
+    def next_month(self):
+        self.month += 1
+        if self.month == 13:
+            self.month = 1
+            self.year += 1
+        self.draw_calendar()
+
+    def select_day(self, day):
+        selected_date = f"{day:02d}/{self.month:02d}/{self.year}"
+        self.callback(selected_date)
+        self.destroy()
 
 class ReservationController:
     def __init__(self, master):
         self.master = master
         self.db = Database()
+        # Configurar nombres de meses en español
+        calendar.setfirstweekday(calendar.MONDAY)
 
     def create_reservation(self):
         # Lógica para crear una nueva reserva
@@ -14,11 +100,11 @@ class ReservationController:
         # Crear una nueva ventana para el formulario de reserva
         reservation_window = tk.Toplevel(self.master)
         reservation_window.title("Detalle de Reserva")
-        reservation_window.geometry("800x600")
+        reservation_window.geometry("800x700")
 
         # Frame principal del formulario
         form_frame = ttk.Frame(reservation_window)
-        form_frame.pack(padx=10, pady=10, expand=True)
+        form_frame.pack(padx=10, pady=10, expand=True, fill=tk.BOTH)
 
         # Mensaje para notificaciones
         message_label = ttk.Label(form_frame, text="Ingrese los datos de la reserva", font=('Arial', 14))
@@ -49,26 +135,56 @@ class ReservationController:
             "apellido": tk.StringVar(),
             "email": tk.StringVar(),
             "telefono": tk.StringVar(),
-            "provincia": tk.StringVar(),  # Añadir la variable 'provincia'
-            "fecha_registro": tk.StringVar(),  # Añadir la variable 'fecha_registro'
-            "cantidad_personas": tk.StringVar(),  # Añadir la variable 'cantidad_personas'
-            "porcentaje_adelanto": tk.StringVar(),  # Añadir la variable 'porcentaje_adelanto'
-            "adelanto": tk.StringVar(),  # Añadir la variable 'adelanto'
-            "porcentaje_descuento": tk.StringVar(),  # Añadir la variable 'porcentaje_descuento'
-            "descuento": tk.StringVar(),  # Añadir la variable 'descuento'
-            "inmueble": tk.StringVar(),  # Añadir la variable 'inmueble'
-            "fecha_ingreso": tk.StringVar(),  # Añadir la variable 'fecha_ingreso'
-            "fecha_egreso": tk.StringVar()  # Añadir la variable 'fecha_egreso'
+            "provincia": tk.StringVar(),
+            "fecha_registro": tk.StringVar(),
+            "cantidad_personas": tk.StringVar(),
+            "porcentaje_adelanto": tk.StringVar(),
+            "adelanto": tk.StringVar(),
+            "porcentaje_descuento": tk.StringVar(),
+            "descuento": tk.StringVar(),
+            "inmueble": tk.StringVar(),
+            "fecha_ingreso": tk.StringVar(),
+            "fecha_egreso": tk.StringVar()
         }
+
+        # Establecer fecha de registro por defecto
+        client_fields["fecha_registro"].set(date.today().strftime("%d/%m/%Y"))
+
+        provincias = [
+            "Buenos Aires", "Catamarca", "Chaco", "Chubut", "CABA",
+            "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy",
+            "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén",
+            "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz",
+            "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"
+        ]
+
+        def filtrar_provincias(entry, var):
+            _last_filter = {}
+            def _on_keyrelease(event):
+                nonlocal _last_filter
+                typing = var.get().lower()
+                if _last_filter.get(id(entry)) == typing:
+                    return
+                _last_filter[id(entry)] = typing
+                filtradas = [p for p in provincias if p.lower().startswith(typing)]
+                entry['values'] = filtradas if filtradas else provincias
+                if filtradas:
+                    entry.event_generate('<Down>')
+            return _on_keyrelease
 
         for field in fields:
             row = ttk.Frame(form_frame)
             row.pack(fill=tk.X, padx=5, pady=2)
 
-            label = ttk.Label(row, text=field[0], width=15)
+            label = ttk.Label(row, text=field[0], width=20)
             label.pack(side=tk.LEFT)
 
-            if field[1] == "inmueble":
+            if field[1] == "provincia":
+                var = client_fields["provincia"]
+                entry = ttk.Combobox(row, textvariable=var, values=provincias)
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                entry.bind("<KeyRelease>", filtrar_provincias(entry, var))
+            elif field[1] == "inmueble":
                 # Cargar los inmuebles desde la base de datos
                 if not self.db.connection or not self.db.connection.is_connected():
                     self.db.connect()
@@ -76,10 +192,21 @@ class ReservationController:
                 properties = self.db.get_all_properties()
                 property_names = [property_data[1] for property_data in properties]
                 entry = ttk.Combobox(row, textvariable=client_fields[field[1]], values=property_names, state="readonly")
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            elif field[1] in ["fecha_ingreso", "fecha_egreso", "fecha_registro"]:
+                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                
+                date_btn = ttk.Button(
+                    row, 
+                    text="📅", 
+                    width=3,
+                    command=lambda f=field[1]: self.select_date(f, client_fields, reservation_window)
+                )
+                date_btn.pack(side=tk.RIGHT, padx=5)
             else:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
-
-            entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
             # Si es el campo ID Cliente, vincular la tecla Enter para autocompletar
             if field[1] == "id_clientes":
@@ -93,6 +220,13 @@ class ReservationController:
             style="TButton"
         )
         reserve_button.pack(pady=10, side=tk.BOTTOM)
+
+    def select_date(self, field_name, client_fields, parent):
+        """Abrir un diálogo de calendario visual para seleccionar la fecha"""
+        def update_date_field(selected_date):
+            client_fields[field_name].set(selected_date)
+            
+        CalendarDialog(parent, update_date_field)
 
     def autofill_client_data(self, client_fields):
         # Obtener el ID del cliente ingresado
