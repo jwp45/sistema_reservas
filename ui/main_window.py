@@ -115,13 +115,38 @@ class MainWindow:
         main_content = ttk.Frame(self.root)
         main_content.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # Frame superior para encabezado del contenido
-        content_header = ttk.LabelFrame(main_content, text="Bienvenido al sistema de reservas")
+        content_header = ttk.LabelFrame(main_content, text="Panel de Control")
         content_header.pack(fill=tk.X, side=tk.TOP, padx=5, pady=5)
 
-        # Área central para el desarrollo futuro (reservaciones, detalles, etc.)
-        self.content_area = ttk.Frame(main_content)
-        self.content_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        ttk.Label(content_header, text="Bienvenido al Sistema de Reservas", font=('Arial', 14, 'bold')).pack(padx=10, pady=5)
+
+        # Contenedor de dos columnas
+        columns_frame = ttk.Frame(main_content)
+        columns_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Panel izquierdo: Próximos Ingresos
+        checkin_frame = tk.Frame(columns_frame, bg="#e8f5e9", bd=2, relief=tk.GROOVE)
+        checkin_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        tk.Label(checkin_frame, text="📥 Próximo Ingreso", font=('Arial', 16, 'bold'),
+                 bg="#e8f5e9", fg="#2e7d32").pack(pady=(20, 5))
+
+        self.lbl_checkin = tk.Label(checkin_frame, text="Cargando...", font=('Arial', 22, 'bold'),
+                                    bg="#e8f5e9", fg="#1b5e20")
+        self.lbl_checkin.pack(pady=(5, 20))
+
+        # Panel derecho: Próximos Egresos
+        checkout_frame = tk.Frame(columns_frame, bg="#e3f2fd", bd=2, relief=tk.GROOVE)
+        checkout_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        tk.Label(checkout_frame, text="📤 Próximo Egreso", font=('Arial', 16, 'bold'),
+                 bg="#e3f2fd", fg="#1565c0").pack(pady=(20, 5))
+
+        self.lbl_checkout = tk.Label(checkout_frame, text="Cargando...", font=('Arial', 22, 'bold'),
+                                     bg="#e3f2fd", fg="#0d47a1")
+        self.lbl_checkout.pack(pady=(5, 20))
+
+        self.refresh_dashboard()
 
     def handle_new_reservation(self):
         """Manejar la lógica para iniciar una nueva reserva"""
@@ -229,6 +254,34 @@ class MainWindow:
         """Mostrar la ventana de lista de inmuebles"""
         property_list_window = PropertyListWindow(self.root)
         property_list_window.show()
+
+    def refresh_dashboard(self):
+        from datetime import datetime
+        meses = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio",
+                 "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+        def fmt_date(d):
+            try:
+                dt = datetime.strptime(str(d), "%Y-%m-%d")
+                return f"{dt.day} {meses[dt.month]} {dt.year}"
+            except ValueError:
+                return str(d)
+
+        db = Database()
+        if db.connect():
+            checkins = db.get_upcoming_checkins()
+            if checkins:
+                row = checkins[0]
+                self.lbl_checkin.config(text=fmt_date(row[4]))
+            else:
+                self.lbl_checkin.config(text="—")
+
+            checkouts = db.get_upcoming_checkouts()
+            if checkouts:
+                row = checkouts[0]
+                self.lbl_checkout.config(text=fmt_date(row[5]))
+            else:
+                self.lbl_checkout.config(text="—")
 
     def run(self):
         self.setup_ui()

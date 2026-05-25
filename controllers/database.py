@@ -187,6 +187,38 @@ class Database:
             print(f"Error al obtener rangos reservados: {e}")
             return []
 
+    def get_upcoming_checkins(self, days=7):
+        try:
+            cursor = self.connection.cursor()
+            query = """SELECT r.id_reserva, CONCAT(c.nombre, ' ', c.apellido), c.telefono,
+                              i.nombre, r.fecha_ingreso, r.fecha_egreso
+                       FROM reservas r
+                       JOIN clientes c ON r.id_cliente = c.id_clientes
+                       JOIN inmuebles i ON r.id_inmueble = i.id_inmueble
+                       WHERE r.fecha_ingreso BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL %s DAY)
+                       ORDER BY r.fecha_ingreso"""
+            cursor.execute(query, (days,))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error al obtener próximos ingresos: {e}")
+            return []
+
+    def get_upcoming_checkouts(self, days=7):
+        try:
+            cursor = self.connection.cursor()
+            query = """SELECT r.id_reserva, CONCAT(c.nombre, ' ', c.apellido), c.telefono,
+                              i.nombre, r.fecha_ingreso, r.fecha_egreso
+                       FROM reservas r
+                       JOIN clientes c ON r.id_cliente = c.id_clientes
+                       JOIN inmuebles i ON r.id_inmueble = i.id_inmueble
+                       WHERE r.fecha_egreso BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL %s DAY)
+                       ORDER BY r.fecha_egreso"""
+            cursor.execute(query, (days,))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error al obtener próximos egresos: {e}")
+            return []
+
     def get_client_by_id(self, client_id):
         if not self.connection:
             return None
