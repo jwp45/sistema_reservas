@@ -87,7 +87,7 @@ class CalendarDialog(tk.Toplevel):
             
             # Validación: La fecha seleccionada no debe ser anterior a hoy
             if selected_date_obj < self.now:
-                messagebox.showwarning("Fecha Inválida", "No es posible seleccionar una fecha pasada. Por favor, elija una fecha a partir de hoy.")
+                messagebox.showwarning("Fecha Inválida", "No es posible seleccionar una fecha pasada. Por favor, elija una fecha a partir de hoy.", parent=self)
                 return
             
             selected_date_str = f"{day:02d}/{self.month:02d}/{self.year}"
@@ -95,7 +95,7 @@ class CalendarDialog(tk.Toplevel):
             self.destroy()
         except Exception as e:
             # Manejo de cualquier error de fecha inesperado
-            messagebox.showerror("Error", f"Error al seleccionar la fecha: {e}")
+            messagebox.showerror("Error", f"Error al seleccionar la fecha: {e}", parent=self)
             self.destroy()
 
 
