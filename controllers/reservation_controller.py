@@ -147,6 +147,24 @@ class ReservationController:
         self.update_cost_total(client_fields)
 
 
+    def format_down_payment_input(self, event, client_fields):
+        """Formatea el campo de adelanto con separador de miles y recalcula costos."""
+        text = client_fields["adelanto"].get()
+        
+        # 1. Limpiar: dejar solo dígitos y un punto decimal
+        # Esto permite que el usuario escriba números sin formato.
+        cleaned_text = ''.join(filter(lambda char: char.isdigit() or char == '.', text))
+        
+        # 2. Formatear el valor limpio
+        new_value = self._format_with_thousands_separator(cleaned_text)
+        
+        # 3. Actualizar el StringVar
+        client_fields["adelanto"].set(new_value)
+        
+        # 4. Recalcular costos
+        self.update_cost_total(client_fields)
+
+
     def create_reservation(self):
         # Lógica para crear una nueva reserva
         print("Crear Reserva")
@@ -301,7 +319,8 @@ class ReservationController:
             elif field[1] == "adelanto":
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                entry.bind("<KeyRelease>", lambda event: self.update_cost_total(client_fields)) # Recalcular al cambiar el adelanto
+                # Binding actualizado para incluir formato
+                entry.bind("<KeyRelease>", lambda event: self.format_down_payment_input(event, client_fields))
             elif field[1] == "pago_pendiente":
                 # Este campo es de solo lectura, pero necesita un widget para mostrar el valor
                 entry = ttk.Label(row, textvariable=client_fields[field[1]], foreground="blue", font=('Arial', 10, 'bold'))
