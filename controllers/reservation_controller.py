@@ -9,7 +9,7 @@ class CalendarDialog(tk.Toplevel):
     def __init__(self, parent, callback):
         super().__init__(parent)
         self.title("Seleccionar Fecha")
-        self.geometry("400x380") # Aumentado el ancho de 300 a 400
+        self.geometry("400x500") # Aumentado el ancho de 300 a 400
         self.callback = callback
         self.now = date.today()
         self.year = self.now.year
