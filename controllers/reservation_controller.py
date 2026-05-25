@@ -154,7 +154,7 @@ class ReservationController:
         # Crear una nueva ventana para el formulario de reserva
         reservation_window = tk.Toplevel(self.master)
         reservation_window.title("Detalle de Reserva")
-        reservation_window.geometry("800x450")
+        reservation_window.geometry("800x800") # Aumentado el tamaño para acomodar el nuevo campo de pago pendiente
 
         # Frame principal del formulario
         form_frame = ttk.Frame(reservation_window)
