@@ -131,6 +131,7 @@ class ReservationController:
             ("Valor por Día:", "valor_dia"),
             ("Fecha de ingreso:", "fecha_ingreso"),
             ("Fecha de egreso:", "fecha_egreso"),
+            ("Cantidad de Noches:", "noches"),
             ("Costo Total:", "costo_total")
         ]
 
@@ -151,6 +152,7 @@ class ReservationController:
             "valor_dia": tk.StringVar(),
             "fecha_ingreso": tk.StringVar(),
             "fecha_egreso": tk.StringVar(),
+            "noches": tk.StringVar(),
             "costo_total": tk.StringVar()
         }
 
@@ -301,6 +303,9 @@ class ReservationController:
             # Actualizar campo de costo total
             client_fields["costo_total"].set(f"${costo_total:,.2f}")
             
+            # Actualizar campo de cantidad de noches
+            client_fields["noches"].set(str(noches))
+            
         except ValueError as e:
             messagebox.showerror("Error", f"Formato de fecha inválido: {str(e)}", parent=self.master)
 
@@ -309,9 +314,10 @@ class ReservationController:
         fecha_ingreso_str = client_fields["fecha_ingreso"].get()
         fecha_egreso_str = client_fields["fecha_egreso"].get()
         valor_dia_str = client_fields["valor_dia"].get()
+        noches_str = client_fields["noches"].get()
         
         # Validar campos obligatorios
-        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str):
+        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str and noches_str):
             messagebox.showerror("Error", "Por favor complete todos los campos", parent=reservation_window)
             return
 
@@ -330,13 +336,10 @@ class ReservationController:
             # Calcular costo total
             costo_total = noches * valor_dia
             
-            # Actualizar campo de costo total
-            client_fields["costo_total"].set(f"${costo_total:,.2f}")
-            
             # Guardar la reserva en la base de datos
             reservation_data = {
                 "fecha_ingreso": fecha_ingreso,
-                "fecha_egyreso": fecha_egreso,
+                "fecha_egreso": fecha_egreso,
                 "valor_dia": valor_dia,
                 "noches": noches,
                 "costo_total": costo_total
@@ -349,4 +352,4 @@ class ReservationController:
             messagebox.showinfo("Éxito", "Reserva guardada correctamente", parent=reservation_window)
             
         except ValueError as e:
-            messagebox.showerror("Error", f"Formato de fecha inválido: {str(e)}", parent=reservation_window)
+            messagebox.showerror("
