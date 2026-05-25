@@ -101,8 +101,8 @@ class Database:
         try:
             cursor = self.connection.cursor()
             query = """INSERT INTO reservas 
-                (id_cliente, id_inmueble, fecha_ingreso, fecha_egreso, valor_dia, noches, costo_total, costo_con_descuento, adelanto, pago_pendiente)
-                VALUES (%(id_cliente)s, %(id_inmueble)s, %(fecha_ingreso)s, %(fecha_egreso)s, %(valor_dia)s, %(noches)s, %(costo_total)s, %(costo_con_descuento)s, %(adelanto)s, %(pago_pendiente)s)"""
+                (id_cliente, id_inmueble, fecha_ingreso, fecha_egreso, valor_dia, noches, costo_total, costo_con_descuento, adelanto, pago_pendiente, provincia)
+                VALUES (%(id_cliente)s, %(id_inmueble)s, %(fecha_ingreso)s, %(fecha_egreso)s, %(valor_dia)s, %(noches)s, %(costo_total)s, %(costo_con_descuento)s, %(adelanto)s, %(pago_pendiente)s, %(provincia)s)"""
             cursor.execute(query, data)
             self.connection.commit()
             print("Reserva guardada exitosamente")
@@ -116,7 +116,7 @@ class Database:
             query = """SELECT r.id_reserva, CONCAT(c.nombre, ' ', c.apellido), c.telefono,
                               i.nombre, r.fecha_ingreso, r.fecha_egreso, r.noches,
                               r.valor_dia, r.costo_total, r.costo_con_descuento,
-                              r.adelanto, r.pago_pendiente
+                              r.adelanto, r.pago_pendiente, r.provincia
                        FROM reservas r
                        JOIN clientes c ON r.id_cliente = c.id_clientes
                        JOIN inmuebles i ON r.id_inmueble = i.id_inmueble
@@ -142,7 +142,7 @@ class Database:
             cursor = self.connection.cursor()
             query = """SELECT id_cliente, id_inmueble, fecha_ingreso, fecha_egreso,
                               valor_dia, noches, costo_total, costo_con_descuento,
-                              adelanto, pago_pendiente
+                              adelanto, pago_pendiente, provincia
                        FROM reservas WHERE id_reserva = %s"""
             cursor.execute(query, (reservation_id,))
             return cursor.fetchone()
@@ -158,7 +158,8 @@ class Database:
                 fecha_ingreso = %(fecha_ingreso)s, fecha_egreso = %(fecha_egreso)s,
                 valor_dia = %(valor_dia)s, noches = %(noches)s,
                 costo_total = %(costo_total)s, costo_con_descuento = %(costo_con_descuento)s,
-                adelanto = %(adelanto)s, pago_pendiente = %(pago_pendiente)s
+                adelanto = %(adelanto)s, pago_pendiente = %(pago_pendiente)s,
+                provincia = %(provincia)s
                 WHERE id_reserva = %(id_reserva)s"""
             data["id_reserva"] = reservation_id
             cursor.execute(query, data)
@@ -191,7 +192,7 @@ class Database:
         try:
             cursor = self.connection.cursor()
             query = """SELECT r.id_reserva, CONCAT(c.nombre, ' ', c.apellido), c.telefono,
-                              i.nombre, r.fecha_ingreso, r.fecha_egreso
+                              r.provincia, i.nombre, r.fecha_ingreso, r.fecha_egreso
                        FROM reservas r
                        JOIN clientes c ON r.id_cliente = c.id_clientes
                        JOIN inmuebles i ON r.id_inmueble = i.id_inmueble
@@ -207,7 +208,7 @@ class Database:
         try:
             cursor = self.connection.cursor()
             query = """SELECT r.id_reserva, CONCAT(c.nombre, ' ', c.apellido), c.telefono,
-                              i.nombre, r.fecha_ingreso, r.fecha_egreso
+                              r.provincia, i.nombre, r.fecha_ingreso, r.fecha_egreso
                        FROM reservas r
                        JOIN clientes c ON r.id_cliente = c.id_clientes
                        JOIN inmuebles i ON r.id_inmueble = i.id_inmueble

@@ -1,4 +1,5 @@
 from controllers.database import Database
+from utils.email_sender import send_reservation_email
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date, datetime
@@ -616,10 +617,26 @@ class ReservationController:
                 "costo_total": costo_total,
                 "costo_con_descuento": costo_con_descuento,
                 "adelanto": adelanto,
-                "pago_pendiente": pago_pendiente
+                "pago_pendiente": pago_pendiente,
+                "provincia": client_fields["provincia"].get()
             }
             
             self.db.insert_reservation(reservation_data)
+
+            client_email = client_fields["email"].get()
+            client_name = f"{client_fields['nombre'].get()} {client_fields['apellido'].get()}"
+            email_data = {
+                "inmueble": inmueble_nombre,
+                "fecha_ingreso": fecha_ingreso.strftime("%d/%m/%Y"),
+                "fecha_egreso": fecha_egreso.strftime("%d/%m/%Y"),
+                "noches": noches,
+                "valor_dia": valor_dia,
+                "costo_total": costo_total,
+                "costo_con_descuento": costo_con_descuento,
+                "adelanto": adelanto,
+                "pago_pendiente": pago_pendiente,
+            }
+            send_reservation_email(client_email, client_name, email_data)
             
             # Mostrar mensaje de éxito
             messagebox.showinfo("Éxito", "Reserva guardada correctamente", parent=reservation_window)

@@ -133,7 +133,20 @@ class MainWindow:
 
         self.lbl_checkin = tk.Label(checkin_frame, text="Cargando...", font=('Arial', 22, 'bold'),
                                     bg="#e8f5e9", fg="#1b5e20")
-        self.lbl_checkin.pack(pady=(5, 20))
+        self.lbl_checkin.pack(pady=(5, 2))
+
+        self.lbl_checkin_name = tk.Label(checkin_frame, text="", font=('Arial', 11),
+                                         bg="#e8f5e9", fg="#1b5e20")
+        self.lbl_checkin_name.pack()
+        self.lbl_checkin_phone = tk.Label(checkin_frame, text="", font=('Arial', 11),
+                                          bg="#e8f5e9", fg="#1b5e20")
+        self.lbl_checkin_phone.pack()
+        self.lbl_checkin_prov = tk.Label(checkin_frame, text="", font=('Arial', 11),
+                                          bg="#e8f5e9", fg="#1b5e20")
+        self.lbl_checkin_prov.pack()
+        self.lbl_checkin_inmueble = tk.Label(checkin_frame, text="", font=('Arial', 11),
+                                              bg="#e8f5e9", fg="#1b5e20")
+        self.lbl_checkin_inmueble.pack(pady=(0, 15))
 
         # Panel derecho: Próximos Egresos
         checkout_frame = tk.Frame(columns_frame, bg="#e3f2fd", bd=2, relief=tk.GROOVE)
@@ -144,7 +157,20 @@ class MainWindow:
 
         self.lbl_checkout = tk.Label(checkout_frame, text="Cargando...", font=('Arial', 22, 'bold'),
                                      bg="#e3f2fd", fg="#0d47a1")
-        self.lbl_checkout.pack(pady=(5, 20))
+        self.lbl_checkout.pack(pady=(5, 2))
+
+        self.lbl_checkout_name = tk.Label(checkout_frame, text="", font=('Arial', 11),
+                                          bg="#e3f2fd", fg="#0d47a1")
+        self.lbl_checkout_name.pack()
+        self.lbl_checkout_phone = tk.Label(checkout_frame, text="", font=('Arial', 11),
+                                           bg="#e3f2fd", fg="#0d47a1")
+        self.lbl_checkout_phone.pack()
+        self.lbl_checkout_prov = tk.Label(checkout_frame, text="", font=('Arial', 11),
+                                           bg="#e3f2fd", fg="#0d47a1")
+        self.lbl_checkout_prov.pack()
+        self.lbl_checkout_inmueble = tk.Label(checkout_frame, text="", font=('Arial', 11),
+                                               bg="#e3f2fd", fg="#0d47a1")
+        self.lbl_checkout_inmueble.pack(pady=(0, 15))
 
         self.refresh_dashboard()
 
@@ -272,16 +298,32 @@ class MainWindow:
             checkins = db.get_upcoming_checkins()
             if checkins:
                 row = checkins[0]
-                self.lbl_checkin.config(text=fmt_date(row[4]))
+                self.lbl_checkin.config(text=fmt_date(row[5]))
+                self.lbl_checkin_name.config(text=f"👤 {row[1]}")
+                self.lbl_checkin_phone.config(text=f"📞 {row[2]}")
+                self.lbl_checkin_prov.config(text=f"📍 {row[3]}")
+                self.lbl_checkin_inmueble.config(text=f"🏠 {row[4]}")
             else:
                 self.lbl_checkin.config(text="—")
+                self.lbl_checkin_name.config(text="")
+                self.lbl_checkin_phone.config(text="")
+                self.lbl_checkin_prov.config(text="")
+                self.lbl_checkin_inmueble.config(text="")
 
             checkouts = db.get_upcoming_checkouts()
             if checkouts:
                 row = checkouts[0]
-                self.lbl_checkout.config(text=fmt_date(row[5]))
+                self.lbl_checkout.config(text=fmt_date(row[6]))
+                self.lbl_checkout_name.config(text=f"👤 {row[1]}")
+                self.lbl_checkout_phone.config(text=f"📞 {row[2]}")
+                self.lbl_checkout_prov.config(text=f"📍 {row[3]}")
+                self.lbl_checkout_inmueble.config(text=f"🏠 {row[4]}")
             else:
                 self.lbl_checkout.config(text="—")
+                self.lbl_checkout_name.config(text="")
+                self.lbl_checkout_phone.config(text="")
+                self.lbl_checkout_prov.config(text="")
+                self.lbl_checkout_inmueble.config(text="")
 
     def run(self):
         self.setup_ui()

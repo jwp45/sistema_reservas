@@ -41,6 +41,7 @@ class EditReservationWindow:
             "costo_con_descuento": float(raw[7]),
             "adelanto": float(raw[8]),
             "pago_pendiente": float(raw[9]),
+            "provincia": raw[10],
         }
         self.descuento_amount = self.original["costo_total"] - self.original["costo_con_descuento"]
 
@@ -85,6 +86,12 @@ class EditReservationWindow:
         row.pack(fill=tk.X, padx=5, pady=2)
         ttk.Label(row, text="Adelanto:", width=18).pack(side=tk.LEFT)
         ttk.Label(row, text=f"${self.original['adelanto']:,.2f}").pack(side=tk.LEFT, padx=5)
+
+        # Fila: Provincia (solo lectura)
+        row = ttk.Frame(form_frame)
+        row.pack(fill=tk.X, padx=5, pady=2)
+        ttk.Label(row, text="Provincia:", width=18).pack(side=tk.LEFT)
+        ttk.Label(row, text=self.original["provincia"]).pack(side=tk.LEFT, padx=5)
 
         # Fecha Ingreso
         row = ttk.Frame(form_frame)
@@ -222,6 +229,7 @@ class EditReservationWindow:
                 "costo_con_descuento": costo_con_desc,
                 "adelanto": self.original["adelanto"],
                 "pago_pendiente": pago_pendiente,
+                "provincia": self.original["provincia"],
             }
             if self.db.update_reservation(self.reservation_id, data):
                 messagebox.showinfo("Éxito", "Reserva actualizada correctamente")
