@@ -149,8 +149,9 @@ class ReservationController:
             "fecha_egreso": tk.StringVar()
         }
 
-        # Establecer fecha de registro por defecto
+        # Establecer fecha de registro y provincia por defecto
         client_fields["fecha_registro"].set(date.today().strftime("%d/%m/%Y"))
+        client_fields["provincia"].set("Buenos Aires")
 
         provincias = [
             "Buenos Aires", "Catamarca", "Chaco", "Chubut", "CABA",
@@ -192,9 +193,18 @@ class ReservationController:
                     self.db.connect()
                 
                 properties = self.db.get_all_properties()
-                property_names = [property_data[1] for property_data in properties]
+                self.property_map = {p[1]: p for p in properties}
+                property_names = list(self.property_map.keys())
                 entry = ttk.Combobox(row, textvariable=client_fields[field[1]], values=property_names, state="readonly")
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+                def on_inmueble_select(event):
+                    selected = client_fields["inmueble"].get()
+                    if selected in self.property_map:
+                        valor = self.property_map[selected][7]
+                        client_fields["valor_dia"].set(str(valor))
+
+                entry.bind("<<ComboboxSelected>>", on_inmueble_select)
             elif field[1] == "valor_dia":
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
