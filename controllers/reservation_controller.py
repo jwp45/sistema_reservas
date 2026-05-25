@@ -278,6 +278,9 @@ class ReservationController:
         else:
             messagebox.showerror("Error", "Cliente no encontrado", parent=self.master)
 
+        # Recalcular costos después de autocompletar
+        self.update_cost_total(client_fields)
+
     def update_cost_total(self, client_fields):
         # Obtener valores del formulario
         fecha_ingreso_str = client_fields["fecha_ingreso"].get()
