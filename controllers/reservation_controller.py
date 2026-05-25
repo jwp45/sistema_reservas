@@ -216,7 +216,7 @@ class ReservationController:
                         client_fields["valor_dia"].set(f"${valor:,.2f}")
                         
                         # Capacidad de personas (asumiendo índice 6)
-                        capacidad = property_data[6]
+                        capacidad = property_data[2]
                         client_fields["cantidad_personas"].set(str(capacidad))
                         
                         self.update_cost_total(client_fields)  # <-- Aquí se llama a la función de actualización
