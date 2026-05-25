@@ -300,8 +300,20 @@ class ReservationController:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             elif field[1] == "valor_dia":
-                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                # Contenedor para el símbolo $ y el campo de entrada
+                currency_frame = ttk.Frame(row)
+                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                
+                # Etiqueta del símbolo $
+                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
+                
+                # Campo de entrada
+                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]])
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                
+                # Bindings actualizados: KeyRelease para formato, Return para cálculo
+                entry.bind("<KeyRelease>", lambda event: self.format_discount_input(event, client_fields))
+                entry.bind("<Return>", lambda event: self.update_cost_total(client_fields))
             elif field[1] in ["fecha_ingreso", "fecha_egreso"]:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
@@ -346,6 +358,39 @@ class ReservationController:
                 # Este campo es de solo lectura, pero necesita un widget para mostrar el valor
                 entry = ttk.Label(row, textvariable=client_fields[field[1]], foreground="blue", font=('Arial', 10, 'bold'))
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            elif field[1] == "noches":
+                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            elif field[1] == "costo_total":
+                # Contenedor para el símbolo $ y el campo de entrada (solo lectura)
+                currency_frame = ttk.Frame(row)
+                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                
+                # Etiqueta del símbolo $
+                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
+                
+                # Campo de entrada (solo lectura)
+                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]], state='readonly')
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            elif field[1] == "costo_con_descuento":
+                # Contenedor para el símbolo $ y el campo de entrada (solo lectura)
+                currency_frame = ttk.Frame(row)
+                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                
+                # Etiqueta del símbolo $
+                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
+                
+                # Campo de entrada (solo lectura)
+                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]], state='readonly')
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            elif field[1] == "display_adelanto":
+                # Nuevo resumen visual para el adelanto
+                ttk.Label(row, text="Adelanto:", width=15, anchor="e").pack(side=tk.LEFT, padx=(20, 5))
+                ttk.Label(row, textvariable=client_fields["display_adelanto"], foreground="green", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            elif field[1] == "display_descuento":
+                # Nuevo resumen visual para el descuento
+                ttk.Label(row, text="Descuento:", width=15, anchor="e").pack(side=tk.LEFT, padx=(20, 5))
+                ttk.Label(row, textvariable=client_fields["display_descuento"], foreground="red", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             else:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
