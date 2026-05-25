@@ -132,7 +132,8 @@ class ReservationController:
             ("Fecha de ingreso:", "fecha_ingreso"),
             ("Fecha de egreso:", "fecha_egreso"),
             ("Cantidad de Noches:", "noches"),
-            ("Costo Total:", "costo_total")
+            ("Costo Total:", "costo_total"),
+            ("Costo con Descuento:", "costo_con_descuento")
         ]
 
         client_fields = {
@@ -147,14 +148,14 @@ class ReservationController:
             "porcentaje_adelanto": tk.StringVar(),
             "adelanto": tk.StringVar(),
             "porcentaje_descuento": tk.StringVar(),
-            "desc,descuento": tk.StringVar(),
             "descuento": tk.StringVar(),
             "inmueble": tk.StringVar(),
             "valor_dia": tk.StringVar(),
             "fecha_ingreso": tk.StringVar(),
             "fecha_egreso": tk.StringVar(),
             "noches": tk.StringVar(),
-            "costo_total": tk.StringVar()
+            "costo_total": tk.StringVar(),
+            "costo_con_descuento": tk.StringVar()
         }
 
         # Establecer fecha de registro y provincia por defecto
@@ -282,8 +283,9 @@ class ReservationController:
         fecha_ingreso_str = client_fields["fecha_ingreso"].get()
         fecha_egreso_str = client_fields["fecha_egreso"].get()
         valor_dia_str = client_fields["valor_dia"].get()
+        descuento_str = client_fields["descuento"].get()
         
-        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str):
+        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str and descuento_str):
             return
 
         try:
@@ -297,15 +299,22 @@ class ReservationController:
             
             # Convertir valor por día a número
             valor_dia = float(valor_dia_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
+            descuento = float(descuento_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
             
             # Calcular costo total
             costo_total = noches * valor_dia
+            
+            # Calcular costo con descuento
+            costo_con_descuento = costo_total - descuento
             
             # Actualizar campo de costo total
             client_fields["costo_total"].set(f"${costo_total:,.2f}")
             
             # Actualizar campo de cantidad de noches
             client_fields["noches"].set(str(noches))
+            
+            # Actualizar campo de costo con descuento
+            client_fields["costo_con_descuento"].set(f"${costo_con_descuento:,.2f}")
             
         except ValueError as e:
             messagebox.showerror("Error", f"Formato de fecha inválido: {str(e)}", parent=self.master)
@@ -315,10 +324,13 @@ class ReservationController:
         fecha_ingreso_str = client_fields["fecha_ingreso"].get()
         fecha_egreso_str = client_fields["fecha_egreso"].get()
         valor_dia_str = client_fields["valor_dia"].get()
+        descuento_str = client_fields["descuento"].get()
         noches_str = client_fields["noches"].get()
+        costo_total_str = client_fields["costo_total"].get()
+        costo_con_descuento_str = client_fields["costo_con_descuento"].get()
         
         # Validar campos obligatorios
-        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str and noches_str):
+        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str and noches_str and descuento_str):
             messagebox.showerror("Error", "Por favor complete todos los campos", parent=reservation_window)
             return
 
@@ -333,9 +345,13 @@ class ReservationController:
             
             # Convertir valor por día a número
             valor_dia = float(valor_dia_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
+            descuento = float(descuento_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
             
             # Calcular costo total
             costo_total = noches * valor_dia
+            
+            # Calcular costo con descuento
+            costo_con_descuento = costo_total - descuento
             
             # Guardar la reserva en la base de datos
             reservation_data = {
@@ -343,7 +359,8 @@ class ReservationController:
                 "fecha_egreso": fecha_egreso,
                 "valor_dia": valor_dia,
                 "noches": noches,
-                "costo_total": costo_total
+                "costo_total": costo_total,
+                "costo_con_descuento": costo_con_descuento
             }
             
             # Lógica para guardar en la base de datos
