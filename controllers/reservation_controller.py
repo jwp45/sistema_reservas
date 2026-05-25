@@ -126,7 +126,8 @@ class ReservationController:
             ("Descuento:", "descuento"),
             ("Inmueble:", "inmueble"),
             ("Fecha de ingreso:", "fecha_ingreso"),
-            ("Fecha de egreso:", "fecha_egreso")
+            ("Fecha de egreso:", "fecha_egreso"),
+            ("Valor por Día:", "valor_dia")
         ]
 
         client_fields = {
@@ -144,7 +145,8 @@ class ReservationController:
             "descuento": tk.StringVar(),
             "inmueble": tk.StringVar(),
             "fecha_ingreso": tk.StringVar(),
-            "fecha_egreso": tk.StringVar()
+            "fecha_egreso": tk.StringVar(),
+            "valor_dia": tk.StringVar()
         }
 
         # Establecer fecha de registro por defecto
@@ -192,6 +194,9 @@ class ReservationController:
                 properties = self.db.get_all_properties()
                 property_names = [property_data[1] for property_data in properties]
                 entry = ttk.Combobox(row, textvariable=client_fields[field[1]], values=property_names, state="readonly")
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            elif field[1] == "valor_dia":
+                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             elif field[1] in ["fecha_ingreso", "fecha_egreso", "fecha_registro"]:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
