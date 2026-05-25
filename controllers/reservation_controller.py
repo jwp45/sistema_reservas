@@ -127,7 +127,8 @@ class ReservationController:
             ("Inmueble:", "inmueble"),
             ("Valor por Día:", "valor_dia"),
             ("Fecha de ingreso:", "fecha_ingreso"),
-            ("Fecha de egreso:", "fecha_egreso")
+            ("Fecha de egreso:", "fecha_egreso"),
+            ("Costo Total:", "costo_total")
         ]
 
         client_fields = {
@@ -146,7 +147,8 @@ class ReservationController:
             "inmueble": tk.StringVar(),
             "valor_dia": tk.StringVar(),
             "fecha_ingreso": tk.StringVar(),
-            "fecha_egreso": tk.StringVar()
+            "fecha_egreso": tk.StringVar(),
+            "costo_total": tk.StringVar()
         }
 
         # Establecer fecha de registro y provincia por defecto
