@@ -285,7 +285,7 @@ class ReservationController:
         valor_dia_str = client_fields["valor_dia"].get()
         descuento_str = client_fields["descuento"].get()
         
-        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str and descuento_str):
+        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str):
             return
 
         try:
@@ -299,13 +299,17 @@ class ReservationController:
             
             # Convertir valor por día a número
             valor_dia = float(valor_dia_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
-            descuento = float(descuento_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
             
             # Calcular costo total
             costo_total = noches * valor_dia
             
-            # Calcular costo con descuento
-            costo_con_descuento = costo_total - descuento
+            # Calcular costo con descuento si el campo no está vacío
+            if descuento_str:
+                descuento = float(descuento_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
+                costo_con_descuento = costo_total - descuento
+            else:
+                descuento = 0
+                costo_con_descuento = costo_total
             
             # Actualizar campo de costo total
             client_fields["costo_total"].set(f"${costo_total:,.2f}")
@@ -330,7 +334,7 @@ class ReservationController:
         costo_con_descuento_str = client_fields["costo_con_descuento"].get()
         
         # Validar campos obligatorios
-        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str and noches_str and descuento_str):
+        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str and noches_str):
             messagebox.showerror("Error", "Por favor complete todos los campos", parent=reservation_window)
             return
 
@@ -345,13 +349,17 @@ class ReservationController:
             
             # Convertir valor por día a número
             valor_dia = float(valor_dia_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
-            descuento = float(descuento_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
             
             # Calcular costo total
             costo_total = noches * valor_dia
             
-            # Calcular costo con descuento
-            costo_con_descuento = costo_total - descuento
+            # Calcular costo con descuento si el campo no está vacío
+            if descuento_str:
+                descuento = float(descuento_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
+                costo_con_descuento = costo_total - descuento
+            else:
+                descuento = 0
+                costo_con_descuento = costo_total
             
             # Guardar la reserva en la base de datos
             reservation_data = {
