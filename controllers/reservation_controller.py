@@ -122,12 +122,12 @@ class ReservationController:
             ("Teléfono:", "telefono"),
             ("Provincia:", "provincia"),
             ("Fecha de registro:", "fecha_registro"),
-            ("Cantidad de personas:", "cantidad_personas"),
+            ("Inmueble:", "inmueble"), # Movido arriba
+            ("Cantidad de personas:", "cantidad_personas"), # Movido abajo
             ("Porcentaje de adelanto:", "porcentaje_adelanto"),
             ("Adelanto:", "adelanto"),
             ("Porcentaje de descuento:", "porcentaje_descuento"),
             ("Descuento:", "descuento"),
-            ("Inmueble:", "inmueble"),
             ("Valor por Día:", "valor_dia"),
             ("Fecha de ingreso:", "fecha_ingreso"),
             ("Fecha de egreso:", "fecha_egreso"),
@@ -215,6 +215,9 @@ class ReservationController:
                         self.update_cost_total(client_fields)  # <-- Aquí se llama a la función de actualización
 
                 entry.bind("<<ComboboxSelected>>", on_inmueble_select)
+            elif field[1] == "cantidad_personas":
+                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             elif field[1] == "valor_dia":
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
