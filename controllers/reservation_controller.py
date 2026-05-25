@@ -245,6 +245,7 @@ class ReservationController:
         """Abrir un diálogo de calendario visual para seleccionar la fecha"""
         def update_date_field(selected_date):
             client_fields[field_name].set(selected_date)
+            self.update_cost_total(client_fields)
             
         CalendarDialog(parent, update_date_field)
 
@@ -271,6 +272,36 @@ class ReservationController:
             client_fields["telefono"].set(client_data[4])
         else:
             messagebox.showerror("Error", "Cliente no encontrado", parent=self.master)
+
+    def update_cost_total(self, client_fields):
+        # Obtener valores del formulario
+        fecha_ingreso_str = client_fields["fecha_ingreso"].get()
+        fecha_egreso_str = client_fields["fecha_egreso"].get()
+        valor_dia_str = client_fields["valor_dia"].get()
+        
+        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str):
+            return
+
+        try:
+            # Convertir fechas a objetos date
+            fecha_ingreso = datetime.strptime(fecha_ingreso_str, "%d/%m/%Y").date()
+            fecha_egreso = datetime.strptime(fecha_egreso_str, "%d/%m/%Y").date()
+            
+            # Calcular número de noches
+            delta = fecha_egreso - fecha_ingreso
+            noches = delta.days
+            
+            # Convertir valor por día a número
+            valor_dia = float(valor_dia_str)
+            
+            # Calcular costo total
+            costo_total = noches * valor_dia
+            
+            # Actualizar campo de costo total
+            client_fields["costo_total"].set(f"{costo_total:.2f}")
+            
+        except ValueError as e:
+            messagebox.showerror("Error", f"Formato de fecha inválido: {str(e)}", parent=self.master)
 
     def save_reservation(self, reservation_window, client_fields):
         # Obtener valores del formulario
