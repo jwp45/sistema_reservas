@@ -172,8 +172,8 @@ class ReservationController:
         # Crear una nueva ventana para el formulario de reserva
         reservation_window = tk.Toplevel(self.master)
         reservation_window.title("Detalle de Reserva")
-        reservation_window.geometry("800x800") # Aumentado el tamaño para acomodar el nuevo campo de pago pendiente
-
+        reservation_window.geometry("800x950") # Aumentado el tamaño para acomodar el resumen
+        
         # Frame principal del formulario
         form_frame = ttk.Frame(reservation_window)
         form_frame.pack(padx=10, pady=10, expand=True, fill=tk.BOTH)
@@ -203,7 +203,7 @@ class ReservationController:
             ("Cantidad de Noches:", "noches"),
             ("Costo Total:", "costo_total"),
             ("Costo con Descuento:", "costo_con_descuento"),
-            ("Pago pendiente:", "pago_pendiente") # Nuevo campo
+            ("Pago pendiente:", "pago_pendiente") # Campo principal
         ]
 
         client_fields = {
@@ -226,7 +226,10 @@ class ReservationController:
             "noches": tk.StringVar(),
             "costo_total": tk.StringVar(),
             "costo_con_descuento": tk.StringVar(),
-            "pago_pendiente": tk.StringVar() # Nuevo StringVar
+            "pago_pendiente": tk.StringVar(),
+            # Nuevos campos de resumen visual
+            "display_adelanto": tk.StringVar(),
+            "display_descuento": tk.StringVar()
         }
 
         # Establecer fecha de registro y provincia por defecto
@@ -311,14 +314,32 @@ class ReservationController:
                 )
                 date_btn.pack(side=tk.RIGHT, padx=5)
             elif field[1] == "descuento":
-                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                # Contenedor para el símbolo $ y el campo de entrada
+                currency_frame = ttk.Frame(row)
+                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                
+                # Etiqueta del símbolo $
+                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
+                
+                # Campo de entrada
+                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]])
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                
                 # Bindings actualizados: KeyRelease para formato, Return para cálculo
                 entry.bind("<KeyRelease>", lambda event: self.format_discount_input(event, client_fields))
                 entry.bind("<Return>", lambda event: self.update_cost_total(client_fields))
             elif field[1] == "adelanto":
-                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                # Contenedor para el símbolo $ y el campo de entrada
+                currency_frame = ttk.Frame(row)
+                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                
+                # Etiqueta del símbolo $
+                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
+                
+                # Campo de entrada
+                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]])
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                
                 # Binding actualizado para incluir formato
                 entry.bind("<KeyRelease>", lambda event: self.format_down_payment_input(event, client_fields))
             elif field[1] == "pago_pendiente":
@@ -391,6 +412,9 @@ class ReservationController:
             client_fields["costo_total"].set("$0.00")
             client_fields["costo_con_descuento"].set("$0.00")
             client_fields["pago_pendiente"].set("$0.00")
+            # Actualizar resúmenes visuales
+            client_fields["display_adelanto"].set("$0.00")
+            client_fields["display_descuento"].set("$0.00")
             return
 
         try:
@@ -435,6 +459,10 @@ class ReservationController:
             # Actualizar campo de pago pendiente
             client_fields["pago_pendiente"].set(f"${pago_pendiente:,.2f}")
             
+            # *** ACTUALIZACIÓN DE RESUMEN VISUAL ***
+            client_fields["display_adelanto"].set(f"${adelanto:,.2f}")
+            client_fields["display_descuento"].set(f"${descuento:,.2f}")
+            
         except ValueError as e:
             messagebox.showerror("Error", f"Formato de fecha o moneda inválido: {str(e)}", parent=self.master)
             # Limpiar campos de costo en caso de error
@@ -442,6 +470,9 @@ class ReservationController:
             client_fields["noches"].set("")
             client_fields["costo_con_descuento"].set("$0.00")
             client_fields["pago_pendiente"].set("$0.00")
+            # Limpiar resúmenes visuales en caso de error
+            client_fields["display_adelanto"].set("$0.00")
+            client_fields["display_descuento"].set("$0.00")
 
 
     def save_reservation(self, reservation_window, client_fields):
