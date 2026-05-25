@@ -193,9 +193,7 @@ class ReservationController:
             ("Fecha de registro:", "fecha_registro"),
             ("Inmueble:", "inmueble"), # Movido arriba
             ("Cantidad de personas:", "cantidad_personas"), # Movido abajo
-            ("Porcentaje de adelanto:", "porcentaje_adelanto"),
             ("Adelanto:", "adelanto"),
-            ("Porcentaje de descuento:", "porcentaje_descuento"),
             ("Descuento:", "descuento"),
             ("Valor por Día:", "valor_dia"),
             ("Fecha de ingreso:", "fecha_ingreso"),
@@ -215,9 +213,7 @@ class ReservationController:
             "provincia": tk.StringVar(),
             "fecha_registro": tk.StringVar(),
             "cantidad_personas": tk.StringVar(),
-            "porcentaje_adelanto": tk.StringVar(),
             "adelanto": tk.StringVar(),
-            "porcentaje_descuento": tk.StringVar(),
             "descuento": tk.StringVar(),
             "inmueble": tk.StringVar(),
             "valor_dia": tk.StringVar(),
