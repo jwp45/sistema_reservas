@@ -298,7 +298,7 @@ class ReservationController:
             costo_total = noches * valor_dia
             
             # Actualizar campo de costo total
-            client_fields["costo_total"].set(f"{costo_total:.2f}")
+            client_fields["costo_total"].set(f"${costo_total:,.2f}")
             
         except ValueError as e:
             messagebox.showerror("Error", f"Formato de fecha inválido: {str(e)}", parent=self.master)
@@ -330,12 +330,12 @@ class ReservationController:
             costo_total = noches * valor_dia
             
             # Actualizar campo de costo total
-            client_fields["costo_total"].set(f"{costo_total:.2f}")
+            client_fields["costo_total"].set(f"${costo_total:,.2f}")
             
             # Guardar la reserva en la base de datos
             reservation_data = {
                 "fecha_ingreso": fecha_ingreso,
-                "fecha_egreso": fecha_egreso,
+                "fecha_egyreso": fecha_egreso,
                 "valor_dia": valor_dia,
                 "noches": noches,
                 "costo_total": costo_total
