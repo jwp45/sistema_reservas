@@ -210,8 +210,15 @@ class ReservationController:
                 def on_inmueble_select(event):
                     selected = client_fields["inmueble"].get()
                     if selected in self.property_map:
-                        valor = self.property_map[selected][7]
+                        property_data = self.property_map[selected]
+                        # Valor por Día (asumiendo índice 7)
+                        valor = property_data[7]
                         client_fields["valor_dia"].set(f"${valor:,.2f}")
+                        
+                        # Capacidad de personas (asumiendo índice 6)
+                        capacidad = property_data[6]
+                        client_fields["cantidad_personas"].set(str(capacidad))
+                        
                         self.update_cost_total(client_fields)  # <-- Aquí se llama a la función de actualización
 
                 entry.bind("<<ComboboxSelected>>", on_inmueble_select)
