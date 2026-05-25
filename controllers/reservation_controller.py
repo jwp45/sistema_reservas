@@ -109,6 +109,44 @@ class ReservationController:
             "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
         ]
     
+    def _format_with_thousands_separator(self, number_str):
+        """Función auxiliar para añadir separadores de miles a una cadena numérica."""
+        if not number_str:
+            return ""
+        
+        # Separar la parte entera y decimal
+        parts = number_str.split('.')
+        integer_part = parts[0]
+        decimal_part = parts[1] if len(parts) > 1 else ""
+        
+        # Formatear la parte entera
+        formatted_integer = ""
+        for i in range(len(integer_part) - 1, -1, -1):
+            formatted_integer = integer_part[i] + formatted_integer
+            if i > 0 and (len(integer_part) - i) % 3 == 0:
+                formatted_integer = "," + formatted_integer
+        
+        return f"{formatted_integer}.{decimal_part}"
+
+
+    def format_discount_input(self, event, client_fields):
+        """Formatea el campo de descuento con separador de miles y recalcula costos."""
+        text = client_fields["descuento"].get()
+        
+        # 1. Limpiar: dejar solo dígitos y un punto decimal
+        # Esto permite que el usuario escriba números sin formato.
+        cleaned_text = ''.join(filter(lambda char: char.isdigit() or char == '.', text))
+        
+        # 2. Formatear el valor limpio
+        new_value = self._format_with_thousands_separator(cleaned_text)
+        
+        # 3. Actualizar el StringVar
+        client_fields["descuento"].set(new_value)
+        
+        # 4. Recalcular costos
+        self.update_cost_total(client_fields)
+
+
     def create_reservation(self):
         # Lógica para crear una nueva reserva
         print("Crear Reserva")
@@ -255,6 +293,8 @@ class ReservationController:
             elif field[1] == "descuento":
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                # Bindings actualizados: KeyRelease para formato, Return para cálculo
+                entry.bind("<KeyRelease>", lambda event: self.format_discount_input(event, client_fields))
                 entry.bind("<Return>", lambda event: self.update_cost_total(client_fields))
             else:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
