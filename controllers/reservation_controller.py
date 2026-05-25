@@ -207,7 +207,7 @@ class ReservationController:
                     selected = client_fields["inmueble"].get()
                     if selected in self.property_map:
                         valor = self.property_map[selected][7]
-                        client_fields["valor_dia"].set(str(valor))
+                        client_fields["valor_dia"].set(f"${valor:,.2f}")
 
                 entry.bind("<<ComboboxSelected>>", on_inmueble_select)
             elif field[1] == "valor_dia":
@@ -292,7 +292,7 @@ class ReservationController:
             noches = delta.days
             
             # Convertir valor por día a número
-            valor_dia = float(valor_dia_str)
+            valor_dia = float(valor_dia_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
             
             # Calcular costo total
             costo_total = noches * valor_dia
@@ -324,7 +324,7 @@ class ReservationController:
             noches = delta.days
             
             # Convertir valor por día a número
-            valor_dia = float(valor_dia_str)
+            valor_dia = float(valor_dia_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
             
             # Calcular costo total
             costo_total = noches * valor_dia
