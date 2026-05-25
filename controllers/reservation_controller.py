@@ -108,9 +108,6 @@ class ReservationController:
             "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
             "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
         ]
-        # Inicializar el estilo de ttk para el costo con descuento
-        self.style = ttk.Style()
-        self.style.configure("CostEntry.TEntry", foreground="green", font=('Arial', 12, 'bold'))
     
     def create_reservation(self):
         # Lógica para crear una nueva reserva
