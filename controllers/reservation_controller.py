@@ -82,9 +82,22 @@ class CalendarDialog(tk.Toplevel):
         self.draw_calendar()
 
     def select_day(self, day):
-        selected_date = f"{day:02d}/{self.month:02d}/{self.year}"
-        self.callback(selected_date)
-        self.destroy()
+        try:
+            selected_date_obj = date(self.year, self.month, day)
+            
+            # Validación: La fecha seleccionada no debe ser anterior a hoy
+            if selected_date_obj < self.now:
+                messagebox.showwarning("Fecha Inválida", "No es posible seleccionar una fecha pasada. Por favor, elija una fecha a partir de hoy.")
+                return
+            
+            selected_date_str = f"{day:02d}/{self.month:02d}/{self.year}"
+            self.callback(selected_date_str)
+            self.destroy()
+        except Exception as e:
+            # Manejo de cualquier error de fecha inesperado
+            messagebox.showerror("Error", f"Error al seleccionar la fecha: {e}")
+            self.destroy()
+
 
 class ReservationController:
     def __init__(self, master):
@@ -215,7 +228,7 @@ class ReservationController:
                         valor = property_data[7]
                         client_fields["valor_dia"].set(f"${valor:,.2f}")
                         
-                        # Capacidad de personas (asumiendo índice 6)
+                        # Capacidad de personas (asumiendo índice 2)
                         capacidad = property_data[2]
                         client_fields["cantidad_personas"].set(str(capacidad))
                         
