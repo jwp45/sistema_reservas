@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, StringVar, Frame
+from tkinter import ttk, messagebox, StringVar, BooleanVar, Frame
 from datetime import date
 from controllers.client_controller import ClientController
 from controllers.property_controller import PropertyController
@@ -30,6 +30,7 @@ class MainWindow:
             "fecha_registro": StringVar(),  # Añadir la variable 'fecha_registro'
             "cantidad_personas": StringVar(),  # Añadir la variable 'cantidad_personas'
             "adelanto": StringVar(),  # Añadir la variable 'adelanto'
+            "discount_is_percentage": BooleanVar(),
             "descuento": StringVar(),  # Añadir la variable 'descuento'
             "inmueble": StringVar(),  # Añadir la variable 'inmueble'
             "fecha_ingreso": StringVar(),  # Añadir la variable 'fecha_ingreso'

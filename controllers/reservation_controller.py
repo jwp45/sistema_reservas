@@ -130,20 +130,15 @@ class ReservationController:
 
 
     def format_discount_input(self, event, client_fields):
-        """Formatea el campo de descuento con separador de miles y recalcula costos."""
         text = client_fields["descuento"].get()
-        
-        # 1. Limpiar: dejar solo dígitos y un punto decimal
-        # Esto permite que el usuario escriba números sin formato.
         cleaned_text = ''.join(filter(lambda char: char.isdigit() or char == '.', text))
-        
-        # 2. Formatear el valor limpio
-        new_value = self._format_with_thousands_separator(cleaned_text)
-        
-        # 3. Actualizar el StringVar
-        client_fields["descuento"].set(new_value)
-        
-        # 4. Recalcular costos
+
+        if client_fields["discount_is_percentage"].get():
+            client_fields["descuento"].set(cleaned_text)
+        else:
+            new_value = self._format_with_thousands_separator(cleaned_text)
+            client_fields["descuento"].set(new_value)
+
         self.update_cost_total(client_fields)
 
 
@@ -223,6 +218,8 @@ class ReservationController:
             "costo_total": tk.StringVar(),
             "costo_con_descuento": tk.StringVar(),
             "pago_pendiente": tk.StringVar(),
+            # Checkbox para modo porcentaje en descuento
+            "discount_is_percentage": tk.BooleanVar(),
             # Nuevos campos de resumen visual
             "display_adelanto": tk.StringVar(),
             "display_descuento": tk.StringVar()
@@ -322,18 +319,30 @@ class ReservationController:
                 )
                 date_btn.pack(side=tk.RIGHT, padx=5)
             elif field[1] == "descuento":
-                # Contenedor para el símbolo $ y el campo de entrada
                 currency_frame = ttk.Frame(row)
                 currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                
-                # Etiqueta del símbolo $
-                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
-                
-                # Campo de entrada
+
+                symbol_label = ttk.Label(currency_frame, text="$", width=3, anchor="n")
+                symbol_label.pack(side=tk.LEFT)
+
                 entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-                
-                # Bindings actualizados: KeyRelease para formato, Return para cálculo
+
+                def toggle_discount_mode():
+                    if client_fields["discount_is_percentage"].get():
+                        symbol_label.config(text="%")
+                    else:
+                        symbol_label.config(text="$")
+                    client_fields["descuento"].set("")
+                    self.update_cost_total(client_fields)
+
+                ttk.Checkbutton(
+                    row,
+                    text="Porcentaje",
+                    variable=client_fields["discount_is_percentage"],
+                    command=toggle_discount_mode
+                ).pack(side=tk.LEFT, padx=5)
+
                 entry.bind("<KeyRelease>", lambda event: self.format_discount_input(event, client_fields))
                 entry.bind("<Return>", lambda event: self.update_cost_total(client_fields))
             elif field[1] == "adelanto":
@@ -475,7 +484,11 @@ class ReservationController:
             
             # Calcular costo con descuento si el campo no está vacío
             if descuento_str:
-                descuento = float(descuento_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
+                descuento_val = float(descuento_str.replace('$', '').replace(',', ''))
+                if client_fields["discount_is_percentage"].get():
+                    descuento = costo_total * (descuento_val / 100.0)
+                else:
+                    descuento = descuento_val
                 costo_con_descuento = costo_total - descuento
             else:
                 descuento = 0
@@ -550,7 +563,11 @@ class ReservationController:
             
             # Calcular costo con descuento si el campo no está vacío
             if descuento_str:
-                descuento = float(descuento_str.replace('$', '').replace(',', ''))  # Remover símbolos antes de convertir
+                descuento_val = float(descuento_str.replace('$', '').replace(',', ''))
+                if client_fields["discount_is_percentage"].get():
+                    descuento = costo_total * (descuento_val / 100.0)
+                else:
+                    descuento = descuento_val
                 costo_con_descuento = costo_total - descuento
             else:
                 descuento = 0
