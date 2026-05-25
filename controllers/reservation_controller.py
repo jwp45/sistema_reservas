@@ -6,18 +6,32 @@ from datetime import date, datetime
 import calendar
 
 class CalendarDialog(tk.Toplevel):
-    def __init__(self, parent, callback):
+    def __init__(self, parent, callback, reserved_ranges=None):
         super().__init__(parent)
         self.title("Seleccionar Fecha")
-        self.geometry("400x500") # Aumentado el ancho de 300 a 400
+        self.geometry("400x500")
         self.callback = callback
+        self.reserved_ranges = reserved_ranges or []
         self.now = date.today()
         self.year = self.now.year
         self.month = self.now.month
-        
+
+        style = ttk.Style(self)
+        style.configure("Reserved.TButton", background="gray")
+
         self.setup_ui()
         self.draw_calendar()
-        self.grab_set() # Hacer el diálogo modal
+        self.grab_set()
+
+    def _is_reserved(self, d):
+        for ingreso, egreso in self.reserved_ranges:
+            if isinstance(ingreso, str):
+                ingreso = datetime.strptime(str(ingreso), "%Y-%m-%d").date()
+            if isinstance(egreso, str):
+                egreso = datetime.strptime(str(egreso), "%Y-%m-%d").date()
+            if ingreso <= d < egreso:
+                return True
+        return False
 
     def setup_ui(self):
         header = ttk.Frame(self)
@@ -53,14 +67,12 @@ class CalendarDialog(tk.Toplevel):
                 if day == 0:
                     ttk.Label(self.days_frame, text="").grid(row=row_idx, column=col_idx, sticky="nsew")
                 else:
-                    # Botones más anchos y con padding
+                    d = date(self.year, self.month, day)
+                    is_reserved = self._is_reserved(d)
                     btn = ttk.Button(self.days_frame, text=str(day), width=5,
-                                    command=lambda d=day: self.select_day(d))
+                                    state=tk.DISABLED if is_reserved else tk.NORMAL,
+                                    command=lambda dd=day: self.select_day(dd))
                     btn.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="nsew")
-                    
-                    if day == self.now.day and self.month == self.now.month and self.year == self.now.year:
-                        # Resaltar el día actual si es posible
-                        pass
 
         for i in range(7):
             self.days_frame.columnconfigure(i, weight=1)
@@ -167,7 +179,7 @@ class ReservationController:
         # Crear una nueva ventana para el formulario de reserva
         reservation_window = tk.Toplevel(self.master)
         reservation_window.title("Detalle de Reserva")
-        reservation_window.geometry("800x950") # Aumentado el tamaño para acomodar el resumen
+        reservation_window.geometry("800x700") # Aumentado el tamaño para acomodar el resumen
         
         # Frame principal del formulario
         form_frame = ttk.Frame(reservation_window)
@@ -414,12 +426,17 @@ class ReservationController:
         reserve_button.pack(pady=10, side=tk.BOTTOM)
 
     def select_date(self, field_name, client_fields, parent):
-        """Abrir un diálogo de calendario visual para seleccionar la fecha"""
         def update_date_field(selected_date):
             client_fields[field_name].set(selected_date)
             self.update_cost_total(client_fields)
-            
-        CalendarDialog(parent, update_date_field)
+
+        id_inmueble = None
+        nombre = client_fields["inmueble"].get()
+        if nombre and hasattr(self, "property_map") and nombre in self.property_map:
+            id_inmueble = self.property_map[nombre][0]
+
+        ranges = self.db.get_reserved_ranges(id_inmueble=id_inmueble)
+        CalendarDialog(parent, update_date_field, reserved_ranges=ranges)
 
     def autofill_client_data(self, client_fields):
         # Obtener el ID del cliente ingresado
@@ -581,18 +598,27 @@ class ReservationController:
             pago_pendiente = costo_con_descuento - adelanto
             
             # Guardar la reserva en la base de datos
+            id_cliente = client_fields["id_clientes"].get()
+            inmueble_nombre = client_fields["inmueble"].get()
+            id_inmueble = self.property_map.get(inmueble_nombre, [None])[0]
+
+            if not id_cliente or not id_inmueble:
+                messagebox.showerror("Error", "Debe seleccionar un cliente y un inmueble", parent=reservation_window)
+                return
+
             reservation_data = {
+                "id_cliente": int(id_cliente),
+                "id_inmueble": id_inmueble,
                 "fecha_ingreso": fecha_ingreso,
                 "fecha_egreso": fecha_egreso,
                 "valor_dia": valor_dia,
                 "noches": noches,
                 "costo_total": costo_total,
                 "costo_con_descuento": costo_con_descuento,
-                "adelanto": adelanto, # Guardar el adelanto
-                "pago_pendiente": pago_pendiente # Guardar el pago pendiente
+                "adelanto": adelanto,
+                "pago_pendiente": pago_pendiente
             }
             
-            # Lógica para guardar en la base de datos
             self.db.insert_reservation(reservation_data)
             
             # Mostrar mensaje de éxito

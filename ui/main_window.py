@@ -7,7 +7,8 @@ from controllers.reservation_controller import ReservationController
 from controllers.database import Database
 from ui.client_list_window import ClientListWindow
 from ui.property_form_window import PropertyFormWindow
-from ui.property_list_window import PropertyListWindow  # Importar la nueva ventana de lista de inmuebles
+from ui.property_list_window import PropertyListWindow
+from ui.reservation_list_window import ReservationListWindow
 
 class MainWindow:
     def __init__(self):
@@ -127,9 +128,7 @@ class MainWindow:
         self.reservation_controller.create_reservation()
 
     def handle_my_reservations(self):
-        """Mostrar las reservas del usuario"""
-        # Aquí irá la implementación del historial de reservas
-        pass
+        ReservationListWindow(self.root)
 
     def handle_contact(self):
         """Manejar la sección de contacto y soporte"""

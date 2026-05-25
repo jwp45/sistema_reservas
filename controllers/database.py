@@ -97,6 +97,96 @@ class Database:
             print(f"Error al eliminar el inmueble: {e}")
             return False
 
+    def insert_reservation(self, data):
+        try:
+            cursor = self.connection.cursor()
+            query = """INSERT INTO reservas 
+                (id_cliente, id_inmueble, fecha_ingreso, fecha_egreso, valor_dia, noches, costo_total, costo_con_descuento, adelanto, pago_pendiente)
+                VALUES (%(id_cliente)s, %(id_inmueble)s, %(fecha_ingreso)s, %(fecha_egreso)s, %(valor_dia)s, %(noches)s, %(costo_total)s, %(costo_con_descuento)s, %(adelanto)s, %(pago_pendiente)s)"""
+            cursor.execute(query, data)
+            self.connection.commit()
+            print("Reserva guardada exitosamente")
+        except Exception as e:
+            print(f"Error al guardar la reserva: {e}")
+            raise
+
+    def get_all_reservations(self):
+        try:
+            cursor = self.connection.cursor()
+            query = """SELECT r.id_reserva, CONCAT(c.nombre, ' ', c.apellido), c.telefono,
+                              i.nombre, r.fecha_ingreso, r.fecha_egreso, r.noches,
+                              r.valor_dia, r.costo_total, r.costo_con_descuento,
+                              r.adelanto, r.pago_pendiente
+                       FROM reservas r
+                       JOIN clientes c ON r.id_cliente = c.id_clientes
+                       JOIN inmuebles i ON r.id_inmueble = i.id_inmueble
+                       ORDER BY r.id_reserva DESC"""
+            cursor.execute(query)
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error al obtener las reservas: {e}")
+            return []
+
+    def delete_reservation(self, reservation_id):
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("DELETE FROM reservas WHERE id_reserva = %s", (reservation_id,))
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error al eliminar la reserva: {e}")
+            return False
+
+    def get_reservation_by_id(self, reservation_id):
+        try:
+            cursor = self.connection.cursor()
+            query = """SELECT id_cliente, id_inmueble, fecha_ingreso, fecha_egreso,
+                              valor_dia, noches, costo_total, costo_con_descuento,
+                              adelanto, pago_pendiente
+                       FROM reservas WHERE id_reserva = %s"""
+            cursor.execute(query, (reservation_id,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error al obtener la reserva: {e}")
+            return None
+
+    def update_reservation(self, reservation_id, data):
+        try:
+            cursor = self.connection.cursor()
+            query = """UPDATE reservas SET
+                id_cliente = %(id_cliente)s, id_inmueble = %(id_inmueble)s,
+                fecha_ingreso = %(fecha_ingreso)s, fecha_egreso = %(fecha_egreso)s,
+                valor_dia = %(valor_dia)s, noches = %(noches)s,
+                costo_total = %(costo_total)s, costo_con_descuento = %(costo_con_descuento)s,
+                adelanto = %(adelanto)s, pago_pendiente = %(pago_pendiente)s
+                WHERE id_reserva = %(id_reserva)s"""
+            data["id_reserva"] = reservation_id
+            cursor.execute(query, data)
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error al actualizar la reserva: {e}")
+            return False
+
+    def get_reserved_ranges(self, id_inmueble=None, exclude_id=None):
+        try:
+            cursor = self.connection.cursor()
+            conditions = []
+            params = []
+            if id_inmueble is not None:
+                conditions.append("id_inmueble = %s")
+                params.append(id_inmueble)
+            if exclude_id is not None:
+                conditions.append("id_reserva != %s")
+                params.append(exclude_id)
+            where = "WHERE " + " AND ".join(conditions) if conditions else ""
+            query = f"SELECT fecha_ingreso, fecha_egreso FROM reservas {where}"
+            cursor.execute(query, tuple(params))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error al obtener rangos reservados: {e}")
+            return []
+
     def get_client_by_id(self, client_id):
         if not self.connection:
             return None
