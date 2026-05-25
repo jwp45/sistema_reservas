@@ -18,7 +18,8 @@ class EditReservationWindow:
 
         self.window = tk.Toplevel(master)
         self.window.title("Modificar Reserva")
-        self.window.geometry("500x400")
+        self.window.geometry("600x650")
+        self.window.configure(bg="#f8f9fa")
         self.window.transient(master)
 
         raw = self.db.get_reservation_by_id(reservation_id)
@@ -27,9 +28,7 @@ class EditReservationWindow:
             self.window.destroy()
             return
 
-        # raw: id_cliente, id_inmueble, fecha_ingreso, fecha_egreso,
-        #      valor_dia, noches, costo_total, costo_con_descuento,
-        #      adelanto, pago_pendiente
+        # self.original mapping...
         self.original = {
             "id_cliente": raw[0],
             "id_inmueble": raw[1],
@@ -46,7 +45,7 @@ class EditReservationWindow:
         self.descuento_amount = self.original["costo_total"] - self.original["costo_con_descuento"]
 
         # Cargar inmuebles
-        properties = self.db.get_all_properties()  # (id, nombre, ..., valor_dia)
+        properties = self.db.get_all_properties()
         self.property_map = {p[1]: p for p in properties}
         property_names = list(self.property_map.keys())
         current_property_name = None
@@ -56,98 +55,91 @@ class EditReservationWindow:
                 break
 
         self.fields = {}
-        form_frame = ttk.Frame(self.window)
-        form_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Estilos locales
+        style = ttk.Style(self.window)
+        style.configure("EditHeader.TLabel", font=("Segoe UI", 14, "bold"), foreground="#2c3e50")
+        style.configure("EditSection.TLabelframe", font=("Segoe UI", 10, "bold"))
+        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
 
-        # Fila: Cliente (solo lectura)
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Cliente ID:", width=18).pack(side=tk.LEFT)
-        ttk.Label(row, text=str(self.original["id_cliente"])).pack(side=tk.LEFT, padx=5)
+        main_frame = ttk.Frame(self.window, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Fila: Inmueble (editable)
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Inmueble:", width=18).pack(side=tk.LEFT)
+        ttk.Label(main_frame, text=f"Modificando Reserva #{reservation_id}", style="EditHeader.TLabel").pack(pady=(0, 20))
+
+        # ─── SECCIÓN: DATOS GENERALES ────────────────────────────
+        sec_gen = ttk.LabelFrame(main_frame, text=" Información General ", padding=15, style="EditSection.TLabelframe")
+        sec_gen.pack(fill=tk.X, pady=10)
+        sec_gen.columnconfigure(1, weight=1)
+
+        ttk.Label(sec_gen, text="Cliente ID:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(sec_gen, text=str(self.original["id_cliente"]), font=("Segoe UI", 10, "bold")).grid(row=0, column=1, sticky=tk.W, padx=10)
+
+        ttk.Label(sec_gen, text="Inmueble:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.fields["inmueble"] = tk.StringVar(value=current_property_name or "")
-        inmueble_combo = ttk.Combobox(row, textvariable=self.fields["inmueble"], values=property_names, state="readonly")
-        inmueble_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        inmueble_combo.bind("<<ComboboxSelected>>", self._on_inmueble_change)
+        combo_inmueble = ttk.Combobox(sec_gen, textvariable=self.fields["inmueble"], values=property_names, state="readonly")
+        combo_inmueble.grid(row=1, column=1, sticky=tk.EW, padx=10)
+        combo_inmueble.bind("<<ComboboxSelected>>", self._on_inmueble_change)
 
         # Fila: Valor por Día (solo lectura)
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Valor por Día:", width=18).pack(side=tk.LEFT)
-        self.var_valor_dia = tk.StringVar(value=f"${self.original['valor_dia']:,.2f}")
-        ttk.Label(row, textvariable=self.var_valor_dia).pack(side=tk.LEFT, padx=5)
+        row = ttk.Frame(sec_gen)
+        row.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=5)
+        ttk.Label(row, text="Valor por Día:").pack(side=tk.LEFT)
+        self.var_valor_dia = tk.StringVar(value=self._format_currency(self.original['valor_dia']))
+        ttk.Label(row, textvariable=self.var_valor_dia, font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=10)
 
-        # Fila: Adelanto (solo lectura)
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Adelanto:", width=18).pack(side=tk.LEFT)
-        ttk.Label(row, text=f"${self.original['adelanto']:,.2f}").pack(side=tk.LEFT, padx=5)
+        # ─── SECCIÓN: FECHAS ────────────────────────────
+        sec_date = ttk.LabelFrame(main_frame, text=" Estadía ", padding=15, style="EditSection.TLabelframe")
+        sec_date.pack(fill=tk.X, pady=10)
+        sec_date.columnconfigure(1, weight=1)
 
-        # Fila: Provincia (solo lectura)
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Provincia:", width=18).pack(side=tk.LEFT)
-        ttk.Label(row, text=self.original["provincia"]).pack(side=tk.LEFT, padx=5)
-
-        # Fecha Ingreso
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Fecha Ingreso:", width=18).pack(side=tk.LEFT)
+        ttk.Label(sec_date, text="Fecha Ingreso:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.fields["fecha_ingreso"] = tk.StringVar(value=self._fmt_date(self.original["fecha_ingreso"]))
-        entry = ttk.Entry(row, textvariable=self.fields["fecha_ingreso"])
-        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        ttk.Button(row, text="📅", width=3,
-                   command=lambda: self._pick_date("fecha_ingreso")).pack(side=tk.RIGHT, padx=5)
+        fi_f = ttk.Frame(sec_date)
+        fi_f.grid(row=0, column=1, sticky=tk.EW, padx=10)
+        ttk.Entry(fi_f, textvariable=self.fields["fecha_ingreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(fi_f, text="📅", width=3, command=lambda: self._pick_date("fecha_ingreso")).pack(side=tk.RIGHT, padx=(5, 0))
 
-        # Fecha Egreso
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Fecha Egreso:", width=18).pack(side=tk.LEFT)
+        ttk.Label(sec_date, text="Fecha Egreso:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.fields["fecha_egreso"] = tk.StringVar(value=self._fmt_date(self.original["fecha_egreso"]))
-        entry = ttk.Entry(row, textvariable=self.fields["fecha_egreso"])
-        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        ttk.Button(row, text="📅", width=3,
-                   command=lambda: self._pick_date("fecha_egreso")).pack(side=tk.RIGHT, padx=5)
+        fe_f = ttk.Frame(sec_date)
+        fe_f.grid(row=1, column=1, sticky=tk.EW, padx=10)
+        ttk.Entry(fe_f, textvariable=self.fields["fecha_egreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(fe_f, text="📅", width=3, command=lambda: self._pick_date("fecha_egreso")).pack(side=tk.RIGHT, padx=(5, 0))
 
-        # Resultados calculados (solo lectura)
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Noches:", width=18).pack(side=tk.LEFT)
+        # ─── SECCIÓN: RESUMEN FINANCIERO ────────────────────────────
+        sec_fin = ttk.LabelFrame(main_frame, text=" Resumen Financiero ", padding=15, style="EditSection.TLabelframe")
+        sec_fin.pack(fill=tk.X, pady=10)
+        sec_fin.columnconfigure(1, weight=1)
+        sec_fin.columnconfigure(3, weight=1)
+
+        ttk.Label(sec_fin, text="Noches:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.fields["noches"] = tk.StringVar()
-        ttk.Label(row, textvariable=self.fields["noches"]).pack(side=tk.LEFT, padx=5)
+        ttk.Label(sec_fin, textvariable=self.fields["noches"], font=("Segoe UI", 10, "bold")).grid(row=0, column=1, sticky=tk.W, padx=10)
 
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Costo Total:", width=18).pack(side=tk.LEFT)
+        ttk.Label(sec_fin, text="Costo Total:").grid(row=0, column=2, sticky=tk.W, pady=5)
         self.fields["costo_total"] = tk.StringVar()
-        ttk.Label(row, textvariable=self.fields["costo_total"]).pack(side=tk.LEFT, padx=5)
+        ttk.Label(sec_fin, textvariable=self.fields["costo_total"]).grid(row=0, column=3, sticky=tk.W, padx=10)
 
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Costo c/Descuento:", width=18).pack(side=tk.LEFT)
+        ttk.Label(sec_fin, text="Con Descuento:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.fields["costo_con_descuento"] = tk.StringVar()
-        ttk.Label(row, textvariable=self.fields["costo_con_descuento"]).pack(side=tk.LEFT, padx=5)
+        ttk.Label(sec_fin, textvariable=self.fields["costo_con_descuento"], foreground="#27ae60", font=("Segoe UI", 10, "bold")).grid(row=1, column=1, sticky=tk.W, padx=10)
 
-        row = ttk.Frame(form_frame)
-        row.pack(fill=tk.X, padx=5, pady=2)
-        ttk.Label(row, text="Pago Pendiente:", width=18).pack(side=tk.LEFT)
+        ttk.Label(sec_fin, text="Pago Pendiente:").grid(row=1, column=2, sticky=tk.W, pady=5)
         self.fields["pago_pendiente"] = tk.StringVar()
-        ttk.Label(row, textvariable=self.fields["pago_pendiente"]).pack(side=tk.LEFT, padx=5)
+        ttk.Label(sec_fin, textvariable=self.fields["pago_pendiente"], foreground="#e74c3c", font=("Segoe UI", 10, "bold")).grid(row=1, column=3, sticky=tk.W, padx=10)
 
-        # Bindings para recalcular al cambiar fechas
+        # Bindings
         self.fields["fecha_ingreso"].trace_add("write", lambda *_: self.recalculate())
         self.fields["fecha_egreso"].trace_add("write", lambda *_: self.recalculate())
 
         self.recalculate()
 
-        btn_frame = ttk.Frame(form_frame)
-        btn_frame.pack(pady=10)
-        ttk.Button(btn_frame, text="Guardar Cambios", command=self.save).pack(side=tk.LEFT, padx=5)
+        # Botones
+        btn_frame = ttk.Frame(main_frame, padding=(0, 20, 0, 0))
+        btn_frame.pack(fill=tk.X)
         ttk.Button(btn_frame, text="Cancelar", command=self.window.destroy).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Guardar Cambios", style="Action.TButton", command=self.save).pack(side=tk.RIGHT, padx=5)
 
     def _fmt_date(self, d):
         if isinstance(d, str):
@@ -181,9 +173,22 @@ class EditReservationWindow:
             return self.property_map[name][0]
         return self.original["id_inmueble"]
 
+    def _format_currency(self, value):
+        """Formatea un valor numérico como moneda ($1.234,56)."""
+        try:
+            if isinstance(value, str):
+                value = value.replace('$', '').replace('.', '').replace(',', '.')
+                value = float(value)
+            formatted = f"{value:,.2f}"
+            main_part, decimal_part = formatted.split('.')
+            main_part = main_part.replace(',', '.')
+            return f"${main_part},{decimal_part}"
+        except (ValueError, TypeError):
+            return "$0,00"
+
     def _on_inmueble_change(self, event=None):
         valor = self._get_valor_dia()
-        self.var_valor_dia.set(f"${valor:,.2f}")
+        self.var_valor_dia.set(self._format_currency(valor))
         self.recalculate()
 
     def recalculate(self):
@@ -199,9 +204,9 @@ class EditReservationWindow:
             pago_pendiente = costo_con_desc - self.original["adelanto"]
 
             self.fields["noches"].set(str(noches))
-            self.fields["costo_total"].set(f"${costo_total:,.2f}")
-            self.fields["costo_con_descuento"].set(f"${costo_con_desc:,.2f}")
-            self.fields["pago_pendiente"].set(f"${pago_pendiente:,.2f}")
+            self.fields["costo_total"].set(self._format_currency(costo_total))
+            self.fields["costo_con_descuento"].set(self._format_currency(costo_con_desc))
+            self.fields["pago_pendiente"].set(self._format_currency(pago_pendiente))
         except Exception:
             pass
 
@@ -301,7 +306,11 @@ class ReservationListWindow:
                 vals = list(row)
                 for i in (7, 8, 9, 10, 11):
                     try:
-                        vals[i] = f"{float(vals[i]):,.2f}"
+                        val = float(vals[i])
+                        formatted = f"{val:,.2f}"
+                        m, d_part = formatted.split('.')
+                        m = m.replace(',', '.')
+                        vals[i] = f"${m},{d_part}"
                     except (ValueError, TypeError, IndexError):
                         pass
                 for i in (4, 5):

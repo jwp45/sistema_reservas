@@ -103,7 +103,10 @@ class EditPropertyWindow:
                 self.fields["tipo"].set(result[5])
                 try:
                     valor = float(result[6])
-                    self.fields["valor_dia"].set(f"{valor:,.0f}".replace(",", "."))
+                    formatted = f"{valor:,.2f}"
+                    m, d_part = formatted.split('.')
+                    m = m.replace(',', '.')
+                    self.fields["valor_dia"].set(f"${m},{d_part}")
                 except (ValueError, TypeError):
                     self.fields["valor_dia"].set(result[6])
                 img_path = result[7]
@@ -250,7 +253,11 @@ class PropertyListWindow:
         data_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         try:
-            valor_fmt = f"${float(valor_dia):,.2f}"
+            val = float(valor_dia)
+            formatted = f"{val:,.2f}"
+            m, d_part = formatted.split('.')
+            m = m.replace(',', '.')
+            valor_fmt = f"${m},{d_part}"
         except (ValueError, TypeError):
             valor_fmt = valor_dia
 
