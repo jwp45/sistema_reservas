@@ -147,6 +147,7 @@ class ReservationController:
             "porcentaje_adelanto": tk.StringVar(),
             "adelanto": tk.StringVar(),
             "porcentaje_descuento": tk.StringVar(),
+            "desc,descuento": tk.StringVar(),
             "descuento": tk.StringVar(),
             "inmueble": tk.StringVar(),
             "valor_dia": tk.StringVar(),
@@ -352,4 +353,4 @@ class ReservationController:
             messagebox.showinfo("Éxito", "Reserva guardada correctamente", parent=reservation_window)
             
         except ValueError as e:
-            messagebox.showerror("
+            messagebox.showerror("Error", f"Formato de fecha inválido: {str(e)}", parent=reservation_window)
