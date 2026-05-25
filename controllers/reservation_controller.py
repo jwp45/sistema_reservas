@@ -184,7 +184,8 @@ class ReservationController:
             ("Fecha de egreso:", "fecha_egreso"),
             ("Cantidad de Noches:", "noches"),
             ("Costo Total:", "costo_total"),
-            ("Costo con Descuento:", "costo_con_descuento")
+            ("Costo con Descuento:", "costo_con_descuento"),
+            ("Pago pendiente:", "pago_pendiente") # Nuevo campo
         ]
 
         client_fields = {
@@ -206,7 +207,8 @@ class ReservationController:
             "fecha_egreso": tk.StringVar(),
             "noches": tk.StringVar(),
             "costo_total": tk.StringVar(),
-            "costo_con_descuento": tk.StringVar()
+            "costo_con_descuento": tk.StringVar(),
+            "pago_pendiente": tk.StringVar() # Nuevo StringVar
         }
 
         # Establecer fecha de registro y provincia por defecto
@@ -296,6 +298,14 @@ class ReservationController:
                 # Bindings actualizados: KeyRelease para formato, Return para cálculo
                 entry.bind("<KeyRelease>", lambda event: self.format_discount_input(event, client_fields))
                 entry.bind("<Return>", lambda event: self.update_cost_total(client_fields))
+            elif field[1] == "adelanto":
+                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                entry.bind("<KeyRelease>", lambda event: self.update_cost_total(client_fields)) # Recalcular al cambiar el adelanto
+            elif field[1] == "pago_pendiente":
+                # Este campo es de solo lectura, pero necesita un widget para mostrar el valor
+                entry = ttk.Label(row, textvariable=client_fields[field[1]], foreground="blue", font=('Arial', 10, 'bold'))
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             else:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
@@ -354,8 +364,14 @@ class ReservationController:
         fecha_egreso_str = client_fields["fecha_egreso"].get()
         valor_dia_str = client_fields["valor_dia"].get()
         descuento_str = client_fields["descuento"].get()
+        adelanto_str = client_fields["adelanto"].get()
         
         if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str):
+            # Limpiar campos de costo si faltan datos básicos
+            client_fields["noches"].set("")
+            client_fields["costo_total"].set("$0.00")
+            client_fields["costo_con_descuento"].set("$0.00")
+            client_fields["pago_pendiente"].set("$0.00")
             return
 
         try:
@@ -380,6 +396,13 @@ class ReservationController:
             else:
                 descuento = 0
                 costo_con_descuento = costo_total
+            
+            # Calcular pago pendiente
+            adelanto = 0.0
+            if adelanto_str:
+                adelanto = float(adelanto_str.replace('$', '').replace(',', ''))
+            
+            pago_pendiente = costo_con_descuento - adelanto
             
             # Actualizar campo de costo total
             client_fields["costo_total"].set(f"${costo_total:,.2f}")
@@ -390,8 +413,17 @@ class ReservationController:
             # Actualizar campo de costo con descuento
             client_fields["costo_con_descuento"].set(f"${costo_con_descuento:,.2f}")
             
+            # Actualizar campo de pago pendiente
+            client_fields["pago_pendiente"].set(f"${pago_pendiente:,.2f}")
+            
         except ValueError as e:
-            messagebox.showerror("Error", f"Formato de fecha inválido: {str(e)}", parent=self.master)
+            messagebox.showerror("Error", f"Formato de fecha o moneda inválido: {str(e)}", parent=self.master)
+            # Limpiar campos de costo en caso de error
+            client_fields["costo_total"].set("$0.00")
+            client_fields["noches"].set("")
+            client_fields["costo_con_descuento"].set("$0.00")
+            client_fields["pago_pendiente"].set("$0.00")
+
 
     def save_reservation(self, reservation_window, client_fields):
         # Obtener valores del formulario
@@ -399,13 +431,15 @@ class ReservationController:
         fecha_egreso_str = client_fields["fecha_egreso"].get()
         valor_dia_str = client_fields["valor_dia"].get()
         descuento_str = client_fields["descuento"].get()
+        adelanto_str = client_fields["adelanto"].get()
+        pago_pendiente_str = client_fields["pago_pendiente"].get()
         noches_str = client_fields["noches"].get()
         costo_total_str = client_fields["costo_total"].get()
         costo_con_descuento_str = client_fields["costo_con_descuento"].get()
         
         # Validar campos obligatorios
         if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str and noches_str):
-            messagebox.showerror("Error", "Por favor complete todos los campos", parent=reservation_window)
+            messagebox.showerror("Error", "Por favor complete todos los campos obligatorios (Fechas, Valor por Día)", parent=reservation_window)
             return
 
         try:
@@ -431,6 +465,13 @@ class ReservationController:
                 descuento = 0
                 costo_con_descuento = costo_total
             
+            # Calcular pago pendiente
+            adelanto = 0.0
+            if adelanto_str:
+                adelanto = float(adelanto_str.replace('$', '').replace(',', ''))
+            
+            pago_pendiente = costo_con_descuento - adelanto
+            
             # Guardar la reserva en la base de datos
             reservation_data = {
                 "fecha_ingreso": fecha_ingreso,
@@ -438,7 +479,9 @@ class ReservationController:
                 "valor_dia": valor_dia,
                 "noches": noches,
                 "costo_total": costo_total,
-                "costo_con_descuento": costo_con_descuento
+                "costo_con_descuento": costo_con_descuento,
+                "adelanto": adelanto, # Guardar el adelanto
+                "pago_pendiente": pago_pendiente # Guardar el pago pendiente
             }
             
             # Lógica para guardar en la base de datos
@@ -448,4 +491,4 @@ class ReservationController:
             messagebox.showinfo("Éxito", "Reserva guardada correctamente", parent=reservation_window)
             
         except ValueError as e:
-            messagebox.showerror("Error", f"Formato de fecha inválido: {str(e)}", parent=reservation_window)
+            messagebox.showerror("Error", f"Formato de fecha o moneda inválido: {str(e)}", parent=reservation_window)
