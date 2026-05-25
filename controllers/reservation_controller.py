@@ -1,7 +1,7 @@
 from controllers.database import Database
 import tkinter as tk
 from tkinter import ttk, messagebox
-from datetime import date
+from datetime import date, datetime
 
 import calendar
 
@@ -91,8 +91,11 @@ class ReservationController:
         self.master = master
         self.db = Database()
         # Configurar nombres de meses en español
-        calendar.setfirstweekday(calendar.MONDAY)
-
+        self.months = [
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        ]
+    
     def create_reservation(self):
         # Lógica para crear una nueva reserva
         print("Crear Reserva")
@@ -270,5 +273,48 @@ class ReservationController:
             messagebox.showerror("Error", "Cliente no encontrado", parent=self.master)
 
     def save_reservation(self, reservation_window, client_fields):
-        # Implementación futura para guardar la reserva
-        pass
+        # Obtener valores del formulario
+        fecha_ingreso_str = client_fields["fecha_ingreso"].get()
+        fecha_egreso_str = client_fields["fecha_egreso"].get()
+        valor_dia_str = client_fields["valor_dia"].get()
+        
+        # Validar campos obligatorios
+        if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str):
+            messagebox.showerror("Error", "Por favor complete todos los campos", parent=reservation_window)
+            return
+
+        try:
+            # Convertir fechas a objetos date
+            fecha_ingreso = datetime.strptime(fecha_ingreso_str, "%d/%m/%Y").date()
+            fecha_egreso = datetime.strptime(fecha_egreso_str, "%d/%m/%Y").date()
+            
+            # Calcular número de noches
+            delta = fecha_egreso - fecha_ingreso
+            noches = delta.days
+            
+            # Convertir valor por día a número
+            valor_dia = float(valor_dia_str)
+            
+            # Calcular costo total
+            costo_total = noches * valor_dia
+            
+            # Actualizar campo de costo total
+            client_fields["costo_total"].set(f"{costo_total:.2f}")
+            
+            # Guardar la reserva en la base de datos
+            reservation_data = {
+                "fecha_ingreso": fecha_ingreso,
+                "fecha_egreso": fecha_egreso,
+                "valor_dia": valor_dia,
+                "noches": noches,
+                "costo_total": costo_total
+            }
+            
+            # Lógica para guardar en la base de datos
+            self.db.insert_reservation(reservation_data)
+            
+            # Mostrar mensaje de éxito
+            messagebox.showinfo("Éxito", "Reserva guardada correctamente", parent=reservation_window)
+            
+        except ValueError as e:
+            messagebox.showerror("Error", f"Formato de fecha inválido: {str(e)}", parent=reservation_window)
