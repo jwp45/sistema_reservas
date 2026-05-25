@@ -229,6 +229,10 @@ class ReservationController:
                     command=lambda f=field[1]: self.select_date(f, client_fields, reservation_window)
                 )
                 date_btn.pack(side=tk.RIGHT, padx=5)
+            elif field[1] == "descuento":
+                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
+                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                entry.bind("<Return>", lambda event: self.update_cost_total(client_fields))
             else:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
