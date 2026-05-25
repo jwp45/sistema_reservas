@@ -454,12 +454,12 @@ class ReservationController:
         if not (fecha_ingreso_str and fecha_egreso_str and valor_dia_str):
             # Limpiar campos de costo si faltan datos básicos
             client_fields["noches"].set("")
-            client_fields["costo_total"].set("$0.00")
-            client_fields["costo_con_descuento"].set("$0.00")
-            client_fields["pago_pendiente"].set("$0.00")
+            client_fields["costo_total"].set("0.00")
+            client_fields["costo_con_descuento"].set("0.00")
+            client_fields["pago_pendiente"].set("0.00")
             # Actualizar resúmenes visuales
-            client_fields["display_adelanto"].set("$0.00")
-            client_fields["display_descuento"].set("$0.00")
+            client_fields["display_adelanto"].set("0.00")
+            client_fields["display_descuento"].set("0.00")
             return
 
         try:
@@ -493,31 +493,31 @@ class ReservationController:
             pago_pendiente = costo_con_descuento - adelanto
             
             # Actualizar campo de costo total
-            client_fields["costo_total"].set(f"${costo_total:,.2f}")
+            client_fields["costo_total"].set(f"{costo_total:,.2f}")
             
             # Actualizar campo de cantidad de noches
             client_fields["noches"].set(str(noches))
             
             # Actualizar campo de costo con descuento
-            client_fields["costo_con_descuento"].set(f"${costo_con_descuento:,.2f}")
+            client_fields["costo_con_descuento"].set(f"{costo_con_descuento:,.2f}")
             
             # Actualizar campo de pago pendiente
-            client_fields["pago_pendiente"].set(f"${pago_pendiente:,.2f}")
+            client_fields["pago_pendiente"].set(f"{pago_pendiente:,.2f}")
             
             # *** ACTUALIZACIÓN DE RESUMEN VISUAL ***
-            client_fields["display_adelanto"].set(f"${adelanto:,.2f}")
-            client_fields["display_descuento"].set(f"${descuento:,.2f}")
+            client_fields["display_adelanto"].set(f"{adelanto:,.2f}")
+            client_fields["display_descuento"].set(f"{descuento:,.2f}")
             
         except ValueError as e:
             messagebox.showerror("Error", f"Formato de fecha o moneda inválido: {str(e)}", parent=self.master)
             # Limpiar campos de costo en caso de error
-            client_fields["costo_total"].set("$0.00")
+            client_fields["costo_total"].set("0.00")
             client_fields["noches"].set("")
-            client_fields["costo_con_descuento"].set("$0.00")
-            client_fields["pago_pendiente"].set("$0.00")
+            client_fields["costo_con_descuento"].set("0.00")
+            client_fields["pago_pendiente"].set("0.00")
             # Limpiar resúmenes visuales en caso de error
-            client_fields["display_adelanto"].set("$0.00")
-            client_fields["display_descuento"].set("$0.00")
+            client_fields["display_adelanto"].set("0.00")
+            client_fields["display_descuento"].set("0.00")
 
 
     def save_reservation(self, reservation_window, client_fields):
