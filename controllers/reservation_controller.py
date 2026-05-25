@@ -125,9 +125,9 @@ class ReservationController:
             ("Porcentaje de descuento:", "porcentaje_descuento"),
             ("Descuento:", "descuento"),
             ("Inmueble:", "inmueble"),
+            ("Valor por Día:", "valor_dia"),
             ("Fecha de ingreso:", "fecha_ingreso"),
-            ("Fecha de egreso:", "fecha_egreso"),
-            ("Valor por Día:", "valor_dia")
+            ("Fecha de egreso:", "fecha_egreso")
         ]
 
         client_fields = {
@@ -144,9 +144,9 @@ class ReservationController:
             "porcentaje_descuento": tk.StringVar(),
             "descuento": tk.StringVar(),
             "inmueble": tk.StringVar(),
+            "valor_dia": tk.StringVar(),
             "fecha_ingreso": tk.StringVar(),
-            "fecha_egreso": tk.StringVar(),
-            "valor_dia": tk.StringVar()
+            "fecha_egreso": tk.StringVar()
         }
 
         # Establecer fecha de registro por defecto
@@ -198,7 +198,7 @@ class ReservationController:
             elif field[1] == "valor_dia":
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-            elif field[1] in ["fecha_ingreso", "fecha_egreso", "fecha_registro"]:
+            elif field[1] in ["fecha_ingreso", "fecha_egreso"]:
                 entry = ttk.Entry(row, textvariable=client_fields[field[1]])
                 entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
                 
