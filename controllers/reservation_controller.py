@@ -174,43 +174,16 @@ class ReservationController:
 
 
     def create_reservation(self):
-        # Lógica para crear una nueva reserva
         print("Crear Reserva")
-        
-        # Crear una nueva ventana para el formulario de reserva
+
         reservation_window = tk.Toplevel(self.master)
         reservation_window.title("Detalle de Reserva")
-        reservation_window.geometry("800x700") # Aumentado el tamaño para acomodar el resumen
-        
-        # Frame principal del formulario
+        reservation_window.geometry("800x900")
+
         form_frame = ttk.Frame(reservation_window)
         form_frame.pack(padx=10, pady=10, expand=True, fill=tk.BOTH)
 
-        # Mensaje para notificaciones
-        message_label = ttk.Label(form_frame, text="Ingrese los datos de la reserva", font=('Arial', 14))
-        message_label.pack(side=tk.TOP, padx=5, pady=5)
-
-        # Campos del formulario
-        fields = [
-            ("ID Cliente:", "id_clientes"),
-            ("Nombre:", "nombre"),
-            ("Apellido:", "apellido"),
-            ("Correo electrónico:", "email"),
-            ("Teléfono:", "telefono"),
-            ("Provincia:", "provincia"),
-            ("Fecha de registro:", "fecha_registro"),
-            ("Inmueble:", "inmueble"), # Movido arriba
-            ("Cantidad de personas:", "cantidad_personas"), # Movido abajo
-            ("Adelanto:", "adelanto"),
-            ("Descuento:", "descuento"),
-            ("Valor por Día:", "valor_dia"),
-            ("Fecha de ingreso:", "fecha_ingreso"),
-            ("Fecha de egreso:", "fecha_egreso"),
-            ("Cantidad de Noches:", "noches"),
-            ("Costo Total:", "costo_total"),
-            ("Costo con Descuento:", "costo_con_descuento"),
-            ("Pago pendiente:", "pago_pendiente") # Campo principal
-        ]
+        ttk.Label(form_frame, text="Ingrese los datos de la reserva", font=('Arial', 14)).pack(pady=5)
 
         client_fields = {
             "id_clientes": tk.StringVar(),
@@ -231,14 +204,11 @@ class ReservationController:
             "costo_total": tk.StringVar(),
             "costo_con_descuento": tk.StringVar(),
             "pago_pendiente": tk.StringVar(),
-            # Checkbox para modo porcentaje en descuento
             "discount_is_percentage": tk.BooleanVar(),
-            # Nuevos campos de resumen visual
             "display_adelanto": tk.StringVar(),
             "display_descuento": tk.StringVar()
         }
 
-        # Establecer fecha de registro y provincia por defecto
         client_fields["fecha_registro"].set(date.today().strftime("%d/%m/%Y"))
         client_fields["provincia"].set("Buenos Aires")
 
@@ -249,6 +219,12 @@ class ReservationController:
             "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz",
             "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"
         ]
+
+        if not self.db.connection or not self.db.connection.is_connected():
+            self.db.connect()
+        properties = self.db.get_all_properties()
+        self.property_map = {p[1]: p for p in properties}
+        property_names = list(self.property_map.keys())
 
         def filtrar_provincias(entry, var):
             _last_filter = {}
@@ -264,167 +240,142 @@ class ReservationController:
                     entry.event_generate('<Down>')
             return _on_keyrelease
 
-        for field in fields:
-            row = ttk.Frame(form_frame)
+        def make_row(parent, label_text):
+            row = ttk.Frame(parent)
             row.pack(fill=tk.X, padx=5, pady=2)
+            ttk.Label(row, text=label_text, width=20).pack(side=tk.LEFT)
+            return row
 
-            label = ttk.Label(row, text=field[0], width=20)
-            label.pack(side=tk.LEFT)
+        # ─── SECCIÓN 1: DATOS DEL CLIENTE ────────────────────────────
+        sec1 = ttk.LabelFrame(form_frame, text="Datos del Cliente", padding=5)
+        sec1.pack(fill=tk.X, padx=5, pady=5)
 
-            if field[1] == "provincia":
-                var = client_fields["provincia"]
-                entry = ttk.Combobox(row, textvariable=var, values=provincias)
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                entry.bind("<KeyRelease>", filtrar_provincias(entry, var))
-            elif field[1] == "inmueble":
-                # Cargar los inmuebles desde la base de datos
-                if not self.db.connection or not self.db.connection.is_connected():
-                    self.db.connect()
-                
-                properties = self.db.get_all_properties()
-                self.property_map = {p[1]: p for p in properties}
-                property_names = list(self.property_map.keys())
-                entry = ttk.Combobox(row, textvariable=client_fields[field[1]], values=property_names, state="readonly")
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        row = make_row(sec1, "ID Cliente:")
+        entry = ttk.Entry(row, textvariable=client_fields["id_clientes"])
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        entry.bind("<Return>", lambda event: self.autofill_client_data(client_fields))
 
-                def on_inmueble_select(event):
-                    selected = client_fields["inmueble"].get()
-                    if selected in self.property_map:
-                        property_data = self.property_map[selected]
-                        # Valor por Día (asumiendo índice 7)
-                        valor = property_data[7]
-                        client_fields["valor_dia"].set(f"${valor:,.2f}")
-                        
-                        # Capacidad de personas (asumiendo índice 2)
-                        capacidad = property_data[2]
-                        client_fields["cantidad_personas"].set(str(capacidad))
-                        
-                        self.update_cost_total(client_fields)  # <-- Aquí se llama a la función de actualización
+        row = make_row(sec1, "Nombre:")
+        ttk.Entry(row, textvariable=client_fields["nombre"]).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
-                entry.bind("<<ComboboxSelected>>", on_inmueble_select)
-            elif field[1] == "cantidad_personas":
-                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-            elif field[1] == "valor_dia":
-                # Contenedor para el símbolo $ y el campo de entrada
-                currency_frame = ttk.Frame(row)
-                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                
-                # Etiqueta del símbolo $
-                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
-                
-                # Campo de entrada
-                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-                
-                # Bindings actualizados: KeyRelease para formato, Return para cálculo
-                entry.bind("<KeyRelease>", lambda event: self.format_discount_input(event, client_fields))
-                entry.bind("<Return>", lambda event: self.update_cost_total(client_fields))
-            elif field[1] in ["fecha_ingreso", "fecha_egreso"]:
-                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                
-                date_btn = ttk.Button(
-                    row, 
-                    text="📅", 
-                    width=3,
-                    command=lambda f=field[1]: self.select_date(f, client_fields, reservation_window)
-                )
-                date_btn.pack(side=tk.RIGHT, padx=5)
-            elif field[1] == "descuento":
-                currency_frame = ttk.Frame(row)
-                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        row = make_row(sec1, "Apellido:")
+        ttk.Entry(row, textvariable=client_fields["apellido"]).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
-                symbol_label = ttk.Label(currency_frame, text="$", width=3, anchor="n")
-                symbol_label.pack(side=tk.LEFT)
+        row = make_row(sec1, "Correo electrónico:")
+        ttk.Entry(row, textvariable=client_fields["email"]).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
-                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        row = make_row(sec1, "Teléfono:")
+        ttk.Entry(row, textvariable=client_fields["telefono"]).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
-                def toggle_discount_mode():
-                    if client_fields["discount_is_percentage"].get():
-                        symbol_label.config(text="%")
-                    else:
-                        symbol_label.config(text="$")
-                    client_fields["descuento"].set("")
-                    self.update_cost_total(client_fields)
+        row = make_row(sec1, "Provincia:")
+        var = client_fields["provincia"]
+        entry = ttk.Combobox(row, textvariable=var, values=provincias)
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        entry.bind("<KeyRelease>", filtrar_provincias(entry, var))
 
-                ttk.Checkbutton(
-                    row,
-                    text="Porcentaje",
-                    variable=client_fields["discount_is_percentage"],
-                    command=toggle_discount_mode
-                ).pack(side=tk.LEFT, padx=5)
+        row = make_row(sec1, "Fecha de registro:")
+        ttk.Entry(row, textvariable=client_fields["fecha_registro"], state="readonly").pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
-                entry.bind("<KeyRelease>", lambda event: self.format_discount_input(event, client_fields))
-                entry.bind("<Return>", lambda event: self.update_cost_total(client_fields))
-            elif field[1] == "adelanto":
-                # Contenedor para el símbolo $ y el campo de entrada
-                currency_frame = ttk.Frame(row)
-                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                
-                # Etiqueta del símbolo $
-                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
-                
-                # Campo de entrada
-                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-                
-                # Binding actualizado para incluir formato
-                entry.bind("<KeyRelease>", lambda event: self.format_down_payment_input(event, client_fields))
-            elif field[1] == "pago_pendiente":
-                # Este campo es de solo lectura, pero necesita un widget para mostrar el valor
-                entry = ttk.Label(row, textvariable=client_fields[field[1]], foreground="blue", font=('Arial', 10, 'bold'))
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-            elif field[1] == "noches":
-                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-            elif field[1] == "costo_total":
-                # Contenedor para el símbolo $ y el campo de entrada (solo lectura)
-                currency_frame = ttk.Frame(row)
-                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                
-                # Etiqueta del símbolo $
-                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
-                
-                # Campo de entrada (solo lectura)
-                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]], state='readonly')
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            elif field[1] == "costo_con_descuento":
-                # Contenedor para el símbolo $ y el campo de entrada (solo lectura)
-                currency_frame = ttk.Frame(row)
-                currency_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-                
-                # Etiqueta del símbolo $
-                ttk.Label(currency_frame, text="$", width=3, anchor="n").pack(side=tk.LEFT)
-                
-                # Campo de entrada (solo lectura)
-                entry = ttk.Entry(currency_frame, textvariable=client_fields[field[1]], state='readonly')
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            elif field[1] == "display_adelanto":
-                # Nuevo resumen visual para el adelanto
-                ttk.Label(row, text="Adelanto:", width=15, anchor="e").pack(side=tk.LEFT, padx=(20, 5))
-                ttk.Label(row, textvariable=client_fields["display_adelanto"], foreground="green", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-            elif field[1] == "display_descuento":
-                # Nuevo resumen visual para el descuento
-                ttk.Label(row, text="Descuento:", width=15, anchor="e").pack(side=tk.LEFT, padx=(20, 5))
-                ttk.Label(row, textvariable=client_fields["display_descuento"], foreground="red", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        # ─── SECCIÓN 2: DATOS DE LA RESERVA ──────────────────────────
+        sec2 = ttk.LabelFrame(form_frame, text="Datos de la Reserva", padding=5)
+        sec2.pack(fill=tk.X, padx=5, pady=5)
+
+        row = make_row(sec2, "Inmueble:")
+        entry = ttk.Combobox(row, textvariable=client_fields["inmueble"], values=property_names, state="readonly")
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        def on_inmueble_select(event):
+            selected = client_fields["inmueble"].get()
+            if selected in self.property_map:
+                pd = self.property_map[selected]
+                client_fields["valor_dia"].set(f"${pd[7]:,.2f}")
+                client_fields["cantidad_personas"].set(str(pd[2]))
+                self.update_cost_total(client_fields)
+        entry.bind("<<ComboboxSelected>>", on_inmueble_select)
+
+        row = make_row(sec2, "Cantidad de personas:")
+        ttk.Entry(row, textvariable=client_fields["cantidad_personas"]).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        row = make_row(sec2, "Valor por Día:")
+        cf = ttk.Frame(row)
+        cf.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        ttk.Label(cf, text="$", width=3, anchor="n").pack(side=tk.LEFT)
+        entry = ttk.Entry(cf, textvariable=client_fields["valor_dia"])
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        entry.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
+        entry.bind("<Return>", lambda e: self.update_cost_total(client_fields))
+
+        row = make_row(sec2, "Fecha de ingreso:")
+        entry = ttk.Entry(row, textvariable=client_fields["fecha_ingreso"])
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        ttk.Button(row, text="📅", width=3, command=lambda: self.select_date("fecha_ingreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=5)
+
+        row = make_row(sec2, "Fecha de egreso:")
+        entry = ttk.Entry(row, textvariable=client_fields["fecha_egreso"])
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        ttk.Button(row, text="📅", width=3, command=lambda: self.select_date("fecha_egreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=5)
+
+        # ─── SECCIÓN 3: COSTOS ──────────────────────────────────────
+        sec3 = ttk.LabelFrame(form_frame, text="Costos", padding=5)
+        sec3.pack(fill=tk.X, padx=5, pady=5)
+
+        row = make_row(sec3, "Adelanto:")
+        cf = ttk.Frame(row)
+        cf.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        ttk.Label(cf, text="$", width=3, anchor="n").pack(side=tk.LEFT)
+        entry = ttk.Entry(cf, textvariable=client_fields["adelanto"])
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        entry.bind("<KeyRelease>", lambda e: self.format_down_payment_input(e, client_fields))
+
+        row = make_row(sec3, "Descuento:")
+        cf = ttk.Frame(row)
+        cf.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        symbol_label = ttk.Label(cf, text="$", width=3, anchor="n")
+        symbol_label.pack(side=tk.LEFT)
+        entry = ttk.Entry(cf, textvariable=client_fields["descuento"])
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        def toggle_discount_mode():
+            if client_fields["discount_is_percentage"].get():
+                symbol_label.config(text="%")
             else:
-                entry = ttk.Entry(row, textvariable=client_fields[field[1]])
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+                symbol_label.config(text="$")
+            client_fields["descuento"].set("")
+            self.update_cost_total(client_fields)
+        ttk.Checkbutton(row, text="Porcentaje", variable=client_fields["discount_is_percentage"],
+                        command=toggle_discount_mode).pack(side=tk.LEFT, padx=5)
+        entry.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
+        entry.bind("<Return>", lambda e: self.update_cost_total(client_fields))
 
-            # Si es el campo ID Cliente, vincular la tecla Enter para autocompletar
-            if field[1] == "id_clientes":
-                entry.bind("<Return>", lambda event: self.autofill_client_data(client_fields))
+        row = make_row(sec3, "Cantidad de Noches:")
+        ttk.Entry(row, textvariable=client_fields["noches"]).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
-        # Botón para reservar
-        reserve_button = ttk.Button(
-            form_frame,
-            text="Reservar",
-            command=lambda: self.save_reservation(reservation_window, client_fields),
-            style="TButton"
-        )
-        reserve_button.pack(pady=10, side=tk.BOTTOM)
+        row = make_row(sec3, "Costo Total:")
+        cf = ttk.Frame(row)
+        cf.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        ttk.Label(cf, text="$", width=3, anchor="n").pack(side=tk.LEFT)
+        ttk.Entry(cf, textvariable=client_fields["costo_total"], state="readonly").pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        row = make_row(sec3, "Costo con Descuento:")
+        cf = ttk.Frame(row)
+        cf.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        ttk.Label(cf, text="$", width=3, anchor="n").pack(side=tk.LEFT)
+        ttk.Entry(cf, textvariable=client_fields["costo_con_descuento"], state="readonly").pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        row = make_row(sec3, "Pago pendiente:")
+        ttk.Label(row, textvariable=client_fields["pago_pendiente"], foreground="blue", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # Resumen visual
+        row = make_row(sec3, "")
+        ttk.Label(row, text="Adelanto:", width=15, anchor="e").pack(side=tk.LEFT, padx=(20, 5))
+        ttk.Label(row, textvariable=client_fields["display_adelanto"], foreground="green", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        row = make_row(sec3, "")
+        ttk.Label(row, text="Descuento:", width=15, anchor="e").pack(side=tk.LEFT, padx=(20, 5))
+        ttk.Label(row, textvariable=client_fields["display_descuento"], foreground="red", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # Botón
+        ttk.Button(form_frame, text="Reservar",
+                   command=lambda: self.save_reservation(reservation_window, client_fields),
+                   style="TButton").pack(pady=10, side=tk.BOTTOM)
 
     def select_date(self, field_name, client_fields, parent):
         def update_date_field(selected_date):

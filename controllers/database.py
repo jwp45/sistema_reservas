@@ -63,7 +63,7 @@ class Database:
         """Obtener todos los inmuebles desde la base de datos"""
         try:
             cursor = self.connection.cursor()
-            query = "SELECT id_inmueble, nombre, cantidad_personas, direccion, localidad, provincia, tipo, valor_dia FROM inmuebles"
+            query = "SELECT id_inmueble, nombre, cantidad_personas, direccion, localidad, provincia, tipo, valor_dia, COALESCE(imagen, '') FROM inmuebles"
             cursor.execute(query)
             result = cursor.fetchall()
             return result
