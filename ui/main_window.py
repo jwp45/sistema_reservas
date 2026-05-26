@@ -187,79 +187,90 @@ class MainWindow:
         pass
 
     def handle_clients(self):
-        """Manejar la lógica para clientes"""
-        # Crear una nueva ventana para el formulario de clientes
+        """Manejar la lógica para el registro de nuevos clientes"""
         client_window = tk.Toplevel(self.root)
-        client_window.title("Gestión de Clientes")
-        client_window.geometry("450x300")
+        client_window.title("Registrar Nuevo Cliente")
+        client_window.geometry("550x500")
+        client_window.configure(bg="#f8f9fa")
+        client_window.transient(self.root)
 
-        # Frame principal del formulario
-        form_frame = ttk.Frame(client_window)
-        form_frame.pack(padx=10, pady=10, expand=True)
+        # Estilos locales
+        style = ttk.Style(client_window)
+        style.configure("ClientFormHeader.TLabel", font=("Segoe UI", 16, "bold"), foreground="#2c3e50", background="#f8f9fa")
+        style.configure("ClientFormSection.TLabelframe", font=("Segoe UI", 10, "bold"))
+        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
 
-        # Mensaje para notificaciones
-        message_label = ttk.Label(form_frame, text="Ingrese los datos del cliente", font=('Arial', 14))
-        message_label.pack(side=tk.TOP, padx=5, pady=5)
+        main_frame = ttk.Frame(client_window, padding=30)
+        main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Campos del formulario
-        fields = [
-            ("ID Cliente:", "id_clientes"),
-            ("Nombre:", "nombre"),
-            ("Apellido:", "apellido"),
-            ("Correo electrónico:", "email"),
-            ("Teléfono:", "telefono")
+        ttk.Label(main_frame, text="Registro de Huésped", style="ClientFormHeader.TLabel").pack(pady=(0, 25))
+
+        # Sección de Datos
+        sec_form = ttk.LabelFrame(main_frame, text=" Información Personal ", padding=20, style="ClientFormSection.TLabelframe")
+        sec_form.pack(fill=tk.X, pady=10)
+        sec_form.columnconfigure(1, weight=1)
+
+        # Obtener el próximo ID disponible
+        db = Database()
+        db.connect()
+        next_id = db.get_next_available_client_id()
+        self.client_fields["id_clientes"].set(str(next_id))
+
+        # Campos del formulario (limpiar primero)
+        for key in ["nombre", "apellido", "email", "telefono"]:
+            self.client_fields[key].set("")
+
+        fields_order = [
+            ("ID Cliente:", "id_clientes", True), # El tercer elemento indica si es solo lectura para el usuario inicial
+            ("Nombre:", "nombre", False),
+            ("Apellido:", "apellido", False),
+            ("Email:", "email", False),
+            ("Teléfono:", "telefono", False)
         ]
 
-        for field in fields:
-            row = ttk.Frame(form_frame)
-            row.pack(fill=tk.X, padx=5, pady=2)
+        for i, (label_text, field_name, is_readonly) in enumerate(fields_order):
+            ttk.Label(sec_form, text=label_text).grid(row=i, column=0, sticky=tk.W, pady=10, padx=(0, 15))
+            state = "readonly" if is_readonly else "normal"
+            ttk.Entry(sec_form, textvariable=self.client_fields[field_name], state=state).grid(row=i, column=1, sticky=tk.EW, pady=10)
 
-            label = ttk.Label(row, text=field[0], width=15)
-            label.pack(side=tk.LEFT)
-
-            entry = ttk.Entry(row, textvariable=self.client_fields[field[1]])
-            entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
-
-        # Botón para guardar
-        save_button = ttk.Button(
-            form_frame,
-            text="Guardar Cliente",
-            command=lambda: self.save_client(client_window),
-            style="TButton"
-        )
-        save_button.pack(pady=10, side=tk.BOTTOM)
-
-    def select_date(self, field_name, master):
-        """Manejar la selección de fecha de nacimiento"""
-        date_dialog = tk.Toplevel(master)
-        date_dialog.title("Seleccionar Fecha")
-
-        today = date.today()
-        self.client_fields[field_name].set(today.strftime("%d/%m/%Y"))
+        # Barra de Botones
+        btn_frame = ttk.Frame(main_frame, padding=(0, 20, 0, 0))
+        btn_frame.pack(fill=tk.X)
+        
+        ttk.Button(btn_frame, text="CANCELAR", command=client_window.destroy).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="GUARDAR CLIENTE", style="Action.TButton", 
+                   command=lambda: self.save_client(client_window)).pack(side=tk.RIGHT, padx=5)
 
     def save_client(self, client_window):
         """Guardar los datos del cliente en la base de datos"""
         # Validación de entradas
-        if not self.client_fields["nombre"].get() or not self.client_fields["apellido"].get() or not self.client_fields["email"].get() or not self.client_fields["telefono"].get():
+        nombre = self.client_fields["nombre"].get()
+        apellido = self.client_fields["apellido"].get()
+        email = self.client_fields["email"].get()
+        telefono = self.client_fields["telefono"].get()
+        id_cliente = self.client_fields["id_clientes"].get()
+
+        if not (nombre and apellido and email and telefono):
             messagebox.showerror("Error", "Todos los campos son obligatorios", parent=client_window)
             return
 
         client_data = (
-            self.client_fields["nombre"].get(),
-            self.client_fields["apellido"].get(),
-            self.client_fields["email"].get(),
-            self.client_fields["telefono"].get()
+            int(id_cliente),
+            nombre,
+            apellido,
+            email,
+            telefono
         )
 
         db = Database()
         if db.connect():
-            next_id = db.get_next_id()
-            if next_id is not None:
-                self.client_fields["id_clientes"].set(next_id)
-            db.insert_client(client_data)
-            messagebox.showinfo("Éxito", "Cliente guardado exitosamente", parent=client_window)
+            if db.insert_client(client_data):
+                messagebox.showinfo("Éxito", f"Cliente {nombre} {apellido} registrado exitosamente con ID #{id_cliente}", parent=client_window)
+                client_window.destroy()
+            else:
+                messagebox.showerror("Error", "No se pudo guardar el cliente en la base de datos", parent=client_window)
         else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=client_window)
+            messagebox.showerror("Error", "Error de conexión a la base de datos", parent=client_window)
 
     def save_reservation(self, reservation_window):
         """Guardar los datos de la reserva en la base de datos"""

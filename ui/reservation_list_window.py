@@ -251,93 +251,163 @@ class ReservationListWindow:
         self.master = master
 
         self.window = tk.Toplevel(master)
-        self.window.title("Mis Reservas")
-        self.window.geometry("1000x550")
+        self.window.title("Historial de Reservas")
+        self.window.geometry("1200x700")
+        self.window.configure(bg="#f8f9fa")
 
-        main_frame = ttk.Frame(self.window)
-        main_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        # Estilos locales
+        style = ttk.Style(self.window)
+        style.configure("Res.TFrame", background="#f8f9fa")
+        style.configure("Card.TFrame", background="white", relief="ridge", borderwidth=1)
+        style.configure("Header.TLabel", font=("Segoe UI", 18, "bold"), foreground="#2c3e50", background="#f8f9fa")
+        style.configure("Stat.TLabel", font=("Segoe UI", 10), foreground="#7f8c8d", background="#f8f9fa")
+        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
+
+        main_container = ttk.Frame(self.window, padding=25, style="Res.TFrame")
+        main_container.pack(fill=tk.BOTH, expand=True)
+
+        # --- CABECERA ---
+        header_frame = ttk.Frame(main_container, style="Res.TFrame")
+        header_frame.pack(fill=tk.X, pady=(0, 20))
+        ttk.Label(header_frame, text="Gestión de Reservas", style="Header.TLabel").pack(side=tk.LEFT)
+        
+        self.lbl_stats = ttk.Label(header_frame, text="Cargando datos...", style="Stat.TLabel")
+        self.lbl_stats.pack(side=tk.LEFT, padx=25, pady=(12, 0))
+
+        # --- BARRA DE FILTROS ---
+        filter_card = ttk.Frame(main_container, padding=15, style="Card.TFrame")
+        filter_card.pack(fill=tk.X, pady=(0, 20))
+
+        ttk.Label(filter_card, text="BUSCAR:", font=("Segoe UI", 9, "bold"), background="white").pack(side=tk.LEFT, padx=(0, 10))
+        self.search_var = tk.StringVar()
+        search_entry = ttk.Entry(filter_card, textvariable=self.search_var, font=("Segoe UI", 10), width=40)
+        search_entry.pack(side=tk.LEFT, padx=(0, 10))
+        search_entry.bind("<KeyRelease>", lambda e: self.filter_reservations())
+
+        ttk.Button(filter_card, text="Refrescar Lista", command=self.refresh_table).pack(side=tk.RIGHT, padx=5)
+
+        # --- TABLA DE RESERVAS ---
+        table_frame = ttk.Frame(main_container, style="Card.TFrame")
+        table_frame.pack(fill=tk.BOTH, expand=True)
 
         columns = (
             "ID", "Cliente", "Teléfono", "Inmueble",
             "Ingreso", "Egreso", "Noches", "Valor/día",
             "Total", "C/Desc", "Adelanto", "Pendiente"
         )
-        self.table = ttk.Treeview(main_frame, columns=columns, show="headings")
-
-        col_widths = [40, 150, 100, 120, 90, 90, 60, 80, 90, 90, 90, 90]
-        for col, w in zip(columns, col_widths):
-            self.table.heading(col, text=col)
-            self.table.column(col, width=w)
-
+        
+        # Scrollbars
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical")
+        x_scroll = ttk.Scrollbar(table_frame, orient="horizontal")
+        
+        self.table = ttk.Treeview(table_frame, columns=columns, show="headings", 
+                                 yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set,
+                                 selectmode="browse")
+        
+        y_scroll.config(command=self.table.yview)
+        x_scroll.config(command=self.table.xview)
+        
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
         self.table.pack(fill=tk.BOTH, expand=True)
 
-        scrollbar = ttk.Scrollbar(self.table, orient="vertical", command=self.table.yview)
-        self.table.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # Configuración de columnas
+        col_widths = [40, 160, 110, 140, 120, 120, 60, 90, 100, 100, 100, 110]
+        for col, w in zip(columns, col_widths):
+            self.table.heading(col, text=col.upper(), anchor=tk.CENTER)
+            self.table.column(col, width=w, anchor=tk.CENTER if col in ["ID", "Noches"] else tk.W)
 
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill=tk.X, pady=5)
+        # --- ACCIONES ---
+        btn_frame = ttk.Frame(main_container, style="Res.TFrame")
+        btn_frame.pack(fill=tk.X, pady=(20, 0))
 
-        ttk.Button(btn_frame, text="Modificar Reserva", command=self.modify_reservation).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="Eliminar Reserva", command=self.delete_reservation).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="ELIMINAR RESERVA", command=self.delete_reservation).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="MODIFICAR DETALLES", style="Action.TButton", command=self.modify_reservation).pack(side=tk.RIGHT)
 
-        self.load_reservations()
-
-    def get_selected_id(self):
-        selected = self.table.selection()
-        if not selected:
-            messagebox.showwarning("Advertencia", "Seleccione una reserva")
-            return None
-        return int(self.table.item(selected[0])['values'][0])
-
-    def refresh_table(self):
-        for item in self.table.get_children():
-            self.table.delete(item)
         self.load_reservations()
 
     def load_reservations(self):
         from datetime import datetime
         meses = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio",
                  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+        
+        for item in self.table.get_children():
+            self.table.delete(item)
+            
         db = Database()
         if db.connect():
             rows = db.get_all_reservations()
+            total_pending = 0.0
+            
             for row in rows:
                 vals = list(row)
+                
+                # Formatear montos
                 for i in (7, 8, 9, 10, 11):
                     try:
                         val = float(vals[i])
+                        if i == 11: total_pending += val # Acumular pendiente
                         formatted = f"{val:,.2f}"
                         m, d_part = formatted.split('.')
                         m = m.replace(',', '.')
                         vals[i] = f"${m},{d_part}"
-                    except (ValueError, TypeError, IndexError):
-                        pass
+                    except: pass
+                
+                # Formatear fechas
                 for i in (4, 5):
                     try:
                         d = datetime.strptime(str(vals[i]), "%Y-%m-%d")
                         vals[i] = f"{d.day} {meses[d.month]} {d.year}"
-                    except (ValueError, TypeError, IndexError):
-                        pass
+                    except: pass
+                
                 self.table.insert("", "end", values=tuple(vals))
+            
+            # Actualizar estadísticas
+            self.lbl_stats.config(text=f"Total: {len(rows)} reservas | Cobro Pendiente: ${total_pending:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos")
 
+    def filter_reservations(self):
+        query = self.search_var.get().lower()
+        # Para filtrar Treeview en tiempo real, solemos recargar.
+        # Una alternativa más eficiente es ocultar items, pero recargar es más seguro con la BD.
+        # Aquí implementaremos un filtrado local sobre los datos cargados si fuera posible, 
+        # pero por simplicidad y consistencia refrescaremos con lógica local.
+        
+        for item in self.table.get_children():
+            values = self.table.item(item, 'values')
+            # Buscar en Cliente, Inmueble e ID
+            search_text = f"{values[0]} {values[1]} {values[3]}".lower()
+            if query in search_text:
+                pass # Mantener
+            else:
+                self.table.detach(item) # Ocultar temporalmente
+
+    def refresh_table(self):
+        self.search_var.set("")
+        self.load_reservations()
+
+    def get_selected_id(self):
+        selected = self.table.selection()
+        if not selected:
+            messagebox.showwarning("Advertencia", "Seleccione una reserva de la lista")
+            return None
+        return int(self.table.item(selected[0])['values'][0])
+
     def delete_reservation(self):
         rid = self.get_selected_id()
-        if rid is None:
-            return
-        if messagebox.askyesno("Confirmar", "¿Está seguro de eliminar esta reserva?"):
+        if rid is None: return
+        
+        if messagebox.askyesno("Confirmar", f"¿Está seguro de eliminar la reserva #{rid}?"):
             db = Database()
             if db.connect():
                 if db.delete_reservation(rid):
                     messagebox.showinfo("Éxito", "Reserva eliminada correctamente")
-                    self.refresh_table()
+                    self.load_reservations()
                 else:
                     messagebox.showerror("Error", "No se pudo eliminar la reserva")
 
     def modify_reservation(self):
         rid = self.get_selected_id()
-        if rid is None:
-            return
-        EditReservationWindow(self.master, rid, self.refresh_table)
+        if rid is None: return
+        EditReservationWindow(self.master, rid, self.load_reservations)

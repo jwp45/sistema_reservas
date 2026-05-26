@@ -16,13 +16,36 @@ class PropertyFormWindow:
         self.imagen_path = ""
 
         self.window = tk.Toplevel(master)
-        self.window.title("Agregar Inmueble")
-        self.window.geometry("500x550")
+        self.window.title("Registrar Nuevo Inmueble")
+        self.window.geometry("600x800")
+        self.window.configure(bg="#f8f9fa")
+        self.window.transient(master)
 
-        form_frame = ttk.Frame(self.window)
-        form_frame.pack(padx=10, pady=10, expand=True, fill=tk.BOTH)
+        # Estilos locales
+        style = ttk.Style(self.window)
+        style.configure("FormHeader.TLabel", font=("Segoe UI", 16, "bold"), foreground="#2c3e50", background="#f8f9fa")
+        style.configure("FormSection.TLabelframe", font=("Segoe UI", 10, "bold"))
+        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
 
-        ttk.Label(form_frame, text="Ingrese los datos del inmueble", font=('Arial', 14)).pack(pady=5)
+        main_scroll_container = ttk.Frame(self.window)
+        main_scroll_container.pack(fill=tk.BOTH, expand=True)
+
+        canvas = tk.Canvas(main_scroll_container, bg="#f8f9fa", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_scroll_container, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas, padding=20)
+
+        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=560)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        ttk.Label(scrollable_frame, text="Registro de Inmueble", style="FormHeader.TLabel").pack(pady=(0, 20))
+
+        # --- SECCIÓN 1: DETALLES GENERALES ---
+        sec_info = ttk.LabelFrame(scrollable_frame, text=" Información General ", padding=15, style="FormSection.TLabelframe")
+        sec_info.pack(fill=tk.X, pady=10)
+        sec_info.columnconfigure(1, weight=1)
 
         self.fields = {
             "nombre": tk.StringVar(),
@@ -33,37 +56,68 @@ class PropertyFormWindow:
             "tipo": tk.StringVar(),
             "valor_dia": tk.StringVar()
         }
+        
+        self.fields["provincia"].set("Buenos Aires")
 
-        fields_order = [
-            ("Nombre:", "nombre"),
-            ("Cantidad:", "cantidad_personas"),
-            ("Dirección:", "direccion"),
-            ("Localidad:", "localidad"),
-            ("Provincia:", "provincia"),
-            ("Tipo:", "tipo"),
-            ("Valor por Día:", "valor_dia")
-        ]
+        ttk.Label(sec_info, text="Nombre:").grid(row=0, column=0, sticky=tk.W, pady=8)
+        ttk.Entry(sec_info, textvariable=self.fields["nombre"]).grid(row=0, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
 
-        for label_text, field_name in fields_order:
-            row = ttk.Frame(form_frame)
-            row.pack(fill=tk.X, padx=5, pady=2)
-            ttk.Label(row, text=label_text, width=15).pack(side=tk.LEFT)
-            ttk.Entry(row, textvariable=self.fields[field_name]).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+        ttk.Label(sec_info, text="Tipo:").grid(row=1, column=0, sticky=tk.W, pady=8)
+        self.combo_tipo = ttk.Combobox(sec_info, textvariable=self.fields["tipo"], 
+                                      values=["Casa", "Departamento", "Cabaña", "Habitación", "Quinta"], state="readonly")
+        self.combo_tipo.grid(row=1, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
+        self.combo_tipo.set("Departamento")
 
-        # Imagen
-        img_frame = ttk.LabelFrame(form_frame, text="Imagen", padding=5)
-        img_frame.pack(fill=tk.X, padx=5, pady=5)
+        ttk.Label(sec_info, text="Capacidad:").grid(row=2, column=0, sticky=tk.W, pady=8)
+        ttk.Entry(sec_info, textvariable=self.fields["cantidad_personas"]).grid(row=2, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
 
-        btn_row = ttk.Frame(img_frame)
-        btn_row.pack(fill=tk.X, pady=2)
+        ttk.Label(sec_info, text="Valor por Día:").grid(row=3, column=0, sticky=tk.W, pady=8)
+        ent_val = ttk.Entry(sec_info, textvariable=self.fields["valor_dia"])
+        ent_val.grid(row=3, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
+        ent_val.bind("<KeyRelease>", self._format_currency_input)
+
+        # --- SECCIÓN 2: UBICACIÓN ---
+        sec_loc = ttk.LabelFrame(scrollable_frame, text=" Ubicación ", padding=15, style="FormSection.TLabelframe")
+        sec_loc.pack(fill=tk.X, pady=10)
+        sec_loc.columnconfigure(1, weight=1)
+
+        ttk.Label(sec_loc, text="Dirección:").grid(row=0, column=0, sticky=tk.W, pady=8)
+        ttk.Entry(sec_loc, textvariable=self.fields["direccion"]).grid(row=0, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
+
+        ttk.Label(sec_loc, text="Localidad:").grid(row=1, column=0, sticky=tk.W, pady=8)
+        ttk.Entry(sec_loc, textvariable=self.fields["localidad"]).grid(row=1, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
+
+        ttk.Label(sec_loc, text="Provincia:").grid(row=2, column=0, sticky=tk.W, pady=8)
+        ttk.Entry(sec_loc, textvariable=self.fields["provincia"]).grid(row=2, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
+
+        # --- SECCIÓN 3: IMAGEN ---
+        sec_img = ttk.LabelFrame(scrollable_frame, text=" Multimedia ", padding=15, style="FormSection.TLabelframe")
+        sec_img.pack(fill=tk.X, pady=10)
+
+        btn_row = ttk.Frame(sec_img)
+        btn_row.pack(fill=tk.X)
         ttk.Button(btn_row, text="Seleccionar Imagen", command=self.select_image).pack(side=tk.LEFT, padx=5)
-        self.lbl_img_name = ttk.Label(btn_row, text="Ninguna imagen seleccionada", foreground="gray")
+        self.lbl_img_name = ttk.Label(btn_row, text="Ninguna seleccionada", foreground="gray", font=("Segoe UI", 9))
         self.lbl_img_name.pack(side=tk.LEFT, padx=5)
 
-        self.img_preview = ttk.Label(img_frame)
-        self.img_preview.pack(pady=5)
+        self.img_preview = ttk.Label(sec_img, background="#ecf0f1", relief=tk.RIDGE)
+        self.img_preview.pack(pady=15)
 
-        ttk.Button(form_frame, text="Guardar Inmueble", command=self.save_property, style="TButton").pack(pady=10, side=tk.BOTTOM)
+        # Botones de Acción
+        btn_frame = ttk.Frame(scrollable_frame, padding=(0, 20, 0, 0))
+        btn_frame.pack(fill=tk.X)
+        ttk.Button(btn_frame, text="CANCELAR", command=self.window.destroy).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="GUARDAR INMUEBLE", style="Action.TButton", command=self.save_property).pack(side=tk.RIGHT, padx=5)
+
+    def _format_currency_input(self, event):
+        text = self.fields["valor_dia"].get()
+        cleaned = ''.join(filter(lambda char: char.isdigit(), text))
+        if cleaned:
+            val = float(cleaned)
+            formatted = f"{val:,.0f}".replace(',', '.')
+            self.fields["valor_dia"].set(f"${formatted}")
+        else:
+            self.fields["valor_dia"].set("")
 
     def select_image(self):
         path = filedialog.askopenfilename(
@@ -75,7 +129,7 @@ class PropertyFormWindow:
             self.lbl_img_name.config(text=os.path.basename(path), foreground="black")
             try:
                 img = Image.open(path)
-                img.thumbnail((200, 150))
+                img.thumbnail((300, 200))
                 tk_img = ImageTk.PhotoImage(img)
                 self.img_preview.config(image=tk_img)
                 self.img_preview.image = tk_img
@@ -87,7 +141,14 @@ class PropertyFormWindow:
             messagebox.showerror("Error", "Todos los campos son obligatorios", parent=self.window)
             return
 
-        valor_dia_clean = self.fields["valor_dia"].get().replace(".", "")
+        # Limpiar formato de moneda
+        valor_raw = self.fields["valor_dia"].get().replace('$', '').replace('.', '').replace(',', '.')
+        try:
+            valor_dia = float(valor_raw)
+        except:
+            messagebox.showerror("Error", "Valor por día inválido")
+            return
+
         property_data = (
             self.fields["nombre"].get(),
             self.fields["cantidad_personas"].get(),
@@ -95,7 +156,7 @@ class PropertyFormWindow:
             self.fields["localidad"].get(),
             self.fields["provincia"].get(),
             self.fields["tipo"].get(),
-            valor_dia_clean
+            valor_dia
         )
 
         db = Database()
@@ -106,7 +167,6 @@ class PropertyFormWindow:
             db.connection.commit()
             id_inmueble = cursor.lastrowid
 
-            # Copiar imagen si se seleccionó
             if self.imagen_path:
                 ext = os.path.splitext(self.imagen_path)[1]
                 dest = os.path.join(ASSETS_DIR, f"{id_inmueble}{ext}")
