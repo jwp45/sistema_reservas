@@ -19,34 +19,46 @@ class EditPropertyWindow:
         self.imagen_path = ""
 
         self.window = tk.Toplevel(master)
-        self.window.title("Editar Inmueble")
-        self.window.geometry("600x750")
-        self.window.configure(bg="#f8f9fa")
+        self.window.title("Ficha Técnica - Panel de Gestión")
+        self.window.geometry("650x800")
+        self.window.configure(bg="#f0f2f5")
         self.window.transient(master)
 
-        # Estilos locales
+        # --- ESTILOS LOCALES ---
         style = ttk.Style(self.window)
-        style.configure("EditHeader.TLabel", font=("Segoe UI", 16, "bold"), foreground="#2c3e50", background="#f8f9fa")
-        style.configure("EditSection.TLabelframe", font=("Segoe UI", 10, "bold"))
-        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
+        style.configure("PHeader.TFrame", background="#2c3e50")
+        style.configure("PContent.TFrame", background="#f0f2f5")
+        style.configure("PSection.TLabelframe", font=("Segoe UI", 10, "bold"), background="white")
+        style.configure("PAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
 
-        main_scroll_container = ttk.Frame(self.window)
+        # --- ENCABEZADO ---
+        header_frame = tk.Frame(self.window, bg="#2c3e50", height=70)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        tk.Label(header_frame, text=f"🏠 GESTIONAR INMUEBLE #{property_id}", font=("Segoe UI", 14, "bold"), 
+                 bg="#2c3e50", fg="#ecf0f1").pack(side=tk.LEFT, padx=30, pady=18)
+
+        # --- CONTENIDO DESPLAZABLE ---
+        main_scroll_container = ttk.Frame(self.window, style="PContent.TFrame")
         main_scroll_container.pack(fill=tk.BOTH, expand=True)
 
-        canvas = tk.Canvas(main_scroll_container, bg="#f8f9fa", highlightthickness=0)
+        canvas = tk.Canvas(main_scroll_container, bg="#f0f2f5", highlightthickness=0)
         scrollbar = ttk.Scrollbar(main_scroll_container, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, padding=20)
+        scrollable_frame = tk.Frame(canvas, bg="#f0f2f5")
 
         scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=560)
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=620)
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        ttk.Label(scrollable_frame, text=f"Editando Inmueble #{property_id}", style="EditHeader.TLabel").pack(pady=(0, 20))
+        content_padding = tk.Frame(scrollable_frame, bg="#f0f2f5", padx=30, pady=20)
+        content_padding.pack(fill=tk.BOTH, expand=True)
 
-        # --- SECCIÓN 1: DATOS BÁSICOS ---
-        sec_info = ttk.LabelFrame(scrollable_frame, text=" Información General ", padding=15, style="EditSection.TLabelframe")
+        # --- SECCIÓN 1: DATOS GENERALES ---
+        sec_info = tk.LabelFrame(content_padding, text=" ESPECIFICACIONES TÉCNICAS ", font=("Segoe UI", 9, "bold"), 
+                                bg="white", fg="#2c3e50", padx=25, pady=25, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sec_info.pack(fill=tk.X, pady=10)
         sec_info.columnconfigure(1, weight=1)
 
@@ -61,42 +73,51 @@ class EditPropertyWindow:
         }
 
         fields_order = [
-            ("Nombre:", "nombre"),
-            ("Tipo:", "tipo"),
-            ("Capacidad:", "cantidad_personas"),
-            ("Dirección:", "direccion"),
-            ("Localidad:", "localidad"),
-            ("Provincia:", "provincia"),
-            ("Valor por Día:", "valor_dia")
+            ("NOMBRE DEL INMUEBLE:", "nombre"),
+            ("TIPO DE PROPIEDAD:", "tipo"),
+            ("CAPACIDAD MÁXIMA:", "cantidad_personas"),
+            ("VALOR POR NOCHE:", "valor_dia")
         ]
 
         for i, (label_text, field_name) in enumerate(fields_order):
-            ttk.Label(sec_info, text=label_text).grid(row=i, column=0, sticky=tk.W, pady=8, padx=(0, 10))
-            ent = ttk.Entry(sec_info, textvariable=self.fields[field_name])
-            ent.grid(row=i, column=1, sticky=tk.EW, pady=8)
+            tk.Label(sec_info, text=label_text, bg="white", font=("Segoe UI", 8, "bold")).grid(row=i, column=0, sticky=tk.W, pady=10, padx=(0, 15))
+            ent = ttk.Entry(sec_info, textvariable=self.fields[field_name], font=("Segoe UI", 10))
+            ent.grid(row=i, column=1, sticky=tk.EW, pady=10)
             if field_name == "valor_dia":
                 ent.bind("<KeyRelease>", self._format_currency_input)
 
-        # --- SECCIÓN 2: IMAGEN ---
-        sec_img = ttk.LabelFrame(scrollable_frame, text=" Multimedia ", padding=15, style="EditSection.TLabelframe")
+        # --- SECCIÓN 2: UBICACIÓN ---
+        sec_loc = tk.LabelFrame(content_padding, text=" LOCALIZACIÓN ", font=("Segoe UI", 9, "bold"), 
+                               bg="white", fg="#2c3e50", padx=25, pady=25, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+        sec_loc.pack(fill=tk.X, pady=10)
+        sec_loc.columnconfigure(1, weight=1)
+
+        loc_fields = [("DIRECCIÓN:", "direccion"), ("LOCALIDAD:", "localidad"), ("PROVINCIA:", "provincia")]
+        for i, (label_text, field_name) in enumerate(loc_fields):
+            tk.Label(sec_loc, text=label_text, bg="white", font=("Segoe UI", 8, "bold")).grid(row=i, column=0, sticky=tk.W, pady=10, padx=(0, 15))
+            ttk.Entry(sec_loc, textvariable=self.fields[field_name], font=("Segoe UI", 10)).grid(row=i, column=1, sticky=tk.EW, pady=10)
+
+        # --- SECCIÓN 3: MULTIMEDIA ---
+        sec_img = tk.LabelFrame(content_padding, text=" VISTA PREVIA Y MULTIMEDIA ", font=("Segoe UI", 9, "bold"), 
+                               bg="white", fg="#2c3e50", padx=25, pady=25, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sec_img.pack(fill=tk.X, pady=10)
 
-        btn_row = ttk.Frame(sec_img)
-        btn_row.pack(fill=tk.X)
-        ttk.Button(btn_row, text="Seleccionar Nueva Imagen", command=self.select_image).pack(side=tk.LEFT, padx=5)
-        self.lbl_img_name = ttk.Label(btn_row, text="Sin cambios", foreground="gray", font=("Segoe UI", 9))
-        self.lbl_img_name.pack(side=tk.LEFT, padx=5)
+        ttk.Button(sec_img, text="CAMBIAR IMAGEN", command=self.select_image).pack(pady=5)
+        self.lbl_img_name = tk.Label(sec_img, text="Sin cambios", bg="white", fg="#95a5a6", font=("Segoe UI", 8))
+        self.lbl_img_name.pack()
 
-        self.img_preview = ttk.Label(sec_img, background="#ecf0f1", relief=tk.RIDGE)
+        self.img_preview = tk.Label(sec_img, bg="#f1f2f6", relief=tk.RIDGE)
         self.img_preview.pack(pady=15)
 
         self.load_property_data()
 
-        # Botones de Acción
-        btn_frame = ttk.Frame(scrollable_frame, padding=(0, 20, 0, 0))
-        btn_frame.pack(fill=tk.X)
-        ttk.Button(btn_frame, text="CANCELAR", command=self.window.destroy).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="GUARDAR CAMBIOS", style="Action.TButton", command=self.save_changes).pack(side=tk.RIGHT, padx=5)
+        # Barra de Botones Inferior
+        btn_container = tk.Frame(self.window, bg="#f0f2f5", pady=25, padx=30)
+        btn_container.pack(fill=tk.X)
+        
+        ttk.Button(btn_container, text="CANCELAR", command=self.window.destroy).pack(side=tk.LEFT)
+        ttk.Button(btn_container, text="GUARDAR CAMBIOS", style="PAction.TButton", 
+                   command=self.save_changes).pack(side=tk.RIGHT)
 
     def _format_currency_input(self, event):
         text = self.fields["valor_dia"].get()
@@ -123,7 +144,7 @@ class EditPropertyWindow:
         )
         if path:
             self.imagen_path = path
-            self.lbl_img_name.config(text=os.path.basename(path), foreground="black")
+            self.lbl_img_name.config(text=os.path.basename(path))
             try:
                 img = Image.open(path)
                 img.thumbnail((250, 180))
@@ -167,7 +188,6 @@ class EditPropertyWindow:
             messagebox.showerror("Error", "Todos los campos son obligatorios", parent=self.window)
             return
 
-        # Limpiar formato de moneda para guardar
         valor_raw = self.fields["valor_dia"].get().replace('$', '').replace('.', '').replace(',', '.')
         try:
             valor_dia = float(valor_raw)
@@ -217,66 +237,69 @@ class PropertyListWindow:
         self.selected_id = None
 
         self.window = tk.Toplevel(master)
-        self.window.title("Gestión de Inmuebles")
-        self.window.geometry("1100x800")
-        self.window.configure(bg="#f8f9fa")
+        self.window.title("Catálogo de Inmuebles - Gestión Hotelera")
+        self.window.geometry("1150x800")
+        self.window.configure(bg="#f0f2f5")
 
-        # Estilos
+        # --- ESTILOS ---
         style = ttk.Style(self.window)
-        style.configure("Dashboard.TFrame", background="#f8f9fa")
-        style.configure("Card.TFrame", background="white", relief="ridge", borderwidth=1)
-        style.configure("Header.TLabel", font=("Segoe UI", 18, "bold"), foreground="#2c3e50", background="#f8f9fa")
-        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
+        style.configure("PdDashboard.TFrame", background="#f0f2f5")
+        style.configure("PdCard.TFrame", background="white", relief="flat")
+        style.configure("PdAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
 
-        main_container = ttk.Frame(self.window, padding=25, style="Dashboard.TFrame")
+        # --- ENCABEZADO ---
+        header_frame = tk.Frame(self.window, bg="#2c3e50", height=80)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        tk.Label(header_frame, text="🏠 CATÁLOGO DE INMUEBLES", font=("Segoe UI", 16, "bold"), 
+                 bg="#2c3e50", fg="#ecf0f1").pack(side=tk.LEFT, padx=30, pady=20)
+        
+        self.lbl_stats = tk.Label(header_frame, text="Cargando catálogo...", font=("Segoe UI", 10), 
+                                 bg="#2c3e50", fg="#95a5a6")
+        self.lbl_stats.pack(side=tk.RIGHT, padx=30)
+
+        main_container = ttk.Frame(self.window, padding=30, style="PdDashboard.TFrame")
         main_container.pack(fill=tk.BOTH, expand=True)
 
-        # --- CABECERA ---
-        header_frame = ttk.Frame(main_container, style="Dashboard.TFrame")
-        header_frame.pack(fill=tk.X, pady=(0, 20))
-        ttk.Label(header_frame, text="Catálogo de Inmuebles", style="Header.TLabel").pack(side=tk.LEFT)
-        
-        self.lbl_stats = ttk.Label(header_frame, text="Cargando catálogo...", font=("Segoe UI", 10), foreground="#7f8c8d", background="#f8f9fa")
-        self.lbl_stats.pack(side=tk.LEFT, padx=20, pady=(10, 0))
+        # --- FILTROS (CARD) ---
+        filter_card = tk.Frame(main_container, bg="white", highlightbackground="#e0e0e0", highlightthickness=1, padx=20, pady=20)
+        filter_card.pack(fill=tk.X, pady=(0, 25))
 
-        # --- BARRA DE FILTROS ---
-        filter_card = ttk.Frame(main_container, padding=15, style="Card.TFrame")
-        filter_card.pack(fill=tk.X, pady=(0, 20))
-
-        ttk.Label(filter_card, text="BUSCAR:", font=("Segoe UI", 9, "bold"), background="white").pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(filter_card, text="🔎 BUSCAR:", font=("Segoe UI", 9, "bold"), bg="white", fg="#2c3e50").pack(side=tk.LEFT, padx=(0, 10))
         self.search_var = tk.StringVar()
         search_entry = ttk.Entry(filter_card, textvariable=self.search_var, font=("Segoe UI", 10), width=35)
         search_entry.pack(side=tk.LEFT, padx=(0, 20))
         search_entry.bind("<KeyRelease>", lambda e: self.filter_cards())
 
-        ttk.Label(filter_card, text="TIPO:", font=("Segoe UI", 9, "bold"), background="white").pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(filter_card, text="TIPO:", font=("Segoe UI", 9, "bold"), bg="white", fg="#2c3e50").pack(side=tk.LEFT, padx=(0, 10))
         self.type_filter = ttk.Combobox(filter_card, values=["Todos", "Casa", "Departamento", "Cabaña", "Habitación"], state="readonly", width=18)
         self.type_filter.set("Todos")
         self.type_filter.pack(side=tk.LEFT, padx=(0, 20))
         self.type_filter.bind("<<ComboboxSelected>>", lambda e: self.filter_cards())
 
-        ttk.Button(filter_card, text="Refrescar", command=self.load_properties).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(filter_card, text="ACTUALIZAR", command=self.load_properties).pack(side=tk.RIGHT)
 
-        # --- CONTENEDOR DE TARJETAS ---
-        canvas_frame = ttk.Frame(main_container, style="Dashboard.TFrame")
+        # --- LISTADO (SCROLL) ---
+        canvas_frame = ttk.Frame(main_container, style="PdDashboard.TFrame")
         canvas_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.canvas = tk.Canvas(canvas_frame, bg="#f8f9fa", highlightthickness=0)
+        self.canvas = tk.Canvas(canvas_frame, bg="#f0f2f5", highlightthickness=0)
         scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.canvas.yview)
-        self.scrollable = ttk.Frame(self.canvas, style="Dashboard.TFrame")
+        self.scrollable = tk.Frame(self.canvas, bg="#f0f2f5")
 
         self.scrollable.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable, anchor="nw", width=1020)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable, anchor="nw", width=1060)
         self.canvas.configure(yscrollcommand=scrollbar.set)
 
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # --- BARRA DE ACCIONES ---
-        btn_frame = ttk.Frame(main_container, style="Dashboard.TFrame")
-        btn_frame.pack(fill=tk.X, pady=(20, 0))
+        # --- ACCIONES ---
+        btn_frame = ttk.Frame(main_container, style="PdDashboard.TFrame")
+        btn_frame.pack(fill=tk.X, pady=(25, 0))
         ttk.Button(btn_frame, text="ELIMINAR SELECCIONADO", command=self.delete_property).pack(side=tk.LEFT)
-        ttk.Button(btn_frame, text="EDITAR DETALLES", style="Action.TButton", command=self.edit_property).pack(side=tk.RIGHT)
+        ttk.Button(btn_frame, text="GESTIONAR DETALLES", style="PdAction.TButton", command=self.edit_property).pack(side=tk.RIGHT)
 
         self.db = Database()
         self.load_properties()
@@ -317,7 +340,7 @@ class PropertyListWindow:
                 self.images.append(tk_img)
             except: pass
 
-        # Info Central
+        # Info
         info_frame = tk.Frame(inner, bg="white", padx=25)
         info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.bind_select(info_frame, id_inmueble)
@@ -329,11 +352,9 @@ class PropertyListWindow:
         tk.Label(type_tag, text=tipo, font=("Segoe UI", 9, "bold"), bg="#e8f4fd", fg="#3498db").pack()
         
         tk.Label(info_frame, text=f"👥 Capacidad: {capacidad} personas", font=("Segoe UI", 10), bg="white", fg="#7f8c8d").pack(anchor="w")
-        
-        loc_text = f"📍 {direccion}, {localidad} ({provincia})"
-        tk.Label(info_frame, text=loc_text, font=("Segoe UI", 9), bg="white", fg="#57606f").pack(anchor="w", pady=(5, 0))
+        tk.Label(info_frame, text=f"📍 {direccion}, {localidad} ({provincia})", font=("Segoe UI", 9), bg="white", fg="#57606f").pack(anchor="w", pady=(5, 0))
 
-        # Precio y ID
+        # Precio
         price_frame = tk.Frame(inner, bg="white", padx=10)
         price_frame.pack(side=tk.RIGHT, fill=tk.Y)
         self.bind_select(price_frame, id_inmueble)
@@ -358,62 +379,43 @@ class PropertyListWindow:
     def filter_cards(self):
         query = self.search_var.get().lower()
         tipo_sel = self.type_filter.get().lower()
-
         visible_count = 0
         for card in self.cards:
             match_query = query in card.search_data or query in str(card.id_inmueble)
             match_type = tipo_sel == "todos" or tipo_sel in card.tipo
-            
             if match_query and match_type:
                 card.pack(fill=tk.X, padx=5, pady=8)
                 visible_count += 1
             else:
                 card.pack_forget()
-        
-        self.lbl_stats.config(text=f"Mostrando: {visible_count} de {len(self.cards)} inmuebles")
+        self.lbl_stats.config(text=f"MOSTRANDO: {visible_count} / TOTAL: {len(self.cards)} INMUEBLES")
 
     def select_card(self, id_inmueble):
         self.selected_id = id_inmueble
         for c in self.cards:
-            if hasattr(c, 'id_inmueble') and c.id_inmueble == id_inmueble:
-                c.configure(highlightbackground="#3498db", highlightthickness=2)
-                for w in c.winfo_children(): # inner
-                    w.configure(bg="#f1f9ff")
-                    for sub in w.winfo_children():
-                        try: sub.configure(bg="#f1f9ff")
-                        except: pass
-                        if isinstance(sub, tk.Frame):
+            is_sel = hasattr(c, 'id_inmueble') and c.id_inmueble == id_inmueble
+            c.configure(highlightbackground="#3498db" if is_sel else "#d1d8e0", highlightthickness=2 if is_sel else 1)
+            bg_color = "#f1f9ff" if is_sel else "white"
+            for w in c.winfo_children(): # inner
+                w.configure(bg=bg_color)
+                for sub in w.winfo_children():
+                    if isinstance(sub, tk.Frame):
+                        if "e8f4fd" not in str(sub.cget("background")):
+                            sub.configure(bg=bg_color)
                             for g in sub.winfo_children():
-                                # No cambiar el fondo de los tags de tipo
-                                if "e8f4fd" not in str(sub.cget("background")):
-                                    try: g.configure(bg="#f1f9ff")
-                                    except: pass
-            else:
-                c.configure(highlightbackground="#d1d8e0", highlightthickness=1)
-                for w in c.winfo_children():
-                    w.configure(bg="white")
-                    for sub in w.winfo_children():
-                        try: sub.configure(bg="white")
+                                try: g.configure(bg=bg_color)
+                                except: pass
+                    else:
+                        try: sub.configure(bg=bg_color)
                         except: pass
-                        if isinstance(sub, tk.Frame):
-                            for g in sub.winfo_children():
-                                if "e8f4fd" not in str(sub.cget("background")):
-                                    try: g.configure(bg="white")
-                                    except: pass
 
     def load_properties(self):
-        for w in self.scrollable.winfo_children():
-            w.destroy()
-        self.cards = []
-        self.images = []
-        
-        if not self.db.connect():
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
-            return
+        for w in self.scrollable.winfo_children(): w.destroy()
+        self.cards = []; self.images = []
+        if not self.db.connect(): return
         props = self.db.get_all_properties()
-        for prop in props:
-            self.create_card(prop)
-        self.lbl_stats.config(text=f"Total: {len(props)} inmuebles")
+        for prop in props: self.create_card(prop)
+        self.lbl_stats.config(text=f"TOTAL: {len(props)} INMUEBLES")
         self.filter_cards()
 
     def edit_property_by_id(self, id_inmueble):
@@ -427,13 +429,10 @@ class PropertyListWindow:
             if pc.delete_property(pid):
                 messagebox.showinfo("Éxito", "Inmueble eliminado correctamente")
                 self.load_properties()
-            else:
-                messagebox.showerror("Error", "No se pudo eliminar")
 
     def edit_property(self):
         pid = self.get_selected_id()
-        if pid is None: return
-        self.edit_property_by_id(pid)
+        if pid: self.edit_property_by_id(pid)
 
     def refresh_properties(self):
         self.selected_id = None
@@ -444,5 +443,4 @@ class PropertyListWindow:
         messagebox.showwarning("Advertencia", "Seleccione un inmueble")
         return None
 
-    def show(self):
-        pass
+    def show(self): pass

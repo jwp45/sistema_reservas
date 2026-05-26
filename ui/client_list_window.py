@@ -11,24 +11,33 @@ class EditClientWindow:
         self.client_list_window = client_list_window
 
         self.window = tk.Toplevel(master)
-        self.window.title("Editar Cliente")
-        self.window.geometry("500x450")
-        self.window.configure(bg="#f8f9fa")
+        self.window.title("Perfil de Cliente - Panel de Gestión")
+        self.window.geometry("550x550")
+        self.window.configure(bg="#f0f2f5")
         self.window.transient(master)
 
-        # Estilos locales
+        # --- ESTILOS LOCALES ---
         style = ttk.Style(self.window)
-        style.configure("EditHeader.TLabel", font=("Segoe UI", 16, "bold"), foreground="#2c3e50", background="#f8f9fa")
-        style.configure("EditSection.TLabelframe", font=("Segoe UI", 10, "bold"))
-        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
+        style.configure("EditHeader.TFrame", background="#2c3e50")
+        style.configure("EditContent.TFrame", background="#f0f2f5")
+        style.configure("EditSection.TLabelframe", font=("Segoe UI", 10, "bold"), background="white")
+        style.configure("EditAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
 
-        main_frame = ttk.Frame(self.window, padding=30)
+        # --- ENCABEZADO ---
+        header_frame = tk.Frame(self.window, bg="#2c3e50", height=70)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        tk.Label(header_frame, text=f"👤 PERFIL DEL CLIENTE #{client_id}", font=("Segoe UI", 14, "bold"), 
+                 bg="#2c3e50", fg="#ecf0f1").pack(side=tk.LEFT, padx=30, pady=18)
+
+        # --- CONTENIDO ---
+        main_frame = ttk.Frame(self.window, padding=30, style="EditContent.TFrame")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(main_frame, text=f"Editando Cliente #{client_id}", style="EditHeader.TLabel").pack(pady=(0, 25))
-
-        # Frame principal del formulario
-        sec_form = ttk.LabelFrame(main_frame, text=" Información Personal ", padding=20, style="EditSection.TLabelframe")
+        # Tarjeta de Datos
+        sec_form = tk.LabelFrame(main_frame, text=" INFORMACIÓN PERSONAL ", font=("Segoe UI", 9, "bold"), 
+                                bg="white", fg="#2c3e50", padx=25, pady=25, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sec_form.pack(fill=tk.X, pady=10)
         sec_form.columnconfigure(1, weight=1)
 
@@ -41,24 +50,26 @@ class EditClientWindow:
         }
 
         fields_order = [
-            ("Nombre:", "nombre"),
-            ("Apellido:", "apellido"),
-            ("Email:", "email"),
-            ("Teléfono:", "telefono")
+            ("NOMBRE:", "nombre"),
+            ("APELLIDO:", "apellido"),
+            ("CORREO ELECTRÓNICO:", "email"),
+            ("TELÉFONO DE CONTACTO:", "telefono")
         ]
 
         for i, (label_text, field_name) in enumerate(fields_order):
-            ttk.Label(sec_form, text=label_text).grid(row=i, column=0, sticky=tk.W, pady=8, padx=(0, 10))
-            ttk.Entry(sec_form, textvariable=self.fields[field_name]).grid(row=i, column=1, sticky=tk.EW, pady=8)
+            tk.Label(sec_form, text=label_text, bg="white", font=("Segoe UI", 9, "bold")).grid(row=i, column=0, sticky=tk.W, pady=12, padx=(0, 15))
+            ttk.Entry(sec_form, textvariable=self.fields[field_name], font=("Segoe UI", 10)).grid(row=i, column=1, sticky=tk.EW, pady=12)
 
         # Cargar los datos del cliente
         self.load_client_data()
 
-        # Botones
-        btn_frame = ttk.Frame(main_frame, padding=(0, 20, 0, 0))
-        btn_frame.pack(fill=tk.X)
-        ttk.Button(btn_frame, text="Cancelar", command=self.window.destroy).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="GUARDAR CAMBIOS", style="Action.TButton", command=self.save_changes).pack(side=tk.RIGHT, padx=5)
+        # Barra de Botones Inferior
+        btn_container = tk.Frame(self.window, bg="#f0f2f5", pady=25, padx=30)
+        btn_container.pack(fill=tk.X)
+        
+        ttk.Button(btn_container, text="CANCELAR", command=self.window.destroy).pack(side=tk.LEFT)
+        ttk.Button(btn_container, text="GUARDAR CAMBIOS", style="EditAction.TButton", 
+                   command=self.save_changes).pack(side=tk.RIGHT)
 
     def load_client_data(self):
         """Cargar los datos del cliente desde la base de datos"""
@@ -106,75 +117,70 @@ class ClientListWindow:
         self.master = master
 
         self.window = tk.Toplevel(master)
-        self.window.title("Gestión de Clientes")
-        self.window.geometry("900x650")
-        self.window.configure(bg="#f8f9fa")
+        self.window.title("Directorio de Clientes - Gestión Hotelera")
+        self.window.geometry("1000x750")
+        self.window.configure(bg="#f0f2f5")
 
-        # Estilos locales
+        # --- ESTILOS LOCALES ---
         style = ttk.Style(self.window)
-        style.configure("Dashboard.TFrame", background="#f8f9fa")
-        style.configure("Card.TFrame", background="white", relief="ridge")
-        style.configure("Header.TLabel", font=("Segoe UI", 18, "bold"), foreground="#2c3e50", background="#f8f9fa")
-        style.configure("Stat.TLabel", font=("Segoe UI", 10), foreground="#7f8c8d", background="#f8f9fa")
-        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
+        style.configure("ClDashboard.TFrame", background="#f0f2f5")
+        style.configure("ClCard.TFrame", background="white", relief="flat")
+        style.configure("ClHeader.TLabel", font=("Segoe UI", 20, "bold"), foreground="#2c3e50", background="#f0f2f5")
+        style.configure("ClStat.TLabel", font=("Segoe UI", 11), foreground="#7f8c8d", background="#f0f2f5")
+        style.configure("ClAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
 
-        main_container = ttk.Frame(self.window, padding=20, style="Dashboard.TFrame")
+        # --- ENCABEZADO DASHBOARD ---
+        header_frame = tk.Frame(self.window, bg="#2c3e50", height=80)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        tk.Label(header_frame, text="👥 DIRECTORIO DE CLIENTES", font=("Segoe UI", 16, "bold"), 
+                 bg="#2c3e50", fg="#ecf0f1").pack(side=tk.LEFT, padx=30, pady=20)
+        
+        self.lbl_total_clients = tk.Label(header_frame, text="Cargando...", font=("Segoe UI", 10), 
+                                         bg="#2c3e50", fg="#95a5a6")
+        self.lbl_total_clients.pack(side=tk.RIGHT, padx=30)
+
+        main_container = ttk.Frame(self.window, padding=30, style="ClDashboard.TFrame")
         main_container.pack(fill=tk.BOTH, expand=True)
 
-        # --- CABECERA ---
-        header_frame = ttk.Frame(main_container, style="Dashboard.TFrame")
-        header_frame.pack(fill=tk.X, pady=(0, 20))
-
-        ttk.Label(header_frame, text="Directorio de Clientes", style="Header.TLabel").pack(side=tk.LEFT)
+        # --- ÁREA DE BÚSQUEDA (CARD) ---
+        search_card = tk.Frame(main_container, bg="white", highlightbackground="#e0e0e0", highlightthickness=1, padx=20, pady=20)
+        search_card.pack(fill=tk.X, pady=(0, 25))
         
-        self.lbl_total_clients = ttk.Label(header_frame, text="Total: 0 clientes", style="Stat.TLabel")
-        self.lbl_total_clients.pack(side=tk.LEFT, padx=20, pady=(10, 0))
-
-        # --- BARRA DE BÚSQUEDA ---
-        search_card = ttk.Frame(main_container, padding=15, style="Card.TFrame")
-        search_card.pack(fill=tk.X, pady=(0, 20))
-        
-        ttk.Label(search_card, text="Buscar:", font=("Segoe UI", 10, "bold"), background="white").pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(search_card, text="🔎 FILTRAR DIRECTORIO:", font=("Segoe UI", 9, "bold"), bg="white", fg="#2c3e50").pack(side=tk.LEFT, padx=(0, 15))
         self.search_var = tk.StringVar()
         search_entry = ttk.Entry(search_card, textvariable=self.search_var, font=("Segoe UI", 11))
-        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         search_entry.bind("<KeyRelease>", lambda e: self.filter_clients())
 
-        ttk.Button(search_card, text="Actualizar", command=self.refresh_clients).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(search_card, text="RECARGAR LISTA", command=self.refresh_clients).pack(side=tk.RIGHT, padx=(15, 0))
 
-        # --- TABLA DE CLIENTES ---
-        table_frame = ttk.Frame(main_container, style="Card.TFrame")
-        table_frame.pack(fill=tk.BOTH, expand=True)
+        # --- TABLA DE RESULTADOS (CARD) ---
+        table_container = tk.Frame(main_container, bg="white", highlightbackground="#e0e0e0", highlightthickness=1, padx=2, pady=2)
+        table_container.pack(fill=tk.BOTH, expand=True)
 
         # Scrollbar
-        tree_scroll = ttk.Scrollbar(table_frame)
+        tree_scroll = ttk.Scrollbar(table_container)
         tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.client_table = ttk.Treeview(table_frame, columns=("ID", "Nombre", "Apellido", "Email", "Teléfono"), 
+        self.client_table = ttk.Treeview(table_container, columns=("ID", "Nombre", "Apellido", "Email", "Teléfono"), 
                                          show="headings", yscrollcommand=tree_scroll.set, selectmode="browse")
-        self.client_table.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        self.client_table.pack(fill=tk.BOTH, expand=True)
         tree_scroll.config(command=self.client_table.yview)
 
-        # Cabeceras
-        self.client_table.heading("ID", text="ID", anchor=tk.CENTER)
-        self.client_table.heading("Nombre", text="Nombre", anchor=tk.W)
-        self.client_table.heading("Apellido", text="Apellido", anchor=tk.W)
-        self.client_table.heading("Email", text="Email", anchor=tk.W)
-        self.client_table.heading("Teléfono", text="Teléfono", anchor=tk.W)
+        # Cabeceras y Columnas
+        headers = [("ID", 70, tk.CENTER), ("Nombre", 180, tk.W), ("Apellido", 180, tk.W), ("Email", 280, tk.W), ("Teléfono", 160, tk.W)]
+        for h, w, a in headers:
+            self.client_table.heading(h, text=h.upper(), anchor=a)
+            self.client_table.column(h, width=w, anchor=a)
 
-        # Columnas
-        self.client_table.column("ID", width=60, anchor=tk.CENTER)
-        self.client_table.column("Nombre", width=150)
-        self.client_table.column("Apellido", width=150)
-        self.client_table.column("Email", width=250)
-        self.client_table.column("Teléfono", width=150)
+        # --- BARRA DE ACCIONES INFERIOR ---
+        actions_frame = ttk.Frame(main_container, style="ClDashboard.TFrame")
+        actions_frame.pack(fill=tk.X, pady=(25, 0))
 
-        # --- BARRA DE ACCIONES (INFERIOR) ---
-        actions_frame = ttk.Frame(main_container, style="Dashboard.TFrame")
-        actions_frame.pack(fill=tk.X, pady=(20, 0))
-
-        ttk.Button(actions_frame, text="ELIMINAR SELECCIONADO", command=self.delete_client).pack(side=tk.LEFT, padx=5)
-        ttk.Button(actions_frame, text="EDITAR CLIENTE", style="Action.TButton", command=self.edit_client).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(actions_frame, text="ELIMINAR SELECCIONADO", command=self.delete_client).pack(side=tk.LEFT)
+        ttk.Button(actions_frame, text="GESTIONAR PERFIL", style="ClAction.TButton", command=self.edit_client).pack(side=tk.RIGHT)
 
         # Cargar los clientes
         self.load_clients()
@@ -184,7 +190,7 @@ class ClientListWindow:
         db = Database()
         if db.connect():
             clients = db.get_all_clients()
-            self.lbl_total_clients.config(text=f"Total: {len(clients)} clientes")
+            self.lbl_total_clients.config(text=f"TOTAL: {len(clients)} CLIENTES")
             for client in clients:
                 self.client_table.insert("", "end", values=client)
         else:
@@ -206,10 +212,7 @@ class ClientListWindow:
             for c in clients:
                 # c = (id, nombre, apellido, email, telefono)
                 full_name = f"{c[1]} {c[2]}".lower()
-                # También permitimos apellido + nombre por si acaso
                 full_name_reverse = f"{c[2]} {c[1]}".lower()
-                
-                # Buscar en campos individuales Y en el nombre completo
                 searchable_values = [str(v).lower() for v in c]
                 if (filter_text in full_name or 
                     filter_text in full_name_reverse or 
@@ -218,7 +221,7 @@ class ClientListWindow:
             
             for client in filtered:
                 self.client_table.insert("", "end", values=client)
-            self.lbl_total_clients.config(text=f"Encontrados: {len(filtered)} de {len(clients)}")
+            self.lbl_total_clients.config(text=f"RESULTADOS: {len(filtered)} / TOTAL: {len(clients)}")
 
     def delete_client(self):
         """Eliminar el cliente seleccionado"""
