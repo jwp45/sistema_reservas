@@ -250,6 +250,12 @@ class ReservationController:
         client_fields["fecha_registro"].set(date.today().strftime("%d/%m/%Y"))
         client_fields["provincia"].set("Buenos Aires")
 
+        # Autocompletar con el próximo ID disponible
+        if not self.db.connection or not self.db.connection.is_connected():
+            self.db.connect()
+        next_id = self.db.get_next_available_client_id()
+        client_fields["id_clientes"].set(str(next_id))
+
         provincias = [
             "Buenos Aires", "Catamarca", "Chaco", "Chubut", "CABA",
             "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy",
@@ -604,8 +610,34 @@ class ReservationController:
             adelanto = self._parse_currency(adelanto_str)
             pago_pendiente = costo_con_descuento - adelanto
             
-            # Guardar la reserva en la base de datos
+            # Verificar si el cliente existe, si no, crearlo
             id_cliente = client_fields["id_clientes"].get()
+            if not id_cliente:
+                messagebox.showerror("Error", "Debe ingresar un ID de cliente", parent=reservation_window)
+                return
+            
+            existing_client = self.db.get_client_by_id(id_cliente)
+            if not existing_client:
+                # Validar datos mínimos para nuevo cliente
+                nombre = client_fields["nombre"].get()
+                apellido = client_fields["apellido"].get()
+                if not (nombre and apellido):
+                    messagebox.showerror("Error", "Para crear un nuevo cliente debe ingresar al menos Nombre y Apellido", parent=reservation_window)
+                    return
+                
+                new_client_data = (
+                    int(id_cliente),
+                    nombre,
+                    apellido,
+                    client_fields["email"].get(),
+                    client_fields["telefono"].get()
+                )
+                if self.db.insert_client(new_client_data):
+                    messagebox.showinfo("Nuevo Cliente", f"Se ha creado automáticamente el nuevo cliente: {nombre} {apellido} (ID: {id_cliente})", parent=reservation_window)
+                else:
+                    messagebox.showerror("Error", "No se pudo crear el nuevo cliente", parent=reservation_window)
+                    return
+
             inmueble_nombre = client_fields["inmueble"].get()
             id_inmueble = self.property_map.get(inmueble_nombre, [None])[0]
 

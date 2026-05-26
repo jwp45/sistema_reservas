@@ -26,12 +26,38 @@ class Database:
     def insert_client(self, client_data):
         try:
             cursor = self.connection.cursor()
-            query = "INSERT INTO clientes (nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s)"
+            if len(client_data) == 5:
+                query = "INSERT INTO clientes (id_clientes, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)"
+            else:
+                query = "INSERT INTO clientes (nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s)"
             cursor.execute(query, client_data)
             self.connection.commit()
             print("Cliente guardado exitosamente")
+            return True
         except Exception as e:
             print(f"Error al guardar el cliente: {e}")
+            return False
+
+    def get_next_available_client_id(self):
+        try:
+            cursor = self.connection.cursor()
+            # Buscar el primer ID libre (hueco) o el máximo + 1
+            query = """
+                SELECT MIN(t1.id_clientes + 1) AS next_id
+                FROM clientes t1
+                LEFT JOIN clientes t2 ON t1.id_clientes + 1 = t2.id_clientes
+                WHERE t2.id_clientes IS NULL
+            """
+            cursor.execute(query)
+            result = cursor.fetchone()
+            if result and result[0]:
+                return result[0]
+            else:
+                # Si la tabla está vacía, empezamos en 1
+                return 1
+        except Exception as e:
+            print(f"Error al obtener el próximo ID disponible: {e}")
+            return 1
 
     def get_next_id(self):
         try:
