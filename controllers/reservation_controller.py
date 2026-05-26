@@ -130,7 +130,7 @@ class CalendarDialog(tk.Toplevel):
                         color = "#27ae60"
                         fg = "white"
                     
-                    btn = tk.Button(self.days_frame, text=str(day), font=("Arial", 10, "bold"),
+                    btn = tk.Button(self.days_frame, text=str(day), font=("Arial", 14, "bold"),
                                    bg=color, fg=fg, relief=tk.FLAT, bd=0,
                                    command=lambda dd=day, info=day_info: self.on_day_click(dd, info))
                     
@@ -355,6 +355,10 @@ class ReservationController:
                 client_fields["fecha_egreso"].set(initial_data["fecha_egreso"])
             if "cantidad_personas" in initial_data:
                 client_fields["cantidad_personas"].set(str(initial_data["cantidad_personas"]))
+            if "descuento" in initial_data:
+                client_fields["descuento"].set(initial_data["descuento"])
+            if "discount_is_percentage" in initial_data:
+                client_fields["discount_is_percentage"].set(initial_data["discount_is_percentage"])
 
         if not self.db.connection or not self.db.connection.is_connected():
             self.db.connect()

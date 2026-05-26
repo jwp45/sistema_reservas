@@ -187,6 +187,7 @@ class ClientListWindow:
         if self.select_callback:
             ttk.Button(actions_frame, text="✅ SELECCIONAR CLIENTE PARA RESERVA", 
                        style="ClAction.TButton", command=self.select_client_and_close).pack(side=tk.RIGHT)
+            ttk.Button(actions_frame, text="🔄 ACTUALIZAR DATOS", command=self.edit_client).pack(side=tk.RIGHT, padx=10)
             self.client_table.bind("<Double-Button-1>", lambda e: self.select_client_and_close())
         else:
             ttk.Button(actions_frame, text="ELIMINAR SELECCIONADO", command=self.delete_client).pack(side=tk.LEFT)

@@ -151,6 +151,23 @@ class Database:
             print(f"Error al eliminar el cliente: {e}")
             return False
 
+    def update_client(self, client_id, client_data):
+        """Actualizar datos de un cliente existente"""
+        try:
+            cursor = self.connection.cursor()
+            query = """UPDATE clientes SET 
+                       documento = %s, nombre = %s, apellido = %s, 
+                       email = %s, telefono = %s 
+                       WHERE id_clientes = %s"""
+            # client_data should be (documento, nombre, apellido, email, telefono)
+            cursor.execute(query, (*client_data, client_id))
+            self.connection.commit()
+            print("Cliente actualizado exitosamente")
+            return True
+        except Exception as e:
+            print(f"Error al actualizar el cliente: {e}")
+            return False
+
     def delete_property(self, property_id):
         """Eliminar un inmueble de la base de datos"""
         try:

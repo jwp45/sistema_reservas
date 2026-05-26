@@ -13,7 +13,7 @@ class ConsultationWindow:
         
         self.window = tk.Toplevel(master)
         self.window.title("Consulta de Disponibilidad Interactiva")
-        self.window.geometry("1000x900")
+        self.window.geometry("1200x900")
         self.window.configure(bg="#f0f2f5")
         self.window.transient(master)
         self.window.grab_set()
@@ -27,8 +27,72 @@ class ConsultationWindow:
         self.year = self.now.year
         self.month = self.now.month
         
+        # Campos para captación de leads
+        self.lead_fields = {
+            "nombre": tk.StringVar(),
+            "telefono": tk.StringVar(),
+            "email": tk.StringVar()
+        }
+        
         self.setup_ui()
         self.load_properties()
+
+    def send_quotation(self):
+        """Registra al cliente (si no existe) y envía el presupuesto por mail."""
+        nombre = self.lead_fields["nombre"].get()
+        email = self.lead_fields["email"].get()
+        tel = self.lead_fields["telefono"].get()
+        
+        if not (nombre and email and tel):
+            messagebox.showerror("Error", "Por favor completa Nombre, Email y Teléfono para enviar la cotización.", parent=self.window)
+            return
+            
+        if not self.start_date or not self.end_date or not self.selected_property:
+            messagebox.showwarning("Atención", "Selecciona fechas e inmueble antes de enviar una cotización.", parent=self.window)
+            return
+
+        # 1. Registrar cliente si no existe
+        db = Database()
+        db.connect()
+        # Intentamos buscar si ya existe (por email o teléfono)
+        all_clients = db.get_all_clients()
+        client_id = None
+        for c in all_clients:
+            if c[4] == email or c[5] == tel:
+                client_id = c[0]
+                break
+        
+        if not client_id:
+            # Crear nuevo cliente básico
+            next_id = db.get_next_available_client_id()
+            # client_data = (id, documento, nombre, apellido, email, telefono)
+            # Usamos el nombre completo en 'nombre' y dejamos apellido vacío o lo spliteamos
+            parts = nombre.split(" ", 1)
+            nom = parts[0]
+            ape = parts[1] if len(parts) > 1 else "—"
+            db.insert_client((next_id, "S/D", nom, ape, email, tel))
+            client_id = next_id
+
+        # 2. Enviar Correo
+        from utils.email_sender import send_quotation_email
+        
+        data = {
+            "inmueble": self.selected_property[1],
+            "fecha_ingreso": self.start_date.strftime("%d/%m/%Y"),
+            "fecha_egreso": self.end_date.strftime("%d/%m/%Y"),
+            "noches": (self.end_date - self.start_date).days,
+            "ubicacion": f"{self.selected_property[4]}, {self.selected_property[5]}",
+            "costo_total": self.lbl_costo_total.cget("text").replace("Costo Total: ", ""),
+            "final_price": self.lbl_final_price.cget("text").replace("Precio Final: ", ""),
+            "final_per_night": self.lbl_final_per_night.cget("text").replace("P/Noche Final: ", "")
+        }
+        
+        if send_quotation_email(email, nombre, data):
+            messagebox.showinfo("Éxito", f"Cotización enviada correctamente a {email}.\nCliente registrado en el directorio.", parent=self.window)
+            # Limpiar campos de lead
+            for var in self.lead_fields.values(): var.set("")
+        else:
+            messagebox.showerror("Error", "No se pudo enviar el correo. Verifica la configuración SMTP.", parent=self.window)
 
     def setup_ui(self):
         # --- ESTILOS ---
@@ -57,51 +121,6 @@ class ConsultationWindow:
         left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 20))
         left_panel.pack_propagate(False)
         
-        # Selección de Inmueble (con filtros)
-        sel_card = tk.LabelFrame(left_panel, text=" 🏠 BÚSQUEDA Y FILTROS ", font=("Segoe UI", 9, "bold"), 
-                                bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
-        sel_card.pack(fill=tk.X, pady=(0, 20))
-
-        # Filtro: Provincia
-        tk.Label(sel_card, text="PROVINCIA:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
-        self.prov_var = tk.StringVar(value="Todas")
-        self.combo_prov = ttk.Combobox(sel_card, textvariable=self.prov_var, state="readonly", font=("Segoe UI", 9))
-        self.combo_prov.pack(fill=tk.X, pady=(2, 8))
-        self.combo_prov.bind("<<ComboboxSelected>>", self.apply_filters)
-
-        # Filtro: Localidad
-        tk.Label(sel_card, text="LOCALIDAD:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
-        self.loc_var = tk.StringVar(value="Todas")
-        self.combo_loc = ttk.Combobox(sel_card, textvariable=self.loc_var, state="readonly", font=("Segoe UI", 9))
-        self.combo_loc.pack(fill=tk.X, pady=(2, 8))
-        self.combo_loc.bind("<<ComboboxSelected>>", self.apply_filters)
-
-        # Filtro: Tipo
-        tk.Label(sel_card, text="TIPO:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
-        self.tipo_var = tk.StringVar(value="Todos")
-        self.combo_tipo = ttk.Combobox(sel_card, textvariable=self.tipo_var, state="readonly", font=("Segoe UI", 9))
-        self.combo_tipo.pack(fill=tk.X, pady=(2, 8))
-        self.combo_tipo.bind("<<ComboboxSelected>>", self.apply_filters)
-
-        # Selector Final de Inmueble
-        tk.Label(sel_card, text="SELECCIONAR INMUEBLE:", font=("Segoe UI", 8, "bold"), bg="white", fg="#2c3e50").pack(anchor="w", pady=(5, 0))
-        self.prop_var = tk.StringVar()
-        self.combo_prop = ttk.Combobox(sel_card, textvariable=self.prop_var, state="readonly", font=("Segoe UI", 10, "bold"))
-        self.combo_prop.pack(fill=tk.X, pady=5)
-        self.combo_prop.bind("<<ComboboxSelected>>", self.on_property_selected)
-        
-        # Resumen del Inmueble
-        self.info_card = tk.LabelFrame(left_panel, text=" 📝 DETALLES ", font=("Segoe UI", 9, "bold"), 
-                                     bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
-        self.info_card.pack(fill=tk.X, pady=(0, 20))
-        
-        self.lbl_capacidad = tk.Label(self.info_card, text="Capacidad: —", bg="white", font=("Segoe UI", 10), anchor="w")
-        self.lbl_capacidad.pack(fill=tk.X, pady=5)
-        self.lbl_precio = tk.Label(self.info_card, text="Precio/Noche: —", bg="white", font=("Segoe UI", 10), anchor="w")
-        self.lbl_precio.pack(fill=tk.X, pady=5)
-        self.lbl_ubicacion = tk.Label(self.info_card, text="Ubicación: —", bg="white", font=("Segoe UI", 9), fg="#7f8c8d", anchor="w", wraplength=280)
-        self.lbl_ubicacion.pack(fill=tk.X, pady=5)
-
         # Selección de Rango
         self.range_card = tk.LabelFrame(left_panel, text=" 📅 ESTADÍA SELECCIONADA ", font=("Segoe UI", 9, "bold"), 
                                       bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
@@ -116,7 +135,50 @@ class ConsultationWindow:
         
         self.lbl_costo_total = tk.Label(self.range_card, text="Costo Total: $0,00", bg="white", font=("Segoe UI", 12, "bold"), fg="#27ae60", anchor="w")
         self.lbl_costo_total.pack(fill=tk.X, pady=(5, 10))
+
+        # --- SECCIÓN DE NEGOCIACIÓN (En el panel izquierdo, debajo de estadía) ---
+        self.discount_card = tk.LabelFrame(left_panel, text=" 💰 NEGOCIACIÓN / DESCUENTO ", font=("Segoe UI", 9, "bold"), 
+                                         bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+        self.discount_card.pack(fill=tk.X, pady=(0, 20))
+
+        self.discount_is_percentage = tk.BooleanVar(value=True)
+        disc_type_frame = tk.Frame(self.discount_card, bg="white")
+        disc_type_frame.pack(fill=tk.X, pady=5)
         
+        tk.Radiobutton(disc_type_frame, text="%", variable=self.discount_is_percentage, value=True, 
+                       bg="white", command=self.update_selection_display).pack(side=tk.LEFT)
+        tk.Radiobutton(disc_type_frame, text="$", variable=self.discount_is_percentage, value=False, 
+                       bg="white", command=self.update_selection_display).pack(side=tk.LEFT, padx=10)
+
+        self.discount_var = tk.StringVar(value="0")
+        self.ent_discount = ttk.Entry(self.discount_card, textvariable=self.discount_var, font=("Segoe UI", 10))
+        self.ent_discount.pack(fill=tk.X, pady=5)
+        self.ent_discount.bind("<KeyRelease>", self.on_discount_change)
+
+        self.lbl_final_price = tk.Label(self.discount_card, text="Precio Final: $0,00", bg="white", 
+                                        font=("Segoe UI", 12, "bold"), fg="#e67e22", anchor="w")
+        self.lbl_final_price.pack(fill=tk.X, pady=(5, 0))
+
+        self.lbl_final_per_night = tk.Label(self.discount_card, text="P/Noche Final: $0,00", bg="white", 
+                                            font=("Segoe UI", 9, "italic"), fg="#7f8c8d", anchor="w")
+        self.lbl_final_per_night.pack(fill=tk.X, pady=2)
+
+        # --- SECCIÓN DE CAPTACIÓN DE CLIENTE ---
+        self.lead_card = tk.LabelFrame(left_panel, text=" 📋 COTIZACIÓN / CAPTACIÓN ", font=("Segoe UI", 9, "bold"), 
+                                      bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+        self.lead_card.pack(fill=tk.X, pady=(0, 20))
+
+        tk.Label(self.lead_card, text="NOMBRE COMPLETO:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
+        ttk.Entry(self.lead_card, textvariable=self.lead_fields["nombre"], font=("Segoe UI", 9)).pack(fill=tk.X, pady=(2, 8))
+
+        tk.Label(self.lead_card, text="TELÉFONO:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
+        ttk.Entry(self.lead_card, textvariable=self.lead_fields["telefono"], font=("Segoe UI", 9)).pack(fill=tk.X, pady=(2, 8))
+
+        tk.Label(self.lead_card, text="EMAIL:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
+        ttk.Entry(self.lead_card, textvariable=self.lead_fields["email"], font=("Segoe UI", 9)).pack(fill=tk.X, pady=(2, 8))
+
+        ttk.Button(self.lead_card, text="📧 ENVIAR COTIZACIÓN", command=self.send_quotation).pack(fill=tk.X, pady=(5, 0))
+
         self.btn_reservar = ttk.Button(left_panel, text="🚀 RESERVAR AHORA", state=tk.DISABLED, command=self.go_to_reservation)
         self.btn_reservar.pack(fill=tk.X, pady=10)
         
@@ -125,7 +187,78 @@ class ConsultationWindow:
         # Panel Derecho: Calendario
         right_panel = tk.Frame(main_frame, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
         right_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # --- SECCIÓN DE BÚSQUEDA Y FILTROS (Horizontal con Plegado) ---
+        sel_card = tk.Frame(right_panel, bg="white", padx=20, pady=10, highlightbackground="#e0e0e0", highlightthickness=1)
+        sel_card.pack(fill=tk.X)
+
+        # Botón para mostrar/ocultar ubicación
+        self.geo_visible = False
+        self.btn_toggle_geo = ttk.Button(sel_card, text="📍 UBICACIÓN ▼", width=14, command=self.toggle_geo_filters)
+        self.btn_toggle_geo.pack(side=tk.LEFT, padx=(0, 15))
+
+        # Frame para filtros de ubicación (Prov/Loc) - Se packea dinámicamente
+        self.geo_frame = tk.Frame(sel_card, bg="white")
         
+        # Filtro: Provincia (dentro de geo_frame)
+        tk.Label(self.geo_frame, text="Prov:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(side=tk.LEFT)
+        self.prov_var = tk.StringVar(value="Todas")
+        self.combo_prov = ttk.Combobox(self.geo_frame, textvariable=self.prov_var, state="readonly", font=("Segoe UI", 9), width=12)
+        self.combo_prov.pack(side=tk.LEFT, padx=5)
+        self.combo_prov.bind("<<ComboboxSelected>>", self.apply_filters)
+
+        # Filtro: Localidad (dentro de geo_frame)
+        tk.Label(self.geo_frame, text="Loc:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(side=tk.LEFT, padx=(5, 0))
+        self.loc_var = tk.StringVar(value="Todas")
+        self.combo_loc = ttk.Combobox(self.geo_frame, textvariable=self.loc_var, state="readonly", font=("Segoe UI", 9), width=15)
+        self.combo_loc.pack(side=tk.LEFT, padx=5)
+        self.combo_loc.bind("<<ComboboxSelected>>", self.apply_filters)
+
+        # Separador visual sutil si está abierto
+        self.geo_sep = tk.Label(self.geo_frame, text="|", fg="#e0e0e0", bg="white", padx=10)
+        self.geo_sep.pack(side=tk.LEFT)
+
+        # Filtros Fijos (Tipo y Selección)
+        fixed_f = tk.Frame(sel_card, bg="white")
+        fixed_f.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Filtro: Tipo
+        tk.Label(fixed_f, text="Tipo:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(side=tk.LEFT)
+        self.tipo_var = tk.StringVar(value="Todos")
+        self.combo_tipo = ttk.Combobox(fixed_f, textvariable=self.tipo_var, state="readonly", font=("Segoe UI", 9), width=12)
+        self.combo_tipo.pack(side=tk.LEFT, padx=5)
+        self.combo_tipo.bind("<<ComboboxSelected>>", self.apply_filters)
+
+        # Selector Final de Inmueble
+        tk.Label(fixed_f, text="🏠 SELECCIONAR:", font=("Segoe UI", 8, "bold"), bg="white", fg="#2c3e50").pack(side=tk.LEFT, padx=(15, 5))
+        self.prop_var = tk.StringVar()
+        self.combo_prop = ttk.Combobox(fixed_f, textvariable=self.prop_var, state="readonly", font=("Segoe UI", 9, "bold"), width=25)
+        self.combo_prop.pack(side=tk.LEFT, padx=5)
+        self.combo_prop.bind("<<ComboboxSelected>>", self.on_property_selected)
+
+        # --- SECCIÓN DE DETALLES (Ahora arriba del calendario) ---
+        self.info_card = tk.Frame(right_panel, bg="#f8f9fa", padx=20, pady=10, highlightbackground="#e0e0e0", highlightthickness=1)
+        self.info_card.pack(fill=tk.X)
+
+        tk.Label(self.info_card, text="🏠 DETALLES:", font=("Segoe UI", 9, "bold"), bg="#f8f9fa", fg="#2c3e50").pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.lbl_capacidad = tk.Label(self.info_card, text="Capacidad: —", bg="#f8f9fa", font=("Segoe UI", 10))
+        self.lbl_capacidad.pack(side=tk.LEFT, padx=15)
+        self.lbl_precio = tk.Label(self.info_card, text="Precio/Noche: —", bg="#f8f9fa", font=("Segoe UI", 10, "bold"), fg="#27ae60")
+        self.lbl_precio.pack(side=tk.LEFT, padx=15)
+
+        # Contenedor para la marquesina de ubicación
+        loc_container = tk.Frame(self.info_card, bg="#f8f9fa", width=300, height=25)
+        loc_container.pack(side=tk.LEFT, padx=15, fill=tk.X, expand=True)
+        loc_container.pack_propagate(False)
+
+        self.lbl_ubicacion = tk.Label(loc_container, text="Ubicación: —", bg="#f8f9fa", font=("Segoe UI", 9), fg="#7f8c8d", anchor="w")
+        self.lbl_ubicacion.pack(fill=tk.BOTH, expand=True)
+
+        # Variables para la marquesina
+        self.marquee_text = ""
+        self.marquee_running = False
+
         cal_header = tk.Frame(right_panel, bg="#f8f9fa", pady=15)
         cal_header.pack(fill=tk.X)
         
@@ -155,6 +288,19 @@ class ConsultationWindow:
         
         tk.Label(right_panel, text="* Click en fecha ocupada para ver quién reservó", 
                  font=("Segoe UI", 8, "italic"), bg="white", fg="#7f8c8d").pack(side=tk.BOTTOM, pady=(0, 5))
+
+    def _scroll_address(self):
+        """Mueve el texto de la ubicación como una marquesina."""
+        if not self.marquee_running:
+            return
+            
+        # Tomar el texto actual, rotarlo y actualizar el label
+        current = self.marquee_text
+        self.marquee_text = current[1:] + current[0]
+        self.lbl_ubicacion.config(text=self.marquee_text)
+        
+        # Programar la siguiente actualización (cada 150ms)
+        self.window.after(150, self._scroll_address)
 
     def _create_legend(self, parent, color, text):
         f = tk.Frame(parent, bg="#f8f9fa")
@@ -220,6 +366,18 @@ class ConsultationWindow:
             self.selected_property = None
             self.draw_calendar()
 
+    def toggle_geo_filters(self):
+        """Muestra u oculta los filtros de Provincia y Localidad."""
+        if self.geo_visible:
+            self.geo_frame.pack_forget()
+            self.btn_toggle_geo.config(text="📍 UBICACIÓN ▼")
+            self.geo_visible = False
+        else:
+            # Insertar antes del frame de filtros fijos
+            self.geo_frame.pack(side=tk.LEFT, after=self.btn_toggle_geo)
+            self.btn_toggle_geo.config(text="📍 UBICACIÓN ▲")
+            self.geo_visible = True
+
     def on_property_selected(self, event=None):
         name = self.prop_var.get()
         if name in self.property_map:
@@ -227,7 +385,14 @@ class ConsultationWindow:
             self.selected_property = p
             self.lbl_capacidad.config(text=f"Capacidad: {p[2]} personas")
             self.lbl_precio.config(text=f"Precio/Noche: {self._format_currency(p[7])}")
-            self.lbl_ubicacion.config(text=f"Ubicación: {p[3]}, {p[4]} ({p[5]})")
+            
+            # Configurar marquesina
+            full_address = f"Ubicación: {p[3]}, {p[4]} ({p[5]})"
+            self.marquee_text = full_address + "          " # Espacio de separación
+            
+            if not self.marquee_running:
+                self.marquee_running = True
+                self._scroll_address()
             
             # Cargar fechas reservadas
             self.reserved_ranges = self.db.get_reserved_ranges(id_inmueble=p[0])
@@ -275,7 +440,7 @@ class ConsultationWindow:
                     color = "#27ae60"
                     fg = "white"
                 
-                btn = tk.Button(self.days_frame, text=str(day), font=("Segoe UI", 10, "bold"),
+                btn = tk.Button(self.days_frame, text=str(day), font=("Segoe UI", 14, "bold"),
                                bg=color, fg=fg, relief=tk.FLAT, bd=0,
                                command=lambda dd=d, info=day_info: self.on_day_click(dd, info))
                 
@@ -391,6 +556,26 @@ class ConsultationWindow:
         self.update_selection_display()
         self.draw_calendar()
 
+    def on_discount_change(self, event=None):
+        """Maneja el formateo visual del descuento mientras se escribe."""
+        text = self.discount_var.get()
+        if self.discount_is_percentage.get():
+            # Solo permitir números y un punto
+            cleaned = "".join(c for c in text if c.isdigit() or c == ".")
+            if cleaned != text:
+                self.discount_var.set(cleaned)
+        else:
+            # Formato moneda para monto fijo
+            cleaned = "".join(c for c in text if c.isdigit())
+            if cleaned:
+                val = float(cleaned)
+                formatted = f"{val:,.0f}".replace(",", ".")
+                self.discount_var.set(f"${formatted}")
+            else:
+                self.discount_var.set("")
+        
+        self.update_selection_display()
+
     def update_selection_display(self):
         if self.start_date:
             self.lbl_desde.config(text=f"Desde: {self.start_date.strftime('%d/%m/%Y')}")
@@ -403,21 +588,51 @@ class ConsultationWindow:
             self.lbl_noches.config(text=f"Noches: {noches}")
             
             # Calcular costo total
+            total_sin_desc = 0
             if self.selected_property:
                 precio_noche = float(self.selected_property[7])
-                costo_total = noches * precio_noche
-                self.lbl_costo_total.config(text=f"Costo Total: {self._format_currency(costo_total)}")
+                total_sin_desc = noches * precio_noche
+                self.lbl_costo_total.config(text=f"Costo Total: {self._format_currency(total_sin_desc)}")
             
+            # Calcular Descuento
+            final_price = total_sin_desc
+            discount_val_str = self.discount_var.get()
+            
+            try:
+                if self.discount_is_percentage.get():
+                    # Porcentaje
+                    perc = float(discount_val_str) if discount_val_str else 0.0
+                    discount_amount = total_sin_desc * (perc / 100)
+                    final_price = total_sin_desc - discount_amount
+                else:
+                    # Monto fijo
+                    fixed = float(discount_val_str.replace("$", "").replace(".", "")) if discount_val_str else 0.0
+                    final_price = total_sin_desc - fixed
+            except:
+                final_price = total_sin_desc
+
+            self.lbl_final_price.config(text=f"Precio Final: {self._format_currency(max(0, final_price))}")
+            
+            # Calcular precio por noche final (guía para el dueño)
+            if noches > 0:
+                p_noche_final = max(0, final_price) / noches
+                self.lbl_final_per_night.config(text=f"P/Noche Final: {self._format_currency(p_noche_final)}")
+            else:
+                self.lbl_final_per_night.config(text="P/Noche Final: $0,00")
+
             self.btn_reservar.config(state=tk.NORMAL)
         else:
             self.lbl_hasta.config(text="Hasta: No seleccionada")
             self.lbl_noches.config(text="Noches: 0")
             self.lbl_costo_total.config(text="Costo Total: $0,00")
+            self.lbl_final_price.config(text="Precio Final: $0,00")
+            self.lbl_final_per_night.config(text="P/Noche Final: $0,00")
             self.btn_reservar.config(state=tk.DISABLED)
 
     def reset_selection(self):
         self.start_date = None
         self.end_date = None
+        self.discount_var.set("0")
         self.update_selection_display()
         self.draw_calendar()
 
@@ -439,12 +654,19 @@ class ConsultationWindow:
         if not self.start_date or not self.end_date or not self.selected_property:
             return
             
+        # Preparar datos de descuento para el formulario de reserva
+        discount_val = self.discount_var.get()
+        if not self.discount_is_percentage.get():
+            discount_val = discount_val.replace("$", "").replace(".", "")
+
         initial_data = {
             "inmueble": self.selected_property[1],
             "fecha_ingreso": self.start_date.strftime("%d/%m/%Y"),
             "fecha_egreso": self.end_date.strftime("%d/%m/%Y"),
             "cantidad_personas": self.selected_property[2],
-            "imagen": self.selected_property[8] if len(self.selected_property) > 8 else None
+            "imagen": self.selected_property[8] if len(self.selected_property) > 8 else None,
+            "descuento": discount_val,
+            "discount_is_percentage": self.discount_is_percentage.get()
         }
         
         self.window.destroy()
