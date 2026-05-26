@@ -10,6 +10,7 @@ from ui.property_form_window import PropertyFormWindow
 from ui.property_list_window import PropertyListWindow
 from ui.reservation_list_window import ReservationListWindow
 from ui.finance_window import FinanceWindow
+from ui.consultation_window import ConsultationWindow
 
 class MainWindow:
     def __init__(self):
@@ -67,6 +68,7 @@ class MainWindow:
         
         nav_items = [
             ("INICIO / REFRESCAR", self.refresh_dashboard),
+            ("CONSULTAR DISPONIBILIDAD", self.show_consultation_tool),
             ("NUEVA RESERVA", self.handle_new_reservation),
             ("VER RESERVAS", self.handle_my_reservations),
             ("VER CLIENTES", self.show_client_list),
@@ -153,6 +155,10 @@ class MainWindow:
     def handle_new_reservation(self):
         """Manejar la lógica para iniciar una nueva reserva"""
         self.reservation_controller.create_reservation()
+
+    def show_consultation_tool(self):
+        """Muestra la herramienta de consulta de disponibilidad"""
+        ConsultationWindow(self.root, self.reservation_controller)
 
     def handle_my_reservations(self):
         ReservationListWindow(self.root)

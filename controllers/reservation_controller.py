@@ -185,7 +185,7 @@ class ReservationController:
         self.update_cost_total(client_fields)
 
 
-    def create_reservation(self):
+    def create_reservation(self, initial_data=None):
         print("Crear Reserva")
 
         reservation_window = tk.Toplevel(self.master)
@@ -257,6 +257,17 @@ class ReservationController:
         client_fields["fecha_registro"].set(date.today().strftime("%d/%m/%Y"))
         client_fields["provincia"].set("Buenos Aires")
 
+        # Aplicar datos iniciales si existen
+        if initial_data:
+            if "inmueble" in initial_data:
+                client_fields["inmueble"].set(initial_data["inmueble"])
+            if "fecha_ingreso" in initial_data:
+                client_fields["fecha_ingreso"].set(initial_data["fecha_ingreso"])
+            if "fecha_egreso" in initial_data:
+                client_fields["fecha_egreso"].set(initial_data["fecha_egreso"])
+            if "cantidad_personas" in initial_data:
+                client_fields["cantidad_personas"].set(str(initial_data["cantidad_personas"]))
+
         if not self.db.connection or not self.db.connection.is_connected():
             self.db.connect()
         next_id = self.db.get_next_available_client_id()
@@ -267,7 +278,27 @@ class ReservationController:
         self.property_map = {p[1]: p for p in properties}
         property_names = list(self.property_map.keys())
 
-        # --- SECCIÓN 1: CLIENTE (CARD) ---
+        # Si tenemos datos iniciales, actualizar el valor por día y recalcular
+        if initial_data and "inmueble" in initial_data:
+            name = initial_data["inmueble"]
+            if name in self.property_map:
+                valor = self.property_map[name][7]
+                client_fields["valor_dia"].set(self._format_currency(valor))
+                self.update_cost_total(client_fields)
+
+                # Cargar imagen si viene en initial_data
+                img_path = initial_data.get("imagen")
+                if img_path and os.path.exists(img_path):
+                    try:
+                        img = Image.open(img_path)
+                        img.thumbnail((220, 140))
+                        tk_img = ImageTk.PhotoImage(img)
+                        self.inmueble_preview.config(image=tk_img, text="")
+                        self.inmueble_preview.image = tk_img
+                        self.lbl_prev_info.config(text=f"{name.upper()}\nCapacidad: {initial_data.get('cantidad_personas')} pers.", fg="#2c3e50", font=("Segoe UI", 9, "bold"))
+                    except: pass
+
+        # --- SECCIÓN 3: FINANZAS (RESUMEN) ---
         sec1 = tk.LabelFrame(content_padding, text=" 👤 DATOS DEL HUÉSPED ", font=("Segoe UI", 10, "bold"), 
                             bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sec1.pack(fill=tk.X, pady=10)
@@ -373,6 +404,26 @@ class ReservationController:
                     except: self.inmueble_preview.config(image="", text="Error carga")
                 else: self.inmueble_preview.config(image="", text="Sin imagen")
         cb_inm.bind("<<ComboboxSelected>>", on_inmueble_select)
+
+        # Si tenemos datos iniciales, actualizar el valor por día, imagen y recalcular
+        if initial_data and "inmueble" in initial_data:
+            name = initial_data["inmueble"]
+            if name in self.property_map:
+                valor = self.property_map[name][7]
+                client_fields["valor_dia"].set(self._format_currency(valor))
+                self.update_cost_total(client_fields)
+                
+                # Cargar imagen y actualizar info de vista previa
+                img_path = initial_data.get("imagen")
+                if img_path and os.path.exists(img_path):
+                    try:
+                        img = Image.open(img_path)
+                        img.thumbnail((220, 140))
+                        tk_img = ImageTk.PhotoImage(img)
+                        self.inmueble_preview.config(image=tk_img, text="")
+                        self.inmueble_preview.image = tk_img
+                        self.lbl_prev_info.config(text=f"{name.upper()}\nCapacidad: {initial_data.get('cantidad_personas')} pers.", fg="#2c3e50", font=("Segoe UI", 9, "bold"))
+                    except: pass
 
         # --- SECCIÓN 3: FINANZAS (RESUMEN) ---
         sec3 = tk.LabelFrame(content_padding, text=" 💰 RESUMEN FINANCIERO ", font=("Segoe UI", 10, "bold"), 
