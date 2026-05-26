@@ -90,7 +90,8 @@ def send_quotation_email(client_email, client_name, data):
                 </div>
 
                 <p style="text-align: center; margin-top: 40px;">
-                    <a href="#" style="background-color: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">RESERVAR AHORA</a>
+                    <a href="https://wa.me/5492236689548?text=Hola!%20Quiero%20confirmar%20la%20reserva%20de%20{data.get('inmueble', '').replace(' ', '%20')}%20para%20las%20fechas%20{data.get('fecha_ingreso', '')}%20al%20{data.get('fecha_egreso', '')}" 
+                       style="background-color: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">RESERVAR AHORA</a>
                 </p>
                 
                 <p style="font-size: 13px; color: #95a5a6; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">

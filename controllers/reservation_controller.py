@@ -359,6 +359,10 @@ class ReservationController:
                 client_fields["descuento"].set(initial_data["descuento"])
             if "discount_is_percentage" in initial_data:
                 client_fields["discount_is_percentage"].set(initial_data["discount_is_percentage"])
+            if "id_cliente" in initial_data:
+                client_fields["id_clientes"].set(str(initial_data["id_cliente"]))
+                # Trigger autofill
+                self.autofill_client_data(client_fields, parent=reservation_window)
 
         if not self.db.connection or not self.db.connection.is_connected():
             self.db.connect()

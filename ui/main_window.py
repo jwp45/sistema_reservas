@@ -72,6 +72,7 @@ class MainWindow:
             ("CONSULTAR DISPONIBILIDAD", self.show_consultation_tool),
             ("NUEVA RESERVA", self.handle_new_reservation),
             ("VER RESERVAS", self.handle_my_reservations),
+            ("VER COTIZACIONES", self.show_quotation_list),
             ("VER CLIENTES", self.show_client_list),
             ("VER INMUEBLES", self.show_property_list),
             ("REGISTRAR CLIENTE", self.handle_clients),
@@ -162,7 +163,12 @@ class MainWindow:
         ConsultationWindow(self.root, self.reservation_controller)
 
     def handle_my_reservations(self):
-        ReservationListWindow(self.root)
+        ReservationListWindow(self.root, self.reservation_controller)
+
+    def show_quotation_list(self):
+        """Mostrar la ventana de lista de cotizaciones"""
+        from ui.quotation_list_window import QuotationListWindow
+        QuotationListWindow(self.root, self.reservation_controller)
 
     def handle_contact(self):
         """Manejar la sección de contacto y soporte"""

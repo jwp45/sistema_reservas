@@ -39,9 +39,9 @@ class ConsultationWindow:
 
     def send_quotation(self):
         """Registra al cliente (si no existe) y envía el presupuesto por mail."""
-        nombre = self.lead_fields["nombre"].get()
-        email = self.lead_fields["email"].get()
-        tel = self.lead_fields["telefono"].get()
+        nombre = self.lead_fields["nombre"].get().strip()
+        email = self.lead_fields["email"].get().strip().lower()
+        tel = self.lead_fields["telefono"].get().strip()
         
         if not (nombre and email and tel):
             messagebox.showerror("Error", "Por favor completa Nombre, Email y Teléfono para enviar la cotización.", parent=self.window)
@@ -51,27 +51,65 @@ class ConsultationWindow:
             messagebox.showwarning("Atención", "Selecciona fechas e inmueble antes de enviar una cotización.", parent=self.window)
             return
 
-        # 1. Registrar cliente si no existe
-        db = Database()
-        db.connect()
-        # Intentamos buscar si ya existe (por email o teléfono)
-        all_clients = db.get_all_clients()
+        # Asegurar conexión
+        if not self.db.connection or not self.db.connection.is_connected():
+            self.db.connect()
+
+        # 1. Verificar si el cliente ya existe
+        all_clients = self.db.get_all_clients()
+        client_exists = False
         client_id = None
         for c in all_clients:
-            if c[4] == email or c[5] == tel:
+            # c = (id, doc, nom, ape, email, tel)
+            if (c[4] and c[4].lower() == email) or (c[5] and str(c[5]) == tel):
+                client_exists = True
                 client_id = c[0]
                 break
         
-        if not client_id:
-            # Crear nuevo cliente básico
-            next_id = db.get_next_available_client_id()
-            # client_data = (id, documento, nombre, apellido, email, telefono)
-            # Usamos el nombre completo en 'nombre' y dejamos apellido vacío o lo spliteamos
+        if not client_exists:
+            # Crear nuevo cliente básico - Dejamos que la DB maneje el ID (AUTO_INCREMENT)
             parts = nombre.split(" ", 1)
             nom = parts[0]
             ape = parts[1] if len(parts) > 1 else "—"
-            db.insert_client((next_id, "S/D", nom, ape, email, tel))
-            client_id = next_id
+            
+            # insert_client ahora devuelve el ID si tiene éxito
+            client_id = self.db.insert_client(("S/D", nom, ape, email, tel))
+
+        if not client_id:
+            messagebox.showerror("Error", "No se pudo registrar o identificar al cliente en la base de datos.", parent=self.window)
+            return
+
+        # --- 1.5 GUARDAR COTIZACIÓN EN TABLA ---
+        noches = (self.end_date - self.start_date).days
+        valor_dia = float(self.selected_property[7])
+        costo_total = noches * valor_dia
+        
+        # Calcular descuento real (monto)
+        discount_val_str = self.discount_var.get()
+        descuento_monto = 0
+        try:
+            if self.discount_is_percentage.get():
+                perc = float(discount_val_str) if discount_val_str else 0.0
+                descuento_monto = costo_total * (perc / 100)
+            else:
+                descuento_monto = float(discount_val_str.replace("$", "").replace(".", "")) if discount_val_str else 0.0
+        except: pass
+        
+        costo_con_desc = costo_total - descuento_monto
+
+        quotation_data = {
+            "id_cliente": client_id,
+            "id_inmueble": self.selected_property[0],
+            "fecha_ingreso": self.start_date,
+            "fecha_egreso": self.end_date,
+            "noches": noches,
+            "valor_dia": valor_dia,
+            "costo_total": costo_total,
+            "descuento": descuento_monto,
+            "costo_con_descuento": costo_con_desc
+        }
+        
+        self.db.insert_quotation(quotation_data)
 
         # 2. Enviar Correo
         from utils.email_sender import send_quotation_email
@@ -88,7 +126,10 @@ class ConsultationWindow:
         }
         
         if send_quotation_email(email, nombre, data):
-            messagebox.showinfo("Éxito", f"Cotización enviada correctamente a {email}.\nCliente registrado en el directorio.", parent=self.window)
+            msg = f"Cotización enviada correctamente a {email}."
+            if not client_exists:
+                msg += "\nCliente registrado exitosamente."
+            messagebox.showinfo("Éxito", msg, parent=self.window)
             # Limpiar campos de lead
             for var in self.lead_fields.values(): var.set("")
         else:
