@@ -27,150 +27,124 @@ class MainWindow:
             "apellido": StringVar(),
             "email": StringVar(),
             "telefono": StringVar(),
-            "provincia": StringVar(),  # Añadir la variable 'provincia'
-            "fecha_registro": StringVar(),  # Añadir la variable 'fecha_registro'
-            "cantidad_personas": StringVar(),  # Añadir la variable 'cantidad_personas'
-            "adelanto": StringVar(),  # Añadir la variable 'adelanto'
+            "provincia": StringVar(),
+            "fecha_registro": StringVar(),
+            "cantidad_personas": StringVar(),
+            "adelanto": StringVar(),
             "discount_is_percentage": BooleanVar(),
-            "descuento": StringVar(),  # Añadir la variable 'descuento'
-            "inmueble": StringVar(),  # Añadir la variable 'inmueble'
-            "fecha_ingreso": StringVar(),  # Añadir la variable 'fecha_ingreso'
-            "fecha_egreso": StringVar()  # Añadir la variable 'fecha_egreso'
+            "descuento": StringVar(),
+            "inmueble": StringVar(),
+            "fecha_ingreso": StringVar(),
+            "fecha_egreso": StringVar()
         }
 
     def setup_ui(self):
-        """Configurar y mostrar la interfaz gráfica principal"""
+        """Configurar la interfaz gráfica principal con un diseño de Dashboard Profesional"""
+        self.root.geometry("1200x800")
+        self.root.configure(bg="#f0f2f5")
 
-        # Configuración general de la ventana
-        self.root.geometry("800x600")
-        self.root.configure(bg="#f0f0f0")
-
-        # Crear un frame superior para los botones principales
-        nav_frame = ttk.Frame(self.root)
-        nav_frame.pack(fill=tk.X, side=tk.TOP, padx=5, pady=5)
-
-        # Estilos consistentes para los botones
+        # --- ESTILOS ---
         style = ttk.Style()
-        style.configure("TButton", font=('Arial', 12), padding=10,
-                        background='#4CAF50', foreground='white',
-                        relief="raised", borderwidth=3)
+        style.configure("Sidebar.TFrame", background="#2c3e50")
+        style.configure("Content.TFrame", background="#f0f2f5")
+        style.configure("Nav.TButton", font=("Segoe UI", 10, "bold"), padding=12, width=22)
+        style.configure("DashboardHeader.TLabel", font=("Segoe UI", 22, "bold"), background="#f0f2f5", foreground="#2c3e50")
+        style.configure("Card.TFrame", background="white", relief="flat", borderwidth=0)
+        style.configure("CardHeader.TLabel", font=("Segoe UI", 14, "bold"), background="white", foreground="#34495e")
 
-        # Botón para crear una nueva reserva
-        self.btn_new_reservation = ttk.Button(
-            nav_frame,
-            text="Iniciar Reserva",
-            command=self.handle_new_reservation,
-            style="TButton"
-        )
+        # --- ESTRUCTURA PRINCIPAL ---
+        # Sidebar (Izquierda)
+        self.sidebar = ttk.Frame(self.root, style="Sidebar.TFrame")
+        self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
 
-        # Botón para ver historial de reservas
-        self.btn_my_reservations = ttk.Button(
-            nav_frame,
-            text="Mis Reservas",
-            command=self.handle_my_reservations,
-            style="TButton"
-        )
+        # Contenedor Principal (Derecha)
+        self.main_container = ttk.Frame(self.root, style="Content.TFrame")
+        self.main_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Botón para contactar al administrador
-        self.btn_contact = ttk.Button(
-            nav_frame,
-            text="Contacto",
-            command=self.handle_contact,
-            style="TButton"
-        )
+        # --- CONTENIDO SIDEBAR ---
+        ttk.Label(self.sidebar, text="SISTEMA HOTEL", font=("Segoe UI", 16, "bold"), background="#2c3e50", foreground="#ecf0f1").pack(pady=40)
+        
+        nav_items = [
+            ("INICIO / REFRESCAR", self.refresh_dashboard),
+            ("NUEVA RESERVA", self.handle_new_reservation),
+            ("VER RESERVAS", self.handle_my_reservations),
+            ("VER CLIENTES", self.show_client_list),
+            ("VER INMUEBLES", self.show_property_list),
+            ("REGISTRAR CLIENTE", self.handle_clients),
+            ("REGISTRAR INMUEBLE", self.handle_properties)
+        ]
 
-        # Nuevo botón para clientes
-        self.btn_clients = ttk.Button(
-            nav_frame,
-            text="Clientes",
-            command=self.handle_clients,
-            style="TButton"
-        )
+        for text, cmd in nav_items:
+            btn = ttk.Button(self.sidebar, text=text, command=cmd, style="Nav.TButton")
+            btn.pack(fill=tk.X, padx=20, pady=6)
 
-        # Nuevo botón para inmuebles
-        self.btn_properties = ttk.Button(
-            nav_frame,
-            text="Inmuebles",
-            command=self.handle_properties,
-            style="TButton"
-        )
+        ttk.Label(self.sidebar, text="Admin Panel v2.5", font=("Segoe UI", 8), background="#2c3e50", foreground="#95a5a6").pack(side=tk.BOTTOM, pady=30)
 
-        # Menú desplegable superior
-        menubar = tk.Menu(self.root)
-        self.root.config(menu=menubar)
+        # --- CONTENIDO PRINCIPAL ---
+        header_area = ttk.Frame(self.main_container, style="Content.TFrame", padding=(40, 40, 40, 10))
+        header_area.pack(fill=tk.X)
+        
+        ttk.Label(header_area, text="Panel de Control General", style="DashboardHeader.TLabel").pack(side=tk.LEFT)
+        self.lbl_today = ttk.Label(header_area, text=date.today().strftime("%d de %B, %Y"), font=("Segoe UI", 12), background="#f0f2f5", foreground="#7f8c8d")
+        self.lbl_today.pack(side=tk.RIGHT, pady=15)
 
-        file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Ver", menu=file_menu)
-        file_menu.add_command(label="Clientes", command=self.show_client_list)
-        file_menu.add_command(label="Inmuebles", command=self.show_property_list)  # Nuevo menú para inmuebles
+        # Área de Widgets/Cards
+        widgets_area = ttk.Frame(self.main_container, style="Content.TFrame", padding=40)
+        widgets_area.pack(fill=tk.BOTH, expand=True)
+        widgets_area.columnconfigure(0, weight=1)
+        widgets_area.columnconfigure(1, weight=1)
 
-        # Ubicar los botones en el frame de navegación
-        self.btn_new_reservation.pack(side=tk.LEFT, padx=2)
-        self.btn_my_reservations.pack(side=tk.LEFT, padx=2)
-        self.btn_contact.pack(side=tk.LEFT, padx=2)
-        self.btn_clients.pack(side=tk.LEFT, padx=2)
-        self.btn_properties.pack(side=tk.LEFT, padx=2)
+        # --- CARD: PRÓXIMOS INGRESOS ---
+        self.card_in = tk.Frame(widgets_area, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
+        self.card_in.grid(row=0, column=0, padx=(0, 20), sticky="nsew")
+        
+        in_header = tk.Frame(self.card_in, bg="#27ae60", height=5)
+        in_header.pack(fill=tk.X)
+        
+        in_content = tk.Frame(self.card_in, bg="white", padx=30, pady=30)
+        in_content.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(in_content, text="📥 PRÓXIMO CHECK-IN", font=("Segoe UI", 11, "bold"), bg="white", fg="#27ae60").pack(anchor="w")
+        self.lbl_checkin = tk.Label(in_content, text="—", font=("Segoe UI", 28, "bold"), bg="white", fg="#2c3e50")
+        self.lbl_checkin.pack(anchor="w", pady=15)
+        
+        self.lbl_checkin_name = tk.Label(in_content, text="", font=("Segoe UI", 14, "bold"), bg="white", fg="#34495e")
+        self.lbl_checkin_name.pack(anchor="w")
+        self.lbl_checkin_inmueble = tk.Label(in_content, text="", font=("Segoe UI", 12), bg="white", fg="#7f8c8d")
+        self.lbl_checkin_inmueble.pack(anchor="w", pady=(5, 15))
+        
+        info_in = tk.Frame(in_content, bg="white")
+        info_in.pack(fill=tk.X)
+        self.lbl_checkin_phone = tk.Label(info_in, text="", font=("Segoe UI", 11), bg="white", fg="#2c3e50")
+        self.lbl_checkin_phone.pack(side=tk.LEFT)
+        self.lbl_checkin_prov = tk.Label(info_in, text="", font=("Segoe UI", 11, "italic"), bg="white", fg="#95a5a6")
+        self.lbl_checkin_prov.pack(side=tk.RIGHT)
 
-        # Crear un area principal para el contenido
-        main_content = ttk.Frame(self.root)
-        main_content.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        content_header = ttk.LabelFrame(main_content, text="Panel de Control")
-        content_header.pack(fill=tk.X, side=tk.TOP, padx=5, pady=5)
-
-        ttk.Label(content_header, text="Bienvenido al Sistema de Reservas", font=('Arial', 14, 'bold')).pack(padx=10, pady=5)
-
-        # Contenedor de dos columnas
-        columns_frame = ttk.Frame(main_content)
-        columns_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        # Panel izquierdo: Próximos Ingresos
-        checkin_frame = tk.Frame(columns_frame, bg="#e8f5e9", bd=2, relief=tk.GROOVE)
-        checkin_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        tk.Label(checkin_frame, text="📥 Próximo Ingreso", font=('Arial', 16, 'bold'),
-                 bg="#e8f5e9", fg="#2e7d32").pack(pady=(20, 5))
-
-        self.lbl_checkin = tk.Label(checkin_frame, text="Cargando...", font=('Arial', 22, 'bold'),
-                                    bg="#e8f5e9", fg="#1b5e20")
-        self.lbl_checkin.pack(pady=(5, 2))
-
-        self.lbl_checkin_name = tk.Label(checkin_frame, text="", font=('Arial', 11),
-                                         bg="#e8f5e9", fg="#1b5e20")
-        self.lbl_checkin_name.pack()
-        self.lbl_checkin_phone = tk.Label(checkin_frame, text="", font=('Arial', 11),
-                                          bg="#e8f5e9", fg="#1b5e20")
-        self.lbl_checkin_phone.pack()
-        self.lbl_checkin_prov = tk.Label(checkin_frame, text="", font=('Arial', 11),
-                                          bg="#e8f5e9", fg="#1b5e20")
-        self.lbl_checkin_prov.pack()
-        self.lbl_checkin_inmueble = tk.Label(checkin_frame, text="", font=('Arial', 11),
-                                              bg="#e8f5e9", fg="#1b5e20")
-        self.lbl_checkin_inmueble.pack(pady=(0, 15))
-
-        # Panel derecho: Próximos Egresos
-        checkout_frame = tk.Frame(columns_frame, bg="#e3f2fd", bd=2, relief=tk.GROOVE)
-        checkout_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        tk.Label(checkout_frame, text="📤 Próximo Egreso", font=('Arial', 16, 'bold'),
-                 bg="#e3f2fd", fg="#1565c0").pack(pady=(20, 5))
-
-        self.lbl_checkout = tk.Label(checkout_frame, text="Cargando...", font=('Arial', 22, 'bold'),
-                                     bg="#e3f2fd", fg="#0d47a1")
-        self.lbl_checkout.pack(pady=(5, 2))
-
-        self.lbl_checkout_name = tk.Label(checkout_frame, text="", font=('Arial', 11),
-                                          bg="#e3f2fd", fg="#0d47a1")
-        self.lbl_checkout_name.pack()
-        self.lbl_checkout_phone = tk.Label(checkout_frame, text="", font=('Arial', 11),
-                                           bg="#e3f2fd", fg="#0d47a1")
-        self.lbl_checkout_phone.pack()
-        self.lbl_checkout_prov = tk.Label(checkout_frame, text="", font=('Arial', 11),
-                                           bg="#e3f2fd", fg="#0d47a1")
-        self.lbl_checkout_prov.pack()
-        self.lbl_checkout_inmueble = tk.Label(checkout_frame, text="", font=('Arial', 11),
-                                               bg="#e3f2fd", fg="#0d47a1")
-        self.lbl_checkout_inmueble.pack(pady=(0, 15))
+        # --- CARD: PRÓXIMOS EGRESOS ---
+        self.card_out = tk.Frame(widgets_area, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
+        self.card_out.grid(row=0, column=1, padx=(20, 0), sticky="nsew")
+        
+        out_header = tk.Frame(self.card_out, bg="#2980b9", height=5)
+        out_header.pack(fill=tk.X)
+        
+        out_content = tk.Frame(self.card_out, bg="white", padx=30, pady=30)
+        out_content.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(out_content, text="📤 PRÓXIMO CHECK-OUT", font=("Segoe UI", 11, "bold"), bg="white", fg="#2980b9").pack(anchor="w")
+        self.lbl_checkout = tk.Label(out_content, text="—", font=("Segoe UI", 28, "bold"), bg="white", fg="#2c3e50")
+        self.lbl_checkout.pack(anchor="w", pady=15)
+        
+        self.lbl_checkout_name = tk.Label(out_content, text="", font=("Segoe UI", 14, "bold"), bg="white", fg="#34495e")
+        self.lbl_checkout_name.pack(anchor="w")
+        self.lbl_checkout_inmueble = tk.Label(out_content, text="", font=("Segoe UI", 12), bg="white", fg="#7f8c8d")
+        self.lbl_checkout_inmueble.pack(anchor="w", pady=(5, 15))
+        
+        info_out = tk.Frame(out_content, bg="white")
+        info_out.pack(fill=tk.X)
+        self.lbl_checkout_phone = tk.Label(info_out, text="", font=("Segoe UI", 11), bg="white", fg="#2c3e50")
+        self.lbl_checkout_phone.pack(side=tk.LEFT)
+        self.lbl_checkout_prov = tk.Label(info_out, text="", font=("Segoe UI", 11, "italic"), bg="white", fg="#95a5a6")
+        self.lbl_checkout_prov.pack(side=tk.RIGHT)
 
         self.refresh_dashboard()
 
@@ -183,7 +157,6 @@ class MainWindow:
 
     def handle_contact(self):
         """Manejar la sección de contacto y soporte"""
-        # Implementación futura para el contacto y soporte al usuario
         pass
 
     def handle_clients(self):
@@ -221,7 +194,7 @@ class MainWindow:
             self.client_fields[key].set("")
 
         fields_order = [
-            ("ID Cliente:", "id_clientes", True), # El tercer elemento indica si es solo lectura para el usuario inicial
+            ("ID Cliente:", "id_clientes", True),
             ("Nombre:", "nombre", False),
             ("Apellido:", "apellido", False),
             ("Email:", "email", False),
@@ -243,7 +216,6 @@ class MainWindow:
 
     def save_client(self, client_window):
         """Guardar los datos del cliente en la base de datos"""
-        # Validación de entradas
         nombre = self.client_fields["nombre"].get()
         apellido = self.client_fields["apellido"].get()
         email = self.client_fields["email"].get()
@@ -274,7 +246,6 @@ class MainWindow:
 
     def save_reservation(self, reservation_window):
         """Guardar los datos de la reserva en la base de datos"""
-        # Implementación futura para guardar la reserva
         pass
 
     def handle_properties(self):
@@ -294,47 +265,44 @@ class MainWindow:
 
     def refresh_dashboard(self):
         from datetime import datetime
-        meses = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio",
-                 "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+        meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
         def fmt_date(d):
             try:
                 dt = datetime.strptime(str(d), "%Y-%m-%d")
                 return f"{dt.day} {meses[dt.month]} {dt.year}"
-            except ValueError:
-                return str(d)
+            except: return str(d)
 
         db = Database()
         if db.connect():
+            # Actualizar Ingreso
             checkins = db.get_upcoming_checkins()
             if checkins:
-                row = checkins[0]
-                self.lbl_checkin.config(text=fmt_date(row[5]))
-                self.lbl_checkin_name.config(text=f"👤 {row[1]}")
-                self.lbl_checkin_phone.config(text=f"📞 {row[2]}")
-                self.lbl_checkin_prov.config(text=f"📍 {row[3]}")
-                self.lbl_checkin_inmueble.config(text=f"🏠 {row[4]}")
+                r = checkins[0]
+                self.lbl_checkin.config(text=fmt_date(r[5]))
+                self.lbl_checkin_name.config(text=str(r[1]).upper())
+                self.lbl_checkin_phone.config(text=f"📞 {r[2]}")
+                self.lbl_checkin_prov.config(text=f"📍 {r[3]}")
+                self.lbl_checkin_inmueble.config(text=f"🏠 {r[4]}")
             else:
-                self.lbl_checkin.config(text="—")
+                self.lbl_checkin.config(text="Sin ingresos")
                 self.lbl_checkin_name.config(text="")
-                self.lbl_checkin_phone.config(text="")
-                self.lbl_checkin_prov.config(text="")
-                self.lbl_checkin_inmueble.config(text="")
+                self.lbl_checkin_inmueble.config(text="Agenda libre")
 
+            # Actualizar Egreso
             checkouts = db.get_upcoming_checkouts()
             if checkouts:
-                row = checkouts[0]
-                self.lbl_checkout.config(text=fmt_date(row[6]))
-                self.lbl_checkout_name.config(text=f"👤 {row[1]}")
-                self.lbl_checkout_phone.config(text=f"📞 {row[2]}")
-                self.lbl_checkout_prov.config(text=f"📍 {row[3]}")
-                self.lbl_checkout_inmueble.config(text=f"🏠 {row[4]}")
+                r = checkouts[0]
+                self.lbl_checkout.config(text=fmt_date(r[6]))
+                self.lbl_checkout_name.config(text=str(r[1]).upper())
+                self.lbl_checkout_phone.config(text=f"📞 {r[2]}")
+                self.lbl_checkout_prov.config(text=f"📍 {r[3]}")
+                self.lbl_checkout_inmueble.config(text=f"🏠 {r[4]}")
             else:
-                self.lbl_checkout.config(text="—")
+                self.lbl_checkout.config(text="Sin egresos")
                 self.lbl_checkout_name.config(text="")
-                self.lbl_checkout_phone.config(text="")
-                self.lbl_checkout_prov.config(text="")
-                self.lbl_checkout_inmueble.config(text="")
+                self.lbl_checkout_inmueble.config(text="Todo al día")
 
     def run(self):
         self.setup_ui()
