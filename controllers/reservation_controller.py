@@ -19,22 +19,60 @@ class CalendarDialog(tk.Toplevel):
         self.year = self.now.year
         self.month = self.now.month
 
-        style = ttk.Style(self)
-        style.configure("Reserved.TButton", background="gray")
-
         self.setup_ui()
         self.draw_calendar()
         self.grab_set()
 
+    def _get_day_info(self, d):
+        info = {
+            "status": "disponible",
+            "clients": [],
+            "color": "#27ae60" # Verde
+        }
+        is_ingreso = False
+        is_egreso = False
+        is_occupied = False
+
+        for ingreso, egreso, cliente in self.reserved_ranges:
+            if isinstance(ingreso, str):
+                ingreso = datetime.strptime(str(ingreso), "%Y-%m-%d").date()
+            if isinstance(egreso, str):
+                egreso = datetime.strptime(str(egreso), "%Y-%m-%d").date()
+            
+            if d == ingreso:
+                is_ingreso = True
+                info["clients"].append(f"➡️ INGRESO: {cliente}")
+            elif d == egreso:
+                is_egreso = True
+                info["clients"].append(f"⬅️ EGRESO: {cliente}")
+            elif ingreso < d < egreso:
+                is_occupied = True
+                info["clients"].append(f"🔴 OCUPADO: {cliente}")
+
+        if is_occupied:
+            info["status"] = "ocupado"
+            info["color"] = "#e74c3c" # Rojo
+        elif is_ingreso and is_egreso:
+            info["status"] = "transicion"
+            info["color"] = "#f1c40f" # Amarillo
+        elif is_ingreso:
+            info["status"] = "ingreso"
+            info["color"] = "#3498db" # Azul
+        elif is_egreso:
+            info["status"] = "egreso"
+            info["color"] = "#9b59b6" # Púrpura
+            
+        return info
+
     def _is_reserved(self, d):
-        for ingreso, egreso in self.reserved_ranges:
+        for ingreso, egreso, cliente in self.reserved_ranges:
             if isinstance(ingreso, str):
                 ingreso = datetime.strptime(str(ingreso), "%Y-%m-%d").date()
             if isinstance(egreso, str):
                 egreso = datetime.strptime(str(egreso), "%Y-%m-%d").date()
             if ingreso <= d < egreso:
-                return True
-        return False
+                return cliente
+        return None
 
     def setup_ui(self):
         header = ttk.Frame(self)
@@ -45,14 +83,23 @@ class CalendarDialog(tk.Toplevel):
         self.month_label.pack(side=tk.LEFT, expand=True)
         ttk.Button(header, text=">>", width=5, command=self.next_month).pack(side=tk.RIGHT)
         
-        days_header = ttk.Frame(self)
+        days_header = tk.Frame(self, bg="white")
         days_header.pack(fill=tk.X, padx=10)
         # Nombres de días con un poco más de espacio
         for d in ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]:
-            ttk.Label(days_header, text=d, width=5, anchor="center", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, expand=True)
+            tk.Label(days_header, text=d, width=5, anchor="center", font=('Arial', 10, 'bold'), bg="white").pack(side=tk.LEFT, expand=True)
             
-        self.days_frame = ttk.Frame(self)
+        self.days_frame = tk.Frame(self, bg="white")
         self.days_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Leyenda rápida
+        legend = tk.Frame(self, bg="#f0f0f0")
+        legend.pack(fill=tk.X, side=tk.BOTTOM, pady=5)
+        for c, t in [("#27ae60", "Disp"), ("#3498db", "Entra"), ("#e74c3c", "Ocup"), ("#9b59b6", "Sale"), ("#f1c40f", "Trans")]:
+            f = tk.Frame(legend, bg="#f0f0f0")
+            f.pack(side=tk.LEFT, expand=True)
+            tk.Frame(f, bg=c, width=10, height=10).pack(side=tk.LEFT, padx=2)
+            tk.Label(f, text=t, font=("Arial", 7), bg="#f0f0f0").pack(side=tk.LEFT)
 
     def draw_calendar(self):
         for widget in self.days_frame.winfo_children():
@@ -68,19 +115,42 @@ class CalendarDialog(tk.Toplevel):
         for row_idx, week in enumerate(cal):
             for col_idx, day in enumerate(week):
                 if day == 0:
-                    ttk.Label(self.days_frame, text="").grid(row=row_idx, column=col_idx, sticky="nsew")
+                    tk.Label(self.days_frame, text="", bg="white").grid(row=row_idx, column=col_idx, sticky="nsew")
                 else:
                     d = date(self.year, self.month, day)
-                    is_reserved = self._is_reserved(d)
-                    btn = ttk.Button(self.days_frame, text=str(day), width=5,
-                                    state=tk.DISABLED if is_reserved else tk.NORMAL,
-                                    command=lambda dd=day: self.select_day(dd))
+                    day_info = self._get_day_info(d)
+                    is_past = d < self.now
+                    
+                    color = day_info["color"]
+                    fg = "white"
+                    if is_past:
+                        fg = "#d1d8e0"
+                        color = "white"
+                    elif day_info["status"] == "disponible":
+                        color = "#27ae60"
+                        fg = "white"
+                    
+                    btn = tk.Button(self.days_frame, text=str(day), font=("Arial", 10, "bold"),
+                                   bg=color, fg=fg, relief=tk.FLAT, bd=0,
+                                   command=lambda dd=day, info=day_info: self.on_day_click(dd, info))
+                    
+                    if is_past:
+                        btn.config(state=tk.DISABLED)
+                        
                     btn.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="nsew")
 
         for i in range(7):
             self.days_frame.columnconfigure(i, weight=1)
         for i in range(len(cal)):
             self.days_frame.rowconfigure(i, weight=1)
+
+    def on_day_click(self, day, day_info=None):
+        if day_info and day_info["status"] != "disponible" and day_info["status"] != "egreso":
+            msg = "\n".join(day_info["clients"])
+            messagebox.showinfo("Información", msg, parent=self)
+            if day_info["status"] != "egreso" and day_info["status"] != "transicion":
+                return
+        self.select_day(day)
 
     def prev_month(self):
         self.month -= 1

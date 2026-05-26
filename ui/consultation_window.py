@@ -147,8 +147,14 @@ class ConsultationWindow:
         legend_frame.pack(fill=tk.X, side=tk.BOTTOM)
         
         self._create_legend(legend_frame, "#27ae60", "Disponible")
+        self._create_legend(legend_frame, "#3498db", "Ingreso")
         self._create_legend(legend_frame, "#e74c3c", "Ocupado")
-        self._create_legend(legend_frame, "#3498db", "Tu Selección")
+        self._create_legend(legend_frame, "#9b59b6", "Egreso")
+        self._create_legend(legend_frame, "#f1c40f", "Transición")
+        self._create_legend(legend_frame, "#2980b9", "Tu Selección")
+        
+        tk.Label(right_panel, text="* Click en fecha ocupada para ver quién reservó", 
+                 font=("Segoe UI", 8, "italic"), bg="white", fg="#7f8c8d").pack(side=tk.BOTTOM, pady=(0, 5))
 
     def _create_legend(self, parent, color, text):
         f = tk.Frame(parent, bg="#f8f9fa")
@@ -252,30 +258,29 @@ class ConsultationWindow:
                     continue
                 
                 d = date(self.year, self.month, day)
-                is_reserved = self._is_reserved(d)
+                day_info = self._get_day_info(d)
                 is_selected = self._is_selected(d)
                 is_past = d < self.now
                 
-                color = "white"
-                fg = "black"
+                color = day_info["color"]
+                fg = "white"
+                
                 if is_past:
                     fg = "#d1d8e0"
-                elif is_reserved:
-                    color = "#e74c3c"
-                    fg = "white"
+                    color = "white"
                 elif is_selected:
                     color = "#3498db"
                     fg = "white"
-                else:
+                elif day_info["status"] == "disponible":
                     color = "#27ae60"
                     fg = "white"
                 
                 btn = tk.Button(self.days_frame, text=str(day), font=("Segoe UI", 10, "bold"),
                                bg=color, fg=fg, relief=tk.FLAT, bd=0,
-                               command=lambda dd=d: self.on_day_click(dd))
+                               command=lambda dd=d, info=day_info: self.on_day_click(dd, info))
                 
-                if is_past or (is_reserved and not is_selected):
-                     btn.config(state=tk.DISABLED if is_past or is_reserved else tk.NORMAL)
+                if is_past:
+                     btn.config(state=tk.DISABLED)
                 
                 btn.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="nsew")
 
@@ -284,15 +289,58 @@ class ConsultationWindow:
         for i in range(len(cal)):
             self.days_frame.rowconfigure(i, weight=1)
 
+    def _get_day_info(self, d):
+        info = {
+            "status": "disponible",
+            "clients": [],
+            "color": "#27ae60" # Verde por defecto
+        }
+        
+        is_ingreso = False
+        is_egreso = False
+        is_occupied = False
+        
+        for ingreso, egreso, cliente in self.reserved_ranges:
+            if isinstance(ingreso, str):
+                ingreso = datetime.strptime(ingreso, "%Y-%m-%d").date()
+            if isinstance(egreso, str):
+                egreso = datetime.strptime(egreso, "%Y-%m-%d").date()
+            
+            if d == ingreso:
+                is_ingreso = True
+                info["clients"].append(f"➡️ INGRESO: {cliente}")
+            elif d == egreso:
+                is_egreso = True
+                info["clients"].append(f"⬅️ EGRESO: {cliente}")
+            elif ingreso < d < egreso:
+                is_occupied = True
+                info["clients"].append(f"🔴 OCUPADO: {cliente}")
+
+        if is_occupied:
+            info["status"] = "ocupado"
+            info["color"] = "#e74c3c" # Rojo
+        elif is_ingreso and is_egreso:
+            info["status"] = "transicion"
+            info["color"] = "#f1c40f" # Amarillo (Transición)
+        elif is_ingreso:
+            info["status"] = "ingreso"
+            info["color"] = "#3498db" # Azul (Ingreso)
+        elif is_egreso:
+            info["status"] = "egreso"
+            info["color"] = "#9b59b6" # Púrpura (Egreso)
+            
+        return info
+
     def _is_reserved(self, d):
-        for ingreso, egreso in self.reserved_ranges:
+        # Mantenemos este método por compatibilidad interna si se usa en validaciones de rango
+        for ingreso, egreso, cliente in self.reserved_ranges:
             if isinstance(ingreso, str):
                 ingreso = datetime.strptime(ingreso, "%Y-%m-%d").date()
             if isinstance(egreso, str):
                 egreso = datetime.strptime(egreso, "%Y-%m-%d").date()
             if ingreso <= d < egreso:
-                return True
-        return False
+                return cliente
+        return None
 
     def _is_selected(self, d):
         if self.start_date and self.end_date:
@@ -301,7 +349,15 @@ class ConsultationWindow:
             return d == self.start_date
         return False
 
-    def on_day_click(self, d):
+    def on_day_click(self, d, day_info=None):
+        if day_info and day_info["status"] != "disponible" and day_info["status"] != "egreso":
+            # Si es egreso, permitimos click para que pueda ser el inicio de una nueva reserva
+            # Pero si hay otros estados (ocupado, ingreso, transicion), mostramos info
+            msg = "\n".join(day_info["clients"])
+            messagebox.showinfo("Información de Reserva", msg, parent=self.window)
+            if day_info["status"] != "egreso" and day_info["status"] != "transicion":
+                return
+
         if not self.selected_property:
             messagebox.showwarning("Atención", "Primero seleccione un inmueble", parent=self.window)
             return

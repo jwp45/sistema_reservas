@@ -250,13 +250,16 @@ class Database:
             conditions = []
             params = []
             if id_inmueble is not None:
-                conditions.append("id_inmueble = %s")
+                conditions.append("r.id_inmueble = %s")
                 params.append(id_inmueble)
             if exclude_id is not None:
-                conditions.append("id_reserva != %s")
+                conditions.append("r.id_reserva != %s")
                 params.append(exclude_id)
             where = "WHERE " + " AND ".join(conditions) if conditions else ""
-            query = f"SELECT fecha_ingreso, fecha_egreso FROM reservas {where}"
+            query = f"""SELECT r.fecha_ingreso, r.fecha_egreso, CONCAT(c.nombre, ' ', c.apellido) as cliente 
+                       FROM reservas r
+                       JOIN clientes c ON r.id_cliente = c.id_clientes
+                       {where}"""
             cursor.execute(query, tuple(params))
             return cursor.fetchall()
         except Exception as e:
