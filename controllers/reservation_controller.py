@@ -185,6 +185,23 @@ class ReservationController:
         self.update_cost_total(client_fields)
 
 
+    def open_client_search(self, client_fields, reservation_window):
+        """Abre la búsqueda visual de clientes."""
+        from ui.client_list_window import ClientListWindow
+        
+        def on_client_selected(client_data):
+            # client_data = (id, documento, nombre, apellido, email, telefono)
+            if client_data:
+                client_fields["id_clientes"].set(str(client_data[0]))
+                client_fields["documento"].set(str(client_data[1]))
+                client_fields["nombre"].set(str(client_data[2]))
+                client_fields["apellido"].set(str(client_data[3]))
+                client_fields["email"].set(str(client_data[4]))
+                client_fields["telefono"].set(str(client_data[5]))
+                self.update_cost_total(client_fields)
+            
+        ClientListWindow(reservation_window, select_callback=on_client_selected)
+
     def create_reservation(self, initial_data=None):
         print("Crear Reserva")
 
@@ -232,6 +249,7 @@ class ReservationController:
 
         client_fields = {
             "id_clientes": tk.StringVar(),
+            "documento": tk.StringVar(),
             "nombre": tk.StringVar(),
             "apellido": tk.StringVar(),
             "email": tk.StringVar(),
@@ -312,9 +330,10 @@ class ReservationController:
         ent_id = ttk.Entry(id_f, textvariable=client_fields["id_clientes"])
         ent_id.pack(side=tk.LEFT, fill=tk.X, expand=True)
         ent_id.bind("<Return>", lambda e: self.autofill_client_data(client_fields, parent=reservation_window))
-        ttk.Button(id_f, text="🔍", width=3, command=lambda: self.autofill_client_data(client_fields, parent=reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
-        tk.Label(sec1, text="FECHA REGISTRO:", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky=tk.W, padx=10)
-        ttk.Entry(sec1, textvariable=client_fields["fecha_registro"], state="readonly", width=15).grid(row=0, column=3, sticky=tk.W)
+        ttk.Button(id_f, text="🔍", width=3, command=lambda: self.open_client_search(client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
+        
+        tk.Label(sec1, text="DOCUMENTO:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=2, sticky=tk.W, padx=10)
+        ttk.Entry(sec1, textvariable=client_fields["documento"]).grid(row=0, column=3, sticky=tk.EW)
 
         # Fila 1: Nombre y Apellido
         tk.Label(sec1, text="NOMBRE:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=8)
@@ -517,6 +536,8 @@ class ReservationController:
             client_fields["apellido"].set(client_data[2])
             client_fields["email"].set(client_data[3])
             client_fields["telefono"].set(client_data[4])
+            if len(client_data) > 5:
+                client_fields["documento"].set(client_data[5] if client_data[5] else "")
         else:
             messagebox.showerror("Error", "Cliente no encontrado", parent=parent)
 
@@ -645,12 +666,14 @@ class ReservationController:
                 # Validar datos mínimos para nuevo cliente
                 nombre = client_fields["nombre"].get()
                 apellido = client_fields["apellido"].get()
-                if not (nombre and apellido):
-                    messagebox.showerror("Error", "Para crear un nuevo cliente debe ingresar al menos Nombre y Apellido", parent=reservation_window)
+                documento = client_fields["documento"].get()
+                if not (nombre and apellido and documento):
+                    messagebox.showerror("Error", "Para crear un nuevo cliente debe ingresar al menos Nombre, Apellido y Documento", parent=reservation_window)
                     return
                 
                 new_client_data = (
                     int(id_cliente),
+                    documento,
                     nombre,
                     apellido,
                     client_fields["email"].get(),

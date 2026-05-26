@@ -25,6 +25,7 @@ class MainWindow:
         # Variables para el formulario de clientes
         self.client_fields = {
             "id_clientes": StringVar(),
+            "documento": StringVar(),
             "nombre": StringVar(),
             "apellido": StringVar(),
             "email": StringVar(),
@@ -198,11 +199,12 @@ class MainWindow:
         self.client_fields["id_clientes"].set(str(next_id))
 
         # Campos del formulario (limpiar primero)
-        for key in ["nombre", "apellido", "email", "telefono"]:
+        for key in ["nombre", "apellido", "email", "telefono", "documento"]:
             self.client_fields[key].set("")
 
         fields_order = [
             ("ID Cliente:", "id_clientes", True),
+            ("Documento:", "documento", False),
             ("Nombre:", "nombre", False),
             ("Apellido:", "apellido", False),
             ("Email:", "email", False),
@@ -228,14 +230,16 @@ class MainWindow:
         apellido = self.client_fields["apellido"].get()
         email = self.client_fields["email"].get()
         telefono = self.client_fields["telefono"].get()
+        documento = self.client_fields["documento"].get()
         id_cliente = self.client_fields["id_clientes"].get()
 
-        if not (nombre and apellido and email and telefono):
+        if not (nombre and apellido and email and telefono and documento):
             messagebox.showerror("Error", "Todos los campos son obligatorios", parent=client_window)
             return
 
         client_data = (
             int(id_cliente),
+            documento,
             nombre,
             apellido,
             email,

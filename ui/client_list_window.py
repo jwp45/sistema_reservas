@@ -43,6 +43,7 @@ class EditClientWindow:
 
         # Campos del formulario
         self.fields = {
+            "documento": tk.StringVar(),
             "nombre": tk.StringVar(),
             "apellido": tk.StringVar(),
             "email": tk.StringVar(),
@@ -50,6 +51,7 @@ class EditClientWindow:
         }
 
         fields_order = [
+            ("DOCUMENTO:", "documento"),
             ("NOMBRE:", "nombre"),
             ("APELLIDO:", "apellido"),
             ("CORREO ELECTRÓNICO:", "email"),
@@ -75,7 +77,7 @@ class EditClientWindow:
         """Cargar los datos del cliente desde la base de datos"""
         db = Database()
         if db.connect():
-            query = "SELECT nombre, apellido, email, telefono FROM clientes WHERE id_clientes = %s"
+            query = "SELECT nombre, apellido, email, telefono, documento FROM clientes WHERE id_clientes = %s"
             cursor = db.connection.cursor()
             cursor.execute(query, (self.client_id,))
             result = cursor.fetchone()
@@ -84,12 +86,13 @@ class EditClientWindow:
                 self.fields["apellido"].set(result[1])
                 self.fields["email"].set(result[2])
                 self.fields["telefono"].set(result[3])
+                self.fields["documento"].set(result[4] if result[4] else "")
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
     def save_changes(self):
         """Guardar los cambios en la base de datos"""
-        if not self.fields["nombre"].get() or not self.fields["apellido"].get() or not self.fields["email"].get() or not self.fields["telefono"].get():
+        if not self.fields["nombre"].get() or not self.fields["apellido"].get() or not self.fields["email"].get() or not self.fields["telefono"].get() or not self.fields["documento"].get():
             messagebox.showerror("Error", "Todos los campos son obligatorios", parent=self.window)
             return
 
@@ -97,12 +100,13 @@ class EditClientWindow:
             self.fields["nombre"].get(),
             self.fields["apellido"].get(),
             self.fields["email"].get(),
-            self.fields["telefono"].get()
+            self.fields["telefono"].get(),
+            self.fields["documento"].get()
         )
 
         db = Database()
         if db.connect():
-            query = "UPDATE clientes SET nombre=%s, apellido=%s, email=%s, telefono=%s WHERE id_clientes=%s"
+            query = "UPDATE clientes SET nombre=%s, apellido=%s, email=%s, telefono=%s, documento=%s WHERE id_clientes=%s"
             cursor = db.connection.cursor()
             cursor.execute(query, client_data + (self.client_id,))
             db.connection.commit()
@@ -113,8 +117,9 @@ class EditClientWindow:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
 class ClientListWindow:
-    def __init__(self, master):
+    def __init__(self, master, select_callback=None):
         self.master = master
+        self.select_callback = select_callback
 
         self.window = tk.Toplevel(master)
         self.window.title("Directorio de Clientes - Gestión Hotelera")
@@ -164,13 +169,13 @@ class ClientListWindow:
         tree_scroll = ttk.Scrollbar(table_container)
         tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.client_table = ttk.Treeview(table_container, columns=("ID", "Nombre", "Apellido", "Email", "Teléfono"), 
+        self.client_table = ttk.Treeview(table_container, columns=("ID", "Documento", "Nombre", "Apellido", "Email", "Teléfono"), 
                                          show="headings", yscrollcommand=tree_scroll.set, selectmode="browse")
         self.client_table.pack(fill=tk.BOTH, expand=True)
         tree_scroll.config(command=self.client_table.yview)
 
         # Cabeceras y Columnas
-        headers = [("ID", 70, tk.CENTER), ("Nombre", 180, tk.W), ("Apellido", 180, tk.W), ("Email", 280, tk.W), ("Teléfono", 160, tk.W)]
+        headers = [("ID", 60, tk.CENTER), ("Documento", 110, tk.W), ("Nombre", 160, tk.W), ("Apellido", 160, tk.W), ("Email", 240, tk.W), ("Teléfono", 140, tk.W)]
         for h, w, a in headers:
             self.client_table.heading(h, text=h.upper(), anchor=a)
             self.client_table.column(h, width=w, anchor=a)
@@ -179,11 +184,27 @@ class ClientListWindow:
         actions_frame = ttk.Frame(main_container, style="ClDashboard.TFrame")
         actions_frame.pack(fill=tk.X, pady=(25, 0))
 
-        ttk.Button(actions_frame, text="ELIMINAR SELECCIONADO", command=self.delete_client).pack(side=tk.LEFT)
-        ttk.Button(actions_frame, text="GESTIONAR PERFIL", style="ClAction.TButton", command=self.edit_client).pack(side=tk.RIGHT)
+        if self.select_callback:
+            ttk.Button(actions_frame, text="✅ SELECCIONAR CLIENTE PARA RESERVA", 
+                       style="ClAction.TButton", command=self.select_client_and_close).pack(side=tk.RIGHT)
+            self.client_table.bind("<Double-Button-1>", lambda e: self.select_client_and_close())
+        else:
+            ttk.Button(actions_frame, text="ELIMINAR SELECCIONADO", command=self.delete_client).pack(side=tk.LEFT)
+            ttk.Button(actions_frame, text="GESTIONAR PERFIL", style="ClAction.TButton", command=self.edit_client).pack(side=tk.RIGHT)
 
         # Cargar los clientes
         self.load_clients()
+
+    def select_client_and_close(self):
+        """Selecciona el cliente y llama al callback"""
+        selected_item = self.client_table.selection()
+        if not selected_item:
+            messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente.", parent=self.window)
+            return
+        
+        client_data = self.client_table.item(selected_item)['values']
+        self.select_callback(client_data) # Enviamos todos los valores (id, documento, nombre, apellido, email, telefono)
+        self.window.destroy()
 
     def load_clients(self):
         """Cargar los clientes desde la base de datos y mostrarlos en la tabla"""
@@ -210,9 +231,9 @@ class ClientListWindow:
             clients = db.get_all_clients()
             filtered = []
             for c in clients:
-                # c = (id, nombre, apellido, email, telefono)
-                full_name = f"{c[1]} {c[2]}".lower()
-                full_name_reverse = f"{c[2]} {c[1]}".lower()
+                # c = (id, documento, nombre, apellido, email, telefono)
+                full_name = f"{c[2]} {c[3]}".lower()
+                full_name_reverse = f"{c[3]} {c[2]}".lower()
                 searchable_values = [str(v).lower() for v in c]
                 if (filter_text in full_name or 
                     filter_text in full_name_reverse or 

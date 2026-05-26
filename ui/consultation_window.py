@@ -13,7 +13,7 @@ class ConsultationWindow:
         
         self.window = tk.Toplevel(master)
         self.window.title("Consulta de Disponibilidad Interactiva")
-        self.window.geometry("1000x800")
+        self.window.geometry("1000x900")
         self.window.configure(bg="#f0f2f5")
         self.window.transient(master)
         self.window.grab_set()
@@ -57,14 +57,37 @@ class ConsultationWindow:
         left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 20))
         left_panel.pack_propagate(False)
         
-        # Selección de Inmueble
-        sel_card = tk.LabelFrame(left_panel, text=" 🏠 SELECCIONAR INMUEBLE ", font=("Segoe UI", 9, "bold"), 
+        # Selección de Inmueble (con filtros)
+        sel_card = tk.LabelFrame(left_panel, text=" 🏠 BÚSQUEDA Y FILTROS ", font=("Segoe UI", 9, "bold"), 
                                 bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sel_card.pack(fill=tk.X, pady=(0, 20))
-        
+
+        # Filtro: Provincia
+        tk.Label(sel_card, text="PROVINCIA:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
+        self.prov_var = tk.StringVar(value="Todas")
+        self.combo_prov = ttk.Combobox(sel_card, textvariable=self.prov_var, state="readonly", font=("Segoe UI", 9))
+        self.combo_prov.pack(fill=tk.X, pady=(2, 8))
+        self.combo_prov.bind("<<ComboboxSelected>>", self.apply_filters)
+
+        # Filtro: Localidad
+        tk.Label(sel_card, text="LOCALIDAD:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
+        self.loc_var = tk.StringVar(value="Todas")
+        self.combo_loc = ttk.Combobox(sel_card, textvariable=self.loc_var, state="readonly", font=("Segoe UI", 9))
+        self.combo_loc.pack(fill=tk.X, pady=(2, 8))
+        self.combo_loc.bind("<<ComboboxSelected>>", self.apply_filters)
+
+        # Filtro: Tipo
+        tk.Label(sel_card, text="TIPO:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
+        self.tipo_var = tk.StringVar(value="Todos")
+        self.combo_tipo = ttk.Combobox(sel_card, textvariable=self.tipo_var, state="readonly", font=("Segoe UI", 9))
+        self.combo_tipo.pack(fill=tk.X, pady=(2, 8))
+        self.combo_tipo.bind("<<ComboboxSelected>>", self.apply_filters)
+
+        # Selector Final de Inmueble
+        tk.Label(sel_card, text="SELECCIONAR INMUEBLE:", font=("Segoe UI", 8, "bold"), bg="white", fg="#2c3e50").pack(anchor="w", pady=(5, 0))
         self.prop_var = tk.StringVar()
-        self.combo_prop = ttk.Combobox(sel_card, textvariable=self.prop_var, state="readonly", font=("Segoe UI", 10))
-        self.combo_prop.pack(fill=tk.X, pady=10)
+        self.combo_prop = ttk.Combobox(sel_card, textvariable=self.prop_var, state="readonly", font=("Segoe UI", 10, "bold"))
+        self.combo_prop.pack(fill=tk.X, pady=5)
         self.combo_prop.bind("<<ComboboxSelected>>", self.on_property_selected)
         
         # Resumen del Inmueble
@@ -134,9 +157,62 @@ class ConsultationWindow:
         tk.Label(f, text=text, font=("Segoe UI", 9), bg="#f8f9fa").pack(side=tk.LEFT)
 
     def load_properties(self):
-        properties = self.db.get_all_properties()
-        self.property_map = {p[1]: p for p in properties}
-        self.combo_prop['values'] = list(self.property_map.keys())
+        """Carga inicial de todos los inmuebles y sus filtros."""
+        self.all_properties = self.db.get_all_properties()
+        
+        # Obtener valores únicos para los filtros iniciales
+        provincias = sorted(list(set(p[5] for p in self.all_properties)))
+        tipos = sorted(list(set(p[6] for p in self.all_properties)))
+        
+        self.combo_prov['values'] = ["Todas"] + provincias
+        self.combo_tipo['values'] = ["Todos"] + tipos
+        
+        # Cargar todas inicialmente en el selector de inmuebles
+        self.apply_filters()
+
+    def apply_filters(self, event=None):
+        """Filtra la lista de inmuebles según los criterios seleccionados."""
+        prov = self.prov_var.get()
+        loc = self.loc_var.get()
+        tipo = self.tipo_var.get()
+        
+        filtered = []
+        localidades = set()
+        
+        for p in self.all_properties:
+            # p = (id, nombre, cap, dir, loc, prov, tipo, val, img)
+            p_loc = p[4]
+            p_prov = p[5]
+            p_tipo = p[6]
+            
+            match_prov = (prov == "Todas" or p_prov == prov)
+            match_tipo = (tipo == "Todos" or p_tipo == tipo)
+            
+            # Recolectar localidades posibles según provincia seleccionada
+            if match_prov:
+                localidades.add(p_loc)
+            
+            # Aplicar filtro de localidad si no es "Todas"
+            match_loc = (loc == "Todas" or p_loc == loc)
+            
+            if match_prov and match_loc and match_tipo:
+                filtered.append(p)
+
+        # Actualizar opciones de localidad dinámicamente
+        current_locs = sorted(list(localidades))
+        self.combo_loc['values'] = ["Todas"] + current_locs
+        if loc not in self.combo_loc['values']:
+            self.loc_var.set("Todas")
+
+        # Actualizar selector de inmuebles
+        self.property_map = {p[1]: p for p in filtered}
+        self.combo_prop['values'] = sorted(list(self.property_map.keys()))
+        
+        # Limpiar selección actual si ya no está en la lista filtrada
+        if self.prop_var.get() not in self.property_map:
+            self.prop_var.set("")
+            self.selected_property = None
+            self.draw_calendar()
 
     def on_property_selected(self, event=None):
         name = self.prop_var.get()

@@ -28,6 +28,14 @@ class Database:
         """Inicializa las tablas necesarias si no existen y sincroniza datos."""
         try:
             cursor = self.connection.cursor()
+            
+            # 0. Asegurar que la columna 'documento' existe en 'clientes'
+            try:
+                cursor.execute("ALTER TABLE clientes ADD COLUMN documento VARCHAR(20) AFTER id_clientes")
+                self.connection.commit()
+            except:
+                pass # Probablemente ya existe
+            
             # 1. Crear tabla de historial de pagos
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS historial_pagos (
@@ -59,10 +67,10 @@ class Database:
     def insert_client(self, client_data):
         try:
             cursor = self.connection.cursor()
-            if len(client_data) == 5:
-                query = "INSERT INTO clientes (id_clientes, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)"
+            if len(client_data) == 6:
+                query = "INSERT INTO clientes (id_clientes, documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s, %s)"
             else:
-                query = "INSERT INTO clientes (nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s)"
+                query = "INSERT INTO clientes (documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(query, client_data)
             self.connection.commit()
             print("Cliente guardado exitosamente")
@@ -110,7 +118,7 @@ class Database:
         """Obtener todos los clientes desde la base de datos"""
         try:
             cursor = self.connection.cursor()
-            query = "SELECT id_clientes, nombre, apellido, email, telefono FROM clientes"
+            query = "SELECT id_clientes, documento, nombre, apellido, email, telefono FROM clientes"
             cursor.execute(query)
             result = cursor.fetchall()
             return result
@@ -292,7 +300,7 @@ class Database:
             return None
 
         cursor = self.connection.cursor()
-        query = "SELECT id_clientes, nombre, apellido, email, telefono FROM clientes WHERE id_clientes = %s"
+        query = "SELECT id_clientes, nombre, apellido, email, telefono, documento FROM clientes WHERE id_clientes = %s"
         cursor.execute(query, (client_id,))
         result = cursor.fetchone()
         cursor.close()
