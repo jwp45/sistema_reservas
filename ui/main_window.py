@@ -9,6 +9,7 @@ from ui.client_list_window import ClientListWindow
 from ui.property_form_window import PropertyFormWindow
 from ui.property_list_window import PropertyListWindow
 from ui.reservation_list_window import ReservationListWindow
+from ui.finance_window import FinanceWindow
 
 class MainWindow:
     def __init__(self):
@@ -71,7 +72,8 @@ class MainWindow:
             ("VER CLIENTES", self.show_client_list),
             ("VER INMUEBLES", self.show_property_list),
             ("REGISTRAR CLIENTE", self.handle_clients),
-            ("REGISTRAR INMUEBLE", self.handle_properties)
+            ("REGISTRAR INMUEBLE", self.handle_properties),
+            ("CONTROL FINANCIERO", self.show_finance_dashboard)
         ]
 
         for text, cmd in nav_items:
@@ -262,6 +264,10 @@ class MainWindow:
         """Mostrar la ventana de lista de inmuebles"""
         property_list_window = PropertyListWindow(self.root)
         property_list_window.show()
+
+    def show_finance_dashboard(self):
+        """Mostrar la ventana de control financiero"""
+        FinanceWindow(self.root)
 
     def refresh_dashboard(self):
         from datetime import datetime

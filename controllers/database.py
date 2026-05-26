@@ -257,3 +257,77 @@ class Database:
         cursor.close()
 
         return result
+
+    # --- NUEVOS MÉTODOS FINANCIEROS ---
+
+    def get_financial_summary(self):
+        """Retorna totales generales: Potencial, Cobrado, Pendiente."""
+        try:
+            cursor = self.connection.cursor()
+            query = """SELECT 
+                        SUM(costo_con_descuento) as total_potencial, 
+                        SUM(adelanto) as total_cobrado, 
+                        SUM(pago_pendiente) as total_pendiente 
+                       FROM reservas"""
+            cursor.execute(query)
+            result = cursor.fetchone()
+            # Manejar caso de tabla vacía (sumas nulas)
+            return [float(x) if x is not None else 0.0 for x in result]
+        except Exception as e:
+            print(f"Error en get_financial_summary: {e}")
+            return [0.0, 0.0, 0.0]
+
+    def get_revenue_by_month(self):
+        """Retorna ingresos agrupados por mes (usando fecha de ingreso)."""
+        try:
+            cursor = self.connection.cursor()
+            query = """SELECT 
+                        DATE_FORMAT(fecha_ingreso, '%Y-%m') as mes,
+                        SUM(costo_con_descuento) as total
+                       FROM reservas
+                       GROUP BY mes
+                       ORDER BY mes DESC
+                       LIMIT 12"""
+            cursor.execute(query)
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error en get_revenue_by_month: {e}")
+            return []
+
+    def get_revenue_by_property(self):
+        """Retorna ingresos agrupados por inmueble."""
+        try:
+            cursor = self.connection.cursor()
+            query = """SELECT 
+                        i.nombre,
+                        SUM(r.costo_con_descuento) as total
+                       FROM reservas r
+                       JOIN inmuebles i ON r.id_inmueble = i.id_inmueble
+                       GROUP BY i.nombre
+                       ORDER BY total DESC"""
+            cursor.execute(query)
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error en get_revenue_by_property: {e}")
+            return []
+
+    def get_pending_payments_list(self):
+        """Lista detallada de deudores (reservas con saldo pendiente)."""
+        try:
+            cursor = self.connection.cursor()
+            query = """SELECT 
+                        r.id_reserva,
+                        CONCAT(c.nombre, ' ', c.apellido) as cliente,
+                        i.nombre as inmueble,
+                        r.fecha_ingreso,
+                        r.pago_pendiente
+                       FROM reservas r
+                       JOIN clientes c ON r.id_cliente = c.id_clientes
+                       JOIN inmuebles i ON r.id_inmueble = i.id_inmueble
+                       WHERE r.pago_pendiente > 0
+                       ORDER BY r.fecha_ingreso ASC"""
+            cursor.execute(query)
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error en get_pending_payments_list: {e}")
+            return []
