@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from controllers.database import Database
 from controllers.reservation_controller import CalendarDialog
+from ui.payment_window import PaymentWindow
 
 
 class EditReservationWindow:
@@ -321,10 +322,39 @@ class ReservationListWindow:
         btn_frame = ttk.Frame(main_container, style="Res.TFrame")
         btn_frame.pack(fill=tk.X, pady=(20, 0))
 
-        ttk.Button(btn_frame, text="ELIMINAR RESERVA", command=self.delete_reservation).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="ELIMINAR RESERVA", command=self.delete_reservation).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(btn_frame, text="VER PAGOS / ABONAR", command=self.open_payment_window).pack(side=tk.LEFT)
         ttk.Button(btn_frame, text="MODIFICAR DETALLES", style="Action.TButton", command=self.modify_reservation).pack(side=tk.RIGHT)
 
         self.load_reservations()
+
+    def _parse_currency(self, value_str):
+        """Convierte una cadena de moneda ($1.234,56) a float de forma robusta."""
+        try:
+            # Eliminar $, espacios y puntos de miles, luego cambiar coma decimal por punto
+            clean = str(value_str).replace('$', '').replace(' ', '').replace('.', '').replace(',', '.')
+            return float(clean)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def open_payment_window(self):
+        """Abre la ventana para consultar historial o registrar un abono."""
+        selected = self.table.selection()
+        if not selected:
+            messagebox.showwarning("Advertencia", "Seleccione una reserva para consultar pagos.")
+            return
+        
+        vals = self.table.item(selected[0])['values']
+        # vals: 0:ID, 1:Cliente, ..., 11:Pendiente
+        try:
+            rid = vals[0]
+            client = vals[1]
+            pending = self._parse_currency(vals[11])
+            
+            # Abrimos la ventana siempre, el PaymentWindow manejará si permite abonar o no
+            PaymentWindow(self.window, rid, client, pending, self.load_reservations)
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo procesar la información de pagos: {str(e)}")
 
     def load_reservations(self):
         from datetime import datetime

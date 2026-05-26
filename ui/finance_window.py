@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from controllers.database import Database
 from datetime import datetime
+from ui.payment_window import PaymentWindow
 
 class FinanceWindow:
     def __init__(self, master):
@@ -81,8 +82,37 @@ class FinanceWindow:
         self.tree_debt.column("Deuda", anchor=tk.E)
         self.tree_debt.pack(fill=tk.BOTH, expand=True)
 
+        # Botón para cobrar desde aquí
+        ttk.Button(bottom_area, text="VER PAGOS / REGISTRAR COBRO", command=self.open_debt_payment).pack(pady=(15, 0), anchor=tk.E)
+
         # Cargar Datos
         self.refresh_data()
+
+    def _parse_currency_robust(self, value_str):
+        """Convierte una cadena de moneda ($1.234,56) a float de forma robusta."""
+        try:
+            clean = str(value_str).replace('$', '').replace(' ', '').replace('.', '').replace(',', '.')
+            return float(clean)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def open_debt_payment(self):
+        """Abre la ventana de pago para el deudor seleccionado."""
+        selected = self.tree_debt.selection()
+        if not selected:
+            messagebox.showwarning("Advertencia", "Seleccione un deudor de la lista.")
+            return
+        
+        vals = self.tree_debt.item(selected[0])['values']
+        # vals: 0:ID, 1:Cliente, 2:Inmueble, 3:Fecha, 4:Deuda
+        try:
+            rid = vals[0]
+            client = vals[1]
+            pending = self._parse_currency_robust(vals[4])
+            
+            PaymentWindow(self.window, rid, client, pending, self.refresh_data)
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo procesar el saldo deudor: {str(e)}")
 
     def _create_kpi_card(self, parent, col, title, color):
         card = tk.Frame(parent, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
