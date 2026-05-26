@@ -189,39 +189,46 @@ class ReservationController:
         print("Crear Reserva")
 
         reservation_window = tk.Toplevel(self.master)
-        reservation_window.title("Nueva Reserva")
-        reservation_window.geometry("850x850")
-        reservation_window.configure(bg="#f8f9fa")
+        reservation_window.title("Nueva Reserva - Panel de Gestión")
+        reservation_window.geometry("950x850")
+        reservation_window.configure(bg="#f0f2f5")
+        reservation_window.transient(self.master)
 
-        # Configurar estilos locales
+        # --- ESTILOS LOCALES ---
         style = ttk.Style(reservation_window)
-        style.configure("Header.TLabel", font=("Segoe UI", 16, "bold"), foreground="#2c3e50")
-        style.configure("Section.TLabelframe", font=("Segoe UI", 10, "bold"))
-        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
+        style.configure("ResHeader.TFrame", background="#2c3e50")
+        style.configure("ResContent.TFrame", background="#f0f2f5")
+        style.configure("ResCard.TLabelframe", font=("Segoe UI", 10, "bold"), background="white")
+        style.configure("ResHeader.TLabel", font=("Segoe UI", 18, "bold"), foreground="white", background="#2c3e50")
+        style.configure("ResAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
 
-        main_scroll_container = ttk.Frame(reservation_window)
-        main_scroll_container.pack(fill=tk.BOTH, expand=True)
+        # --- ENCABEZADO TIPO DASHBOARD ---
+        header_frame = tk.Frame(reservation_window, bg="#2c3e50", height=80)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        tk.Label(header_frame, text="📋 REGISTRO DE NUEVA RESERVA", font=("Segoe UI", 16, "bold"), 
+                 bg="#2c3e50", fg="#ecf0f1").pack(side=tk.LEFT, padx=30, pady=20)
+        
+        tk.Label(header_frame, text=f"ID OPERACIÓN: {datetime.now().strftime('%H%M%S')}", 
+                 font=("Segoe UI", 9), bg="#2c3e50", fg="#95a5a6").pack(side=tk.RIGHT, padx=30)
 
-        canvas = tk.Canvas(main_scroll_container, bg="#f8f9fa", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(main_scroll_container, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        # --- CONTENEDOR DESPLAZABLE ---
+        main_container = ttk.Frame(reservation_window, style="ResContent.TFrame")
+        main_container.pack(fill=tk.BOTH, expand=True)
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+        canvas = tk.Canvas(main_container, bg="#f0f2f5", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="#f0f2f5")
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=920)
         canvas.configure(yscrollcommand=scrollbar.set)
-
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Centrar el contenido
-        form_frame = ttk.Frame(scrollable_frame, padding="20 10 20 20")
-        form_frame.pack(fill=tk.BOTH, expand=True)
-
-        ttk.Label(form_frame, text="Formulario de Nueva Reserva", style="Header.TLabel").pack(pady=(0, 20))
+        content_padding = tk.Frame(scrollable_frame, bg="#f0f2f5", padx=30, pady=20)
+        content_padding.pack(fill=tk.BOTH, expand=True)
 
         client_fields = {
             "id_clientes": tk.StringVar(),
@@ -250,128 +257,103 @@ class ReservationController:
         client_fields["fecha_registro"].set(date.today().strftime("%d/%m/%Y"))
         client_fields["provincia"].set("Buenos Aires")
 
-        # Autocompletar con el próximo ID disponible
         if not self.db.connection or not self.db.connection.is_connected():
             self.db.connect()
         next_id = self.db.get_next_available_client_id()
         client_fields["id_clientes"].set(str(next_id))
 
-        provincias = [
-            "Buenos Aires", "Catamarca", "Chaco", "Chubut", "CABA",
-            "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy",
-            "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén",
-            "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz",
-            "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"
-        ]
-
-        if not self.db.connection or not self.db.connection.is_connected():
-            self.db.connect()
+        provincias = ["Buenos Aires", "Catamarca", "Chaco", "Chubut", "CABA", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"]
         properties = self.db.get_all_properties()
         self.property_map = {p[1]: p for p in properties}
         property_names = list(self.property_map.keys())
 
-        def filtrar_provincias(entry, var):
-            _last_filter = {}
-            def _on_keyrelease(event):
-                nonlocal _last_filter
-                typing = var.get().lower()
-                if _last_filter.get(id(entry)) == typing:
-                    return
-                _last_filter[id(entry)] = typing
-                filtradas = [p for p in provincias if p.lower().startswith(typing)]
-                entry['values'] = filtradas if filtradas else provincias
-                if filtradas:
-                    entry.event_generate('<Down>')
-            return _on_keyrelease
-
-        # ─── SECCIÓN 1: DATOS DEL CLIENTE ────────────────────────────
-        sec1 = ttk.LabelFrame(form_frame, text=" Información del Cliente ", padding=15, style="Section.TLabelframe")
+        # --- SECCIÓN 1: CLIENTE (CARD) ---
+        sec1 = tk.LabelFrame(content_padding, text=" 👤 DATOS DEL HUÉSPED ", font=("Segoe UI", 10, "bold"), 
+                            bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sec1.pack(fill=tk.X, pady=10)
         sec1.columnconfigure(1, weight=1)
         sec1.columnconfigure(3, weight=1)
 
-        # Fila 0
-        ttk.Label(sec1, text="ID Cliente:").grid(row=0, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        entry_id = ttk.Entry(sec1, textvariable=client_fields["id_clientes"])
-        entry_id.grid(row=0, column=1, sticky=tk.EW, pady=5)
-        entry_id.bind("<Return>", lambda event: self.autofill_client_data(client_fields))
-        ttk.Button(sec1, text="Buscar", width=10, command=lambda: self.autofill_client_data(client_fields)).grid(row=0, column=2, sticky=tk.W, padx=5)
+        # Fila 0: ID y Búsqueda
+        tk.Label(sec1, text="ID CLIENTE:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=8)
+        id_f = tk.Frame(sec1, bg="white")
+        id_f.grid(row=0, column=1, sticky=tk.EW, padx=10)
+        ent_id = ttk.Entry(id_f, textvariable=client_fields["id_clientes"])
+        ent_id.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ent_id.bind("<Return>", lambda e: self.autofill_client_data(client_fields))
+        ttk.Button(id_f, text="🔍", width=3, command=lambda: self.autofill_client_data(client_fields)).pack(side=tk.RIGHT, padx=(5,0))
 
-        ttk.Label(sec1, text="Fecha Registro:").grid(row=0, column=3, sticky=tk.E, pady=5, padx=10)
-        ttk.Entry(sec1, textvariable=client_fields["fecha_registro"], state="readonly", width=15).grid(row=0, column=4, sticky=tk.E, pady=5)
+        tk.Label(sec1, text="FECHA REGISTRO:", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky=tk.W, padx=10)
+        ttk.Entry(sec1, textvariable=client_fields["fecha_registro"], state="readonly", width=15).grid(row=0, column=3, sticky=tk.W)
 
-        # Fila 1
-        ttk.Label(sec1, text="Nombre:").grid(row=1, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        ttk.Entry(sec1, textvariable=client_fields["nombre"]).grid(row=1, column=1, sticky=tk.EW, pady=5)
-        
-        ttk.Label(sec1, text="Apellido:").grid(row=1, column=2, sticky=tk.W, pady=5, padx=10)
-        ttk.Entry(sec1, textvariable=client_fields["apellido"]).grid(row=1, column=3, columnspan=2, sticky=tk.EW, pady=5)
+        # Fila 1: Nombre y Apellido
+        tk.Label(sec1, text="NOMBRE:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=8)
+        ttk.Entry(sec1, textvariable=client_fields["nombre"]).grid(row=1, column=1, sticky=tk.EW, padx=10)
+        tk.Label(sec1, text="APELLIDO:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=2, sticky=tk.W, padx=10)
+        ttk.Entry(sec1, textvariable=client_fields["apellido"]).grid(row=1, column=3, sticky=tk.EW)
 
-        # Fila 2
-        ttk.Label(sec1, text="Email:").grid(row=2, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        ttk.Entry(sec1, textvariable=client_fields["email"]).grid(row=2, column=1, sticky=tk.EW, pady=5)
+        # Fila 2: Email y Teléfono
+        tk.Label(sec1, text="EMAIL:", bg="white", font=("Segoe UI", 9)).grid(row=2, column=0, sticky=tk.W, pady=8)
+        ttk.Entry(sec1, textvariable=client_fields["email"]).grid(row=2, column=1, sticky=tk.EW, padx=10)
+        tk.Label(sec1, text="TELÉFONO:", bg="white", font=("Segoe UI", 9)).grid(row=2, column=2, sticky=tk.W, padx=10)
+        ttk.Entry(sec1, textvariable=client_fields["telefono"]).grid(row=2, column=3, sticky=tk.EW)
 
-        ttk.Label(sec1, text="Teléfono:").grid(row=2, column=2, sticky=tk.W, pady=5, padx=10)
-        ttk.Entry(sec1, textvariable=client_fields["telefono"]).grid(row=2, column=3, columnspan=2, sticky=tk.EW, pady=5)
-
-        # Fila 3
-        ttk.Label(sec1, text="Provincia:").grid(row=3, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        var_prov = client_fields["provincia"]
-        combo_prov = ttk.Combobox(sec1, textvariable=var_prov, values=provincias)
-        combo_prov.grid(row=3, column=1, sticky=tk.EW, pady=5)
-        combo_prov.bind("<KeyRelease>", filtrar_provincias(combo_prov, var_prov))
-
-        # ─── SECCIÓN 2: DATOS DE LA RESERVA ──────────────────────────
-        sec2 = ttk.LabelFrame(form_frame, text=" Detalles de la Reserva ", padding=15, style="Section.TLabelframe")
+        # --- SECCIÓN 2: RESERVA Y VISTA PREVIA ---
+        sec2 = tk.LabelFrame(content_padding, text=" 🏠 DETALLES DE ESTADÍA ", font=("Segoe UI", 10, "bold"), 
+                            bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sec2.pack(fill=tk.X, pady=10)
+        
+        # Grid Principal de la sección (Izquierda: Form, Derecha: Card Inmueble)
+        sec2.columnconfigure(0, weight=2)
         sec2.columnconfigure(1, weight=1)
 
-        # Izquierda: Campos, Derecha: Foto
-        left_grid = ttk.Frame(sec2)
-        left_grid.grid(row=0, column=0, sticky=tk.NSEW)
-        left_grid.columnconfigure(1, weight=1)
+        left_form = tk.Frame(sec2, bg="white")
+        left_form.grid(row=0, column=0, sticky=tk.NSEW)
+        left_form.columnconfigure(1, weight=1)
 
-        ttk.Label(left_grid, text="Inmueble:").grid(row=0, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        combo_inmueble = ttk.Combobox(left_grid, textvariable=client_fields["inmueble"], values=property_names, state="readonly")
-        combo_inmueble.grid(row=0, column=1, sticky=tk.EW, pady=5)
+        # Inmueble
+        tk.Label(left_form, text="INMUEBLE:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=10)
+        cb_inm = ttk.Combobox(left_form, textvariable=client_fields["inmueble"], values=property_names, state="readonly")
+        cb_inm.grid(row=0, column=1, sticky=tk.EW, padx=15)
 
-        ttk.Label(left_grid, text="Cant. Personas:").grid(row=1, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        ttk.Entry(left_grid, textvariable=client_fields["cantidad_personas"]).grid(row=1, column=1, sticky=tk.EW, pady=5)
+        # Capacidad y Valor
+        tk.Label(left_form, text="CAPACIDAD:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=8)
+        ttk.Entry(left_form, textvariable=client_fields["cantidad_personas"], width=10).grid(row=1, column=1, sticky=tk.W, padx=15)
 
-        ttk.Label(left_grid, text="Valor por Día:").grid(row=2, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        val_frame = ttk.Frame(left_grid)
-        val_frame.grid(row=2, column=1, sticky=tk.EW, pady=5)
-        entry_val = ttk.Entry(val_frame, textvariable=client_fields["valor_dia"])
-        entry_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        entry_val.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
-        entry_val.bind("<Return>", lambda e: self.update_cost_total(client_fields))
+        tk.Label(left_form, text="VALOR/DÍA:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=2, column=0, sticky=tk.W, pady=8)
+        val_e = ttk.Entry(left_form, textvariable=client_fields["valor_dia"], font=("Segoe UI", 10, "bold"))
+        val_e.grid(row=2, column=1, sticky=tk.EW, padx=15)
+        val_e.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
 
-        ttk.Label(left_grid, text="Fecha Ingreso:").grid(row=3, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        fi_frame = ttk.Frame(left_grid)
-        fi_frame.grid(row=3, column=1, sticky=tk.EW, pady=5)
-        ttk.Entry(fi_frame, textvariable=client_fields["fecha_ingreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(fi_frame, text="📅", width=3, command=lambda: self.select_date("fecha_ingreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5, 0))
+        # Fechas
+        tk.Label(left_form, text="INGRESO:", bg="white", font=("Segoe UI", 9)).grid(row=3, column=0, sticky=tk.W, pady=8)
+        f_in_f = tk.Frame(left_form, bg="white")
+        f_in_f.grid(row=3, column=1, sticky=tk.EW, padx=15)
+        ttk.Entry(f_in_f, textvariable=client_fields["fecha_ingreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(f_in_f, text="📅", width=3, command=lambda: self.select_date("fecha_ingreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
 
-        ttk.Label(left_grid, text="Fecha Egreso:").grid(row=4, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        fe_frame = ttk.Frame(left_grid)
-        fe_frame.grid(row=4, column=1, sticky=tk.EW, pady=5)
-        ttk.Entry(fe_frame, textvariable=client_fields["fecha_egreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(fe_frame, text="📅", width=3, command=lambda: self.select_date("fecha_egreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5, 0))
+        tk.Label(left_form, text="EGRESO:", bg="white", font=("Segoe UI", 9)).grid(row=4, column=0, sticky=tk.W, pady=8)
+        f_out_f = tk.Frame(left_form, bg="white")
+        f_out_f.grid(row=4, column=1, sticky=tk.EW, padx=15)
+        ttk.Entry(f_out_f, textvariable=client_fields["fecha_egreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(f_out_f, text="📅", width=3, command=lambda: self.select_date("fecha_egreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
 
-        # Foto Frame
-        right_grid = ttk.Frame(sec2, padding=(20, 0, 0, 0))
-        right_grid.grid(row=0, column=1, sticky=tk.NE)
+        # Vista Previa Estilo Dashboard
+        right_preview = tk.Frame(sec2, bg="#f8f9fa", bd=0, highlightbackground="#d1d8e0", highlightthickness=1)
+        right_preview.grid(row=0, column=1, sticky=tk.NSEW, padx=(20, 0))
         
-        img_lf = ttk.LabelFrame(right_grid, text=" Vista Previa ", padding=5)
-        img_lf.pack()
+        prev_top = tk.Frame(right_preview, bg="#3498db", height=4)
+        prev_top.pack(fill=tk.X)
         
-        self.img_container = tk.Frame(img_lf, width=200, height=150, bg="#ecf0f1", bd=1, relief=tk.RIDGE)
+        self.img_container = tk.Frame(right_preview, width=220, height=140, bg="#ecf0f1")
         self.img_container.pack_propagate(False)
-        self.img_container.pack()
+        self.img_container.pack(pady=10, padx=10)
         
-        self.inmueble_preview = tk.Label(self.img_container, text="Seleccione un inmueble", fg="#7f8c8d",
-                                         font=('Arial', 9, 'italic'), bg="#ecf0f1")
+        self.inmueble_preview = tk.Label(self.img_container, text="SÍMBOLO INMUEBLE", fg="#bdc3c7", bg="#ecf0f1", font=("Segoe UI", 8, "italic"))
         self.inmueble_preview.pack(fill=tk.BOTH, expand=True)
+        
+        self.lbl_prev_info = tk.Label(right_preview, text="Seleccione un inmueble", font=("Segoe UI", 9), bg="#f8f9fa", fg="#7f8c8d")
+        self.lbl_prev_info.pack(pady=5)
 
         def on_inmueble_select(event):
             selected = client_fields["inmueble"].get()
@@ -379,77 +361,66 @@ class ReservationController:
                 pd = self.property_map[selected]
                 client_fields["valor_dia"].set(self._format_currency(pd[7]))
                 client_fields["cantidad_personas"].set(str(pd[2]))
+                self.lbl_prev_info.config(text=f"{selected.upper()}\nCapacidad: {pd[2]} pers.", fg="#2c3e50", font=("Segoe UI", 9, "bold"))
                 self.update_cost_total(client_fields)
                 img_path = pd[8]
                 if img_path and os.path.exists(img_path):
                     try:
                         img = Image.open(img_path)
-                        # Mantener relación de aspecto si es posible, o simplemente redimensionar
-                        img.thumbnail((198, 148), Image.LANCZOS)
+                        img.thumbnail((220, 140))
                         tk_img = ImageTk.PhotoImage(img)
                         self.inmueble_preview.config(image=tk_img, text="")
                         self.inmueble_preview.image = tk_img
-                    except Exception:
-                        self.inmueble_preview.config(image="", text="Error al cargar imagen")
-                else:
-                    self.inmueble_preview.config(image="", text="Sin imagen disponible")
-        combo_inmueble.bind("<<ComboboxSelected>>", on_inmueble_select)
+                    except: self.inmueble_preview.config(image="", text="Error carga")
+                else: self.inmueble_preview.config(image="", text="Sin imagen")
+        cb_inm.bind("<<ComboboxSelected>>", on_inmueble_select)
 
-        # ─── SECCIÓN 3: COSTOS Y PAGOS ───────────────────────────────
-        sec3 = ttk.LabelFrame(form_frame, text=" Resumen de Costos ", padding=15, style="Section.TLabelframe")
+        # --- SECCIÓN 3: FINANZAS (RESUMEN) ---
+        sec3 = tk.LabelFrame(content_padding, text=" 💰 RESUMEN FINANCIERO ", font=("Segoe UI", 10, "bold"), 
+                            bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sec3.pack(fill=tk.X, pady=10)
         sec3.columnconfigure(1, weight=1)
         sec3.columnconfigure(3, weight=1)
 
-        # Fila 0: Adelanto y Descuento
-        ttk.Label(sec3, text="Adelanto:").grid(row=0, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        ade_f = ttk.Frame(sec3)
-        ade_f.grid(row=0, column=1, sticky=tk.EW, pady=5)
-        entry_ade = ttk.Entry(ade_f, textvariable=client_fields["adelanto"])
-        entry_ade.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        entry_ade.bind("<KeyRelease>", lambda e: self.format_down_payment_input(e, client_fields))
+        # Adelanto y Descuento
+        tk.Label(sec3, text="ADELANTO:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=8)
+        ent_ade = ttk.Entry(sec3, textvariable=client_fields["adelanto"], font=("Segoe UI", 10))
+        ent_ade.grid(row=0, column=1, sticky=tk.EW, padx=10)
+        ent_ade.bind("<KeyRelease>", lambda e: self.format_down_payment_input(e, client_fields))
 
-        ttk.Label(sec3, text="Descuento:").grid(row=0, column=2, sticky=tk.W, pady=5, padx=10)
-        des_f = ttk.Frame(sec3)
-        des_f.grid(row=0, column=3, sticky=tk.EW, pady=5)
-        symbol_label = ttk.Label(des_f, text="$", width=2)
-        entry_des = ttk.Entry(des_f, textvariable=client_fields["descuento"])
-        entry_des.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        tk.Label(sec3, text="DESCUENTO:", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky=tk.W, padx=10)
+        des_f = tk.Frame(sec3, bg="white")
+        des_f.grid(row=0, column=3, sticky=tk.EW)
+        ent_des = ttk.Entry(des_f, textvariable=client_fields["descuento"])
+        ent_des.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ent_des.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
         
-        chk_perc = ttk.Checkbutton(sec3, text="Es %", variable=client_fields["discount_is_percentage"],
-                                   command=lambda: self._toggle_discount_symbol(symbol_label, client_fields))
-        chk_perc.grid(row=0, column=4, sticky=tk.W, padx=5)
-        entry_des.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
+        sym_l = tk.Label(des_f, text="$", bg="white", font=("Segoe UI", 10, "bold"), width=2)
+        sym_l.pack(side=tk.RIGHT)
+        ttk.Checkbutton(sec3, text="%", variable=client_fields["discount_is_percentage"], 
+                        command=lambda: self._toggle_discount_symbol(sym_l, client_fields)).grid(row=0, column=4, padx=5)
 
-        # Fila 1: Noches y Costo Total
-        ttk.Label(sec3, text="Noches:").grid(row=1, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        ttk.Entry(sec3, textvariable=client_fields["noches"], width=10).grid(row=1, column=1, sticky=tk.W, pady=5)
+        # Totales
+        tk.Label(sec3, text="NOCHES:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=15)
+        tk.Label(sec3, textvariable=client_fields["noches"], bg="white", font=("Segoe UI", 11, "bold"), fg="#2980b9").grid(row=1, column=1, sticky=tk.W, padx=10)
 
-        ttk.Label(sec3, text="Costo Base:").grid(row=1, column=2, sticky=tk.W, pady=5, padx=10)
-        base_f = ttk.Frame(sec3)
-        base_f.grid(row=1, column=3, columnspan=2, sticky=tk.EW, pady=5)
-        ttk.Entry(base_f, textvariable=client_fields["costo_total"], state="readonly").pack(side=tk.LEFT, fill=tk.X, expand=True)
+        tk.Label(sec3, text="COSTO TOTAL:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=2, sticky=tk.W, padx=10)
+        tk.Label(sec3, textvariable=client_fields["costo_total"], bg="white", font=("Segoe UI", 11, "bold")).grid(row=1, column=3, sticky=tk.W)
 
-        # Fila 2: Costo Final y Pago Pendiente
-        ttk.Label(sec3, text="Costo Final:").grid(row=2, column=0, sticky=tk.W, pady=5, padx=(0, 10))
-        final_f = ttk.Frame(sec3)
-        final_f.grid(row=2, column=1, sticky=tk.EW, pady=5)
-        ttk.Entry(final_f, textvariable=client_fields["costo_con_descuento"], state="readonly", 
-                  font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        # Destacados
+        tk.Label(sec3, text="A PAGAR FINAL:", bg="white", font=("Segoe UI", 10, "bold"), fg="#27ae60").grid(row=2, column=0, sticky=tk.W, pady=10)
+        tk.Label(sec3, textvariable=client_fields["costo_con_descuento"], bg="white", font=("Segoe UI", 14, "bold"), fg="#27ae60").grid(row=2, column=1, sticky=tk.W, padx=10)
 
-        ttk.Label(sec3, text="Pago Pendiente:", font=("Segoe UI", 10, "bold")).grid(row=2, column=2, sticky=tk.W, pady=5, padx=10)
-        pend_f = ttk.Frame(sec3)
-        pend_f.grid(row=2, column=3, columnspan=2, sticky=tk.EW, pady=5)
-        ttk.Label(pend_f, textvariable=client_fields["pago_pendiente"], foreground="#e74c3c", 
-                  font=('Segoe UI', 12, 'bold')).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        tk.Label(sec3, text="SALDO PENDIENTE:", bg="white", font=("Segoe UI", 10, "bold"), fg="#e74c3c").grid(row=2, column=2, sticky=tk.W, padx=10)
+        tk.Label(sec3, textvariable=client_fields["pago_pendiente"], bg="white", font=("Segoe UI", 16, "bold"), fg="#e74c3c").grid(row=2, column=3, sticky=tk.W)
 
-        # ─── BOTONES DE ACCIÓN ───────────────────────────────────────
-        btn_frame = ttk.Frame(form_frame, padding=(0, 20, 0, 0))
-        btn_frame.pack(fill=tk.X)
+        # --- BOTONES DE ACCIÓN (INFERIOR) ---
+        btn_container = tk.Frame(reservation_window, bg="#f0f2f5", pady=20, padx=30)
+        btn_container.pack(fill=tk.X)
         
-        ttk.Button(btn_frame, text="CANCELAR", width=20, command=reservation_window.destroy).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="CONFIRMAR RESERVA", style="Action.TButton", width=30,
-                   command=lambda: self.save_reservation(reservation_window, client_fields)).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(btn_container, text="CANCELAR", command=reservation_window.destroy).pack(side=tk.LEFT)
+        ttk.Button(btn_container, text="CONFIRMAR Y REGISTRAR RESERVA", style="ResAction.TButton", 
+                   command=lambda: self.save_reservation(reservation_window, client_fields)).pack(side=tk.RIGHT)
 
     def _toggle_discount_symbol(self, label, fields):
         if fields["discount_is_percentage"].get():
