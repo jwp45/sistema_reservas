@@ -280,9 +280,8 @@ class ReservationController:
         id_f.grid(row=0, column=1, sticky=tk.EW, padx=10)
         ent_id = ttk.Entry(id_f, textvariable=client_fields["id_clientes"])
         ent_id.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ent_id.bind("<Return>", lambda e: self.autofill_client_data(client_fields))
-        ttk.Button(id_f, text="🔍", width=3, command=lambda: self.autofill_client_data(client_fields)).pack(side=tk.RIGHT, padx=(5,0))
-
+        ent_id.bind("<Return>", lambda e: self.autofill_client_data(client_fields, parent=reservation_window))
+        ttk.Button(id_f, text="🔍", width=3, command=lambda: self.autofill_client_data(client_fields, parent=reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
         tk.Label(sec1, text="FECHA REGISTRO:", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky=tk.W, padx=10)
         ttk.Entry(sec1, textvariable=client_fields["fecha_registro"], state="readonly", width=15).grid(row=0, column=3, sticky=tk.W)
 
@@ -443,7 +442,10 @@ class ReservationController:
         ranges = self.db.get_reserved_ranges(id_inmueble=id_inmueble)
         CalendarDialog(parent, update_date_field, reserved_ranges=ranges)
 
-    def autofill_client_data(self, client_fields):
+    def autofill_client_data(self, client_fields, parent=None):
+        # Usar self.master si no se proporciona parent
+        parent = parent or self.master
+
         # Obtener el ID del cliente ingresado
         client_id = client_fields["id_clientes"].get()
         
@@ -453,7 +455,7 @@ class ReservationController:
         # Asegurar que la base de datos esté conectada
         if not self.db.connection or not self.db.connection.is_connected():
             if not self.db.connect():
-                messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.master)
+                messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=parent)
                 return
 
         # Buscar el cliente en la base de datos
@@ -465,7 +467,7 @@ class ReservationController:
             client_fields["email"].set(client_data[3])
             client_fields["telefono"].set(client_data[4])
         else:
-            messagebox.showerror("Error", "Cliente no encontrado", parent=self.master)
+            messagebox.showerror("Error", "Cliente no encontrado", parent=parent)
 
         # Recalcular costos después de autocompletar
         self.update_cost_total(client_fields)

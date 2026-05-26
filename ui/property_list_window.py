@@ -181,7 +181,7 @@ class EditPropertyWindow:
                         self.img_preview.image = tk_img
                     except: pass
         else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
     def save_changes(self):
         if not all(v.get() for v in self.fields.values()):
@@ -192,7 +192,7 @@ class EditPropertyWindow:
         try:
             valor_dia = float(valor_raw)
         except:
-            messagebox.showerror("Error", "Valor por día inválido")
+            messagebox.showerror("Error", "Valor por día inválido", parent=self.window)
             return
 
         property_data = (
@@ -424,10 +424,10 @@ class PropertyListWindow:
     def delete_property(self):
         pid = self.get_selected_id()
         if pid is None: return
-        if messagebox.askyesno("Confirmar", f"¿Está seguro de eliminar el inmueble #{pid}?"):
+        if messagebox.askyesno("Confirmar", f"¿Está seguro de eliminar el inmueble #{pid}?", parent=self.window):
             pc = PropertyController()
             if pc.delete_property(pid):
-                messagebox.showinfo("Éxito", "Inmueble eliminado correctamente")
+                messagebox.showinfo("Éxito", "Inmueble eliminado correctamente", parent=self.window)
                 self.load_properties()
 
     def edit_property(self):
@@ -440,7 +440,7 @@ class PropertyListWindow:
 
     def get_selected_id(self):
         if self.selected_id: return self.selected_id
-        messagebox.showwarning("Advertencia", "Seleccione un inmueble")
+        messagebox.showwarning("Advertencia", "Seleccione un inmueble", parent=self.window)
         return None
 
     def show(self): pass

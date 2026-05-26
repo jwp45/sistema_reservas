@@ -146,7 +146,7 @@ class PropertyFormWindow:
         try:
             valor_dia = float(valor_raw)
         except:
-            messagebox.showerror("Error", "Valor por día inválido")
+            messagebox.showerror("Error", "Valor por día inválido", parent=self.window)
             return
 
         property_data = (

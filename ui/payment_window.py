@@ -117,22 +117,22 @@ class PaymentWindow:
         try:
             amount = float(pay_str)
             if amount <= 0:
-                messagebox.showerror("Error", "El monto debe ser mayor a cero.")
+                messagebox.showerror("Error", "El monto debe ser mayor a cero.", parent=self.window)
                 return
             
             if not self.db.connect():
-                messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+                messagebox.showerror("Error", "No se pudo conectar a la base de datos.", parent=self.window)
                 return
             
             success, message = self.db.add_payment_to_reservation(self.reservation_id, amount)
             
             if success:
-                messagebox.showinfo("Éxito", message)
+                messagebox.showinfo("Éxito", message, parent=self.window)
                 self.window.destroy()
                 if self.callback:
                     self.callback()
             else:
-                messagebox.showerror("Error", message)
+                messagebox.showerror("Error", message, parent=self.window)
                 
         except ValueError:
-            messagebox.showerror("Error", "Monto inválido.")
+            messagebox.showerror("Error", "Monto inválido.", parent=self.window)

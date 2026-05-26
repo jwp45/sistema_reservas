@@ -73,7 +73,7 @@ class EditClientWindow:
                 self.fields["email"].set(result[2])
                 self.fields["telefono"].set(result[3])
         else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
     def save_changes(self):
         """Guardar los cambios en la base de datos"""

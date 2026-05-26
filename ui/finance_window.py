@@ -11,7 +11,7 @@ class FinanceWindow:
         
         self.window = tk.Toplevel(master)
         self.window.title("Control Financiero - Panel de Gestión")
-        self.window.geometry("1100x800")
+        self.window.geometry("1100x900")
         self.window.configure(bg="#f0f2f5")
         self.window.transient(master)
 
@@ -100,7 +100,7 @@ class FinanceWindow:
         """Abre la ventana de pago para el deudor seleccionado."""
         selected = self.tree_debt.selection()
         if not selected:
-            messagebox.showwarning("Advertencia", "Seleccione un deudor de la lista.")
+            messagebox.showwarning("Advertencia", "Seleccione un deudor de la lista.", parent=self.window)
             return
         
         vals = self.tree_debt.item(selected[0])['values']
@@ -112,7 +112,7 @@ class FinanceWindow:
             
             PaymentWindow(self.window, rid, client, pending, self.refresh_data)
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo procesar el saldo deudor: {str(e)}")
+            messagebox.showerror("Error", f"No se pudo procesar el saldo deudor: {str(e)}", parent=self.window)
 
     def _create_kpi_card(self, parent, col, title, color):
         card = tk.Frame(parent, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
@@ -147,7 +147,7 @@ class FinanceWindow:
 
     def refresh_data(self):
         if not self.db.connect():
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
             return
 
         # 1. KPIs

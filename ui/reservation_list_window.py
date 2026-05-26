@@ -25,7 +25,7 @@ class EditReservationWindow:
 
         raw = self.db.get_reservation_by_id(reservation_id)
         if not raw:
-            messagebox.showerror("Error", "No se encontró la reserva")
+            messagebox.showerror("Error", "No se encontró la reserva", parent=self.window)
             self.window.destroy()
             return
 
@@ -217,7 +217,7 @@ class EditReservationWindow:
             egreso = self._parse_date(self.fields["fecha_egreso"].get())
             noches = (egreso - ingreso).days
             if noches <= 0:
-                messagebox.showerror("Error", "La fecha de egreso debe ser posterior a la de ingreso")
+                messagebox.showerror("Error", "La fecha de egreso debe ser posterior a la de ingreso", parent=self.window)
                 return
             valor_dia = self._get_valor_dia()
             costo_total = noches * valor_dia
@@ -238,13 +238,13 @@ class EditReservationWindow:
                 "provincia": self.original["provincia"],
             }
             if self.db.update_reservation(self.reservation_id, data):
-                messagebox.showinfo("Éxito", "Reserva actualizada correctamente")
+                messagebox.showinfo("Éxito", "Reserva actualizada correctamente", parent=self.window)
                 self.window.destroy()
                 self.refresh_callback()
             else:
-                messagebox.showerror("Error", "No se pudo actualizar la reserva")
+                messagebox.showerror("Error", "No se pudo actualizar la reserva", parent=self.window)
         except Exception as e:
-            messagebox.showerror("Error", f"Datos inválidos: {e}")
+            messagebox.showerror("Error", f"Datos inválidos: {e}", parent=self.window)
 
 
 class ReservationListWindow:
@@ -341,7 +341,7 @@ class ReservationListWindow:
         """Abre la ventana para consultar historial o registrar un abono."""
         selected = self.table.selection()
         if not selected:
-            messagebox.showwarning("Advertencia", "Seleccione una reserva para consultar pagos.")
+            messagebox.showwarning("Advertencia", "Seleccione una reserva para consultar pagos.", parent=self.window)
             return
         
         vals = self.table.item(selected[0])['values']
@@ -354,7 +354,7 @@ class ReservationListWindow:
             # Abrimos la ventana siempre, el PaymentWindow manejará si permite abonar o no
             PaymentWindow(self.window, rid, client, pending, self.load_reservations)
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo procesar la información de pagos: {str(e)}")
+            messagebox.showerror("Error", f"No se pudo procesar la información de pagos: {str(e)}", parent=self.window)
 
     def load_reservations(self):
         from datetime import datetime
@@ -395,7 +395,7 @@ class ReservationListWindow:
             # Actualizar estadísticas
             self.lbl_stats.config(text=f"Total: {len(rows)} reservas | Cobro Pendiente: ${total_pending:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
         else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
     def filter_reservations(self):
         query = self.search_var.get().lower()
@@ -420,7 +420,7 @@ class ReservationListWindow:
     def get_selected_id(self):
         selected = self.table.selection()
         if not selected:
-            messagebox.showwarning("Advertencia", "Seleccione una reserva de la lista")
+            messagebox.showwarning("Advertencia", "Seleccione una reserva de la lista", parent=self.window)
             return None
         return int(self.table.item(selected[0])['values'][0])
 
@@ -428,14 +428,14 @@ class ReservationListWindow:
         rid = self.get_selected_id()
         if rid is None: return
         
-        if messagebox.askyesno("Confirmar", f"¿Está seguro de eliminar la reserva #{rid}?"):
+        if messagebox.askyesno("Confirmar", f"¿Está seguro de eliminar la reserva #{rid}?", parent=self.window):
             db = Database()
             if db.connect():
                 if db.delete_reservation(rid):
-                    messagebox.showinfo("Éxito", "Reserva eliminada correctamente")
+                    messagebox.showinfo("Éxito", "Reserva eliminada correctamente", parent=self.window)
                     self.load_reservations()
                 else:
-                    messagebox.showerror("Error", "No se pudo eliminar la reserva")
+                    messagebox.showerror("Error", "No se pudo eliminar la reserva", parent=self.window)
 
     def modify_reservation(self):
         rid = self.get_selected_id()

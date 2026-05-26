@@ -85,7 +85,7 @@ class EditClientWindow:
                 self.fields["email"].set(result[2])
                 self.fields["telefono"].set(result[3])
         else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
     def save_changes(self):
         """Guardar los cambios en la base de datos"""
@@ -194,7 +194,7 @@ class ClientListWindow:
             for client in clients:
                 self.client_table.insert("", "end", values=client)
         else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
     def filter_clients(self):
         """Filtrar los clientes en tiempo real"""
@@ -227,25 +227,25 @@ class ClientListWindow:
         """Eliminar el cliente seleccionado"""
         selected_item = self.client_table.selection()
         if not selected_item:
-            messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente para eliminar.")
+            messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente para eliminar.", parent=self.window)
             return
 
         client_id = self.client_table.item(selected_item)['values'][0]
         client_name = self.client_table.item(selected_item)['values'][1]
 
-        if messagebox.askyesno("Confirmación", f"¿Está seguro de eliminar a {client_name}?"):
+        if messagebox.askyesno("Confirmación", f"¿Está seguro de eliminar a {client_name}?", parent=self.window):
             client_controller = ClientController()
             if client_controller.delete_client(client_id):
-                messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
+                messagebox.showinfo("Éxito", "Cliente eliminado correctamente", parent=self.window)
                 self.refresh_clients()
             else:
-                messagebox.showerror("Error", "No se pudo eliminar el cliente")
+                messagebox.showerror("Error", "No se pudo eliminar el cliente", parent=self.window)
 
     def edit_client(self):
         """Editar el cliente seleccionado"""
         selected_item = self.client_table.selection()
         if not selected_item:
-            messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente para editar.")
+            messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente para editar.", parent=self.window)
             return
 
         client_id = self.client_table.item(selected_item)['values'][0]
