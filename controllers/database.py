@@ -94,6 +94,16 @@ class Database:
                 )
             """)
             
+            # 6. Crear tabla de galería de inmuebles
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS galeria_inmuebles (
+                    id_imagen INT AUTO_INCREMENT PRIMARY KEY,
+                    id_inmueble INT NOT NULL,
+                    ruta_imagen VARCHAR(255) NOT NULL,
+                    FOREIGN KEY (id_inmueble) REFERENCES inmuebles(id_inmueble) ON DELETE CASCADE
+                )
+            """)
+            
             # Asegurar que la columna icono existe
             try:
                 cursor.execute("ALTER TABLE servicios_inmuebles ADD COLUMN icono VARCHAR(50) DEFAULT '✨'")
@@ -279,6 +289,50 @@ class Database:
             return True
         except Exception as e:
             print(f"Error al eliminar el cliente: {e}")
+            return False
+        finally:
+            if cursor: cursor.close()
+
+    def get_gallery_images(self, id_inmueble):
+        """Retorna las rutas de las imágenes de la galería de un inmueble."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "SELECT id_imagen, ruta_imagen FROM galeria_inmuebles WHERE id_inmueble = %s"
+            cursor.execute(query, (id_inmueble,))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error al obtener galería del inmueble: {e}")
+            return []
+        finally:
+            if cursor: cursor.close()
+
+    def insert_gallery_image(self, id_inmueble, ruta_imagen):
+        """Guarda una imagen en la galería de un inmueble."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "INSERT INTO galeria_inmuebles (id_inmueble, ruta_imagen) VALUES (%s, %s)"
+            cursor.execute(query, (id_inmueble, ruta_imagen))
+            self.connection.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            print(f"Error al guardar imagen en galería: {e}")
+            return False
+        finally:
+            if cursor: cursor.close()
+
+    def delete_gallery_image(self, id_imagen):
+        """Elimina una imagen de la galería."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "DELETE FROM galeria_inmuebles WHERE id_imagen = %s"
+            cursor.execute(query, (id_imagen,))
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error al eliminar imagen de galería: {e}")
             return False
         finally:
             if cursor: cursor.close()

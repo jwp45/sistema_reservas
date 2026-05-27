@@ -1,10 +1,13 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import calendar
+import os
 from datetime import date, datetime, timedelta
 from controllers.database import Database
+from PIL import Image, ImageTk
 from utils.email_sender import send_quotation_email
 from ui.advanced_search_window import AdvancedSearchWindow
+from ui.gallery_window import GalleryWindow
 
 class ConsultationWindow:
     def __init__(self, master, reservation_controller):
@@ -29,15 +32,44 @@ class ConsultationWindow:
         self.year = self.now.year
         self.month = self.now.month
         
+        # Estados de visibilidad
+        self.discount_visible = True
+        self.lead_visible = False
+
         # Campos para captación de leads
         self.lead_fields = {
             "nombre": tk.StringVar(),
             "telefono": tk.StringVar(),
-            "email": tk.StringVar()
+            "email": tk.StringVar(),
+            "include_photos": tk.BooleanVar(value=False)
         }
         
         self.setup_ui()
         self.load_properties()
+
+    def toggle_discount_section(self):
+        """Muestra u oculta la sección de negociación."""
+        if self.discount_visible:
+            self.discount_card.pack_forget()
+            self.btn_toggle_discount.config(text="💰 NEGOCIACIÓN ▼")
+            self.discount_visible = False
+        else:
+            # Reinsertar después de su cabecera y antes de la cabecera de captación
+            self.discount_card.pack(fill=tk.X, pady=(0, 20), after=self.discount_header)
+            self.btn_toggle_discount.config(text="💰 NEGOCIACIÓN ▲")
+            self.discount_visible = True
+
+    def toggle_lead_section(self):
+        """Muestra u oculta la sección de captación/cotización."""
+        if self.lead_visible:
+            self.lead_card.pack_forget()
+            self.btn_toggle_lead.config(text="📋 COTIZACIÓN ▼")
+            self.lead_visible = False
+        else:
+            # Reinsertar después de su cabecera y antes del botón reservar
+            self.lead_card.pack(fill=tk.X, pady=(0, 20), after=self.lead_header)
+            self.btn_toggle_lead.config(text="📋 COTIZACIÓN ▲")
+            self.lead_visible = True
 
     def send_quotation(self):
         """Registra al cliente (si no existe) y envía el presupuesto por mail."""
@@ -53,6 +85,124 @@ class ConsultationWindow:
             messagebox.showwarning("Atención", "Selecciona fechas e inmueble antes de enviar una cotización.", parent=self.window)
             return
 
+        # Si quiere incluir fotos, abrir selector primero
+        if self.lead_fields["include_photos"].get():
+            # Obtener imagen principal
+            main_img = self.selected_property[8] if len(self.selected_property) > 8 else ""
+            # Obtener galería
+            images = self.db.get_gallery_images(self.selected_property[0])
+            
+            all_paths = []
+            if main_img and os.path.exists(main_img):
+                all_paths.append(main_img)
+            
+            for img in images:
+                path = img[1]
+                if path and os.path.exists(path) and path not in all_paths:
+                    all_paths.append(path)
+
+            if not all_paths:
+                if not messagebox.askyesno("Sin fotos", "Este inmueble no tiene fotos disponibles. ¿Enviar cotización sin fotos?", parent=self.window):
+                    return
+                self._proceed_send_quotation(nombre, email, tel, [])
+            else:
+                self._open_quote_image_selector(nombre, email, tel, all_paths)
+        else:
+            self._proceed_send_quotation(nombre, email, tel, [])
+
+    def _open_quote_image_selector(self, nombre, email, tel, image_paths):
+        """Abre un selector de imágenes robusto para la cotización."""
+        selection_win = tk.Toplevel(self.window)
+        selection_win.title("Seleccionar Fotos para Cotización")
+        selection_win.geometry("650x750") 
+        selection_win.configure(bg="#f8f9fa")
+        selection_win.transient(self.window)
+        selection_win.grab_set()
+
+        # 1. Header
+        header = tk.Frame(selection_win, bg="#2c3e50", pady=15)
+        header.pack(side=tk.TOP, fill=tk.X)
+        tk.Label(header, text="📸 SELECCIONAR FOTOS (MÁX. 10)", font=("Segoe UI", 12, "bold"), 
+                 bg="#2c3e50", fg="white").pack()
+
+        # 2. Footer (Botón de acción - Pack BOTTOM para asegurar visibilidad)
+        footer = tk.Frame(selection_win, bg="#f8f9fa", pady=20, border=1, relief=tk.SUNKEN)
+        footer.pack(side=tk.BOTTOM, fill=tk.X)
+
+        def confirm():
+            selected = [p for p, v in vars_map if v.get()]
+            if not selected:
+                messagebox.showwarning("Atención", "Debe seleccionar al menos una foto para enviar.")
+                return
+            if len(selected) > 10:
+                messagebox.showwarning("Atención", f"Ha seleccionado {len(selected)} fotos. El límite es 10.")
+                return
+            
+            selection_win.destroy()
+            self._proceed_send_quotation(nombre, email, tel, selected)
+
+        btn_confirm = tk.Button(footer, text="📧 CONFIRMAR Y ENVIAR COTIZACIÓN", command=confirm,
+                               font=("Segoe UI", 11, "bold"), bg="#27ae60", fg="white", 
+                               relief=tk.FLAT, pady=12, padx=40, cursor="hand2")
+        btn_confirm.pack(pady=5)
+
+        # 3. Contenedor Central con Scroll (Toma el resto del espacio)
+        container = tk.Frame(selection_win, bg="#f8f9fa")
+        container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        canvas = tk.Canvas(container, bg="#f8f9fa", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        scroll_frame = tk.Frame(canvas, bg="#f8f9fa")
+
+        # Configurar el canvas para el scroll
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        scroll_frame.bind("<Configure>", on_frame_configure)
+        
+        # Ajustar ancho del frame interno al canvas
+        canvas_window = canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+        
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        
+        canvas.bind("<Configure>", on_canvas_configure)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        vars_map = []
+        self.quote_thumbnails = [] # Mantener referencias
+
+        # Generar las filas de imágenes
+        for i, path in enumerate(image_paths):
+            item_f = tk.Frame(scroll_frame, bg="white", pady=8, padx=15, relief=tk.RIDGE, bd=1)
+            item_f.pack(fill=tk.X, pady=4, padx=5)
+
+            # Seleccionar por defecto solo las primeras 10
+            is_selected = (i < 10)
+            var = tk.BooleanVar(value=is_selected)
+            chk = tk.Checkbutton(item_f, variable=var, bg="white", activebackground="white")
+            chk.pack(side=tk.LEFT)
+
+            try:
+                img = Image.open(path)
+                img.thumbnail((100, 75))
+                tk_img = ImageTk.PhotoImage(img)
+                self.quote_thumbnails.append(tk_img)
+                tk.Label(item_f, image=tk_img, bg="white").pack(side=tk.LEFT, padx=15)
+            except Exception as e:
+                print(f"Error cargando miniatura: {e}")
+                tk.Label(item_f, text="🖼️ (Error)", bg="white").pack(side=tk.LEFT, padx=15)
+
+            name_label = tk.Label(item_f, text=os.path.basename(path), bg="white", font=("Segoe UI", 10))
+            name_label.pack(side=tk.LEFT, fill=tk.X, expand=True, anchor="w")
+            
+            vars_map.append((path, var))
+
+    def _proceed_send_quotation(self, nombre, email, tel, selected_images):
+        """Proceso final de guardado y envío de cotización."""
         # Asegurar conexión
         if not self.db.connection or not self.db.connection.is_connected():
             self.db.connect()
@@ -63,43 +213,23 @@ class ConsultationWindow:
         client_id = None
         
         if existing_client:
-            # existing_client = (id, doc, nom, ape, email, tel)
-            db_name = f"{existing_client[2]} {existing_client[3]}".strip()
-            
-            # Si el nombre proporcionado es muy diferente al de la DB, notificar
-            if nombre.lower() not in db_name.lower() and db_name.lower() not in nombre.lower():
-                msg = f"El email '{email}' ya está registrado a nombre de:\n\n👤 {db_name}\n\n¿Deseas enviar la cotización a nombre de este cliente existente?"
-                if not messagebox.askyesno("Email duplicado", msg, parent=self.window):
-                    return # Cancelar operación
-            
             client_exists = True
             client_id = existing_client[0]
         else:
-            # Si no existe por email, verificar por teléfono
-            all_clients = self.db.get_all_clients()
-            for c in all_clients:
-                if c[5] and str(c[5]) == tel:
-                    client_exists = True
-                    client_id = c[0]
-                    break
-        
-        if not client_exists:
-            # Crear nuevo cliente básico
             parts = nombre.split(" ", 1)
             nom = parts[0]
             ape = parts[1] if len(parts) > 1 else "—"
             client_id = self.db.insert_client(("S/D", nom, ape, email, tel))
 
         if not client_id:
-            messagebox.showerror("Error", "No se pudo registrar o identificar al cliente en la base de datos.", parent=self.window)
+            messagebox.showerror("Error", "No se pudo registrar al cliente.", parent=self.window)
             return
 
-        # --- 1.5 GUARDAR COTIZACIÓN EN TABLA ---
+        # 1.5 Datos de cotización
         noches = (self.end_date - self.start_date).days
         valor_dia = float(self.selected_property[7])
         costo_total = noches * valor_dia
         
-        # Calcular descuento real (monto)
         discount_val_str = self.discount_var.get()
         descuento_monto = 0
         try:
@@ -113,51 +243,41 @@ class ConsultationWindow:
         costo_con_desc = costo_total - descuento_monto
 
         quotation_data = {
-            "id_cliente": client_id,
-            "id_inmueble": self.selected_property[0],
-            "fecha_ingreso": self.start_date,
-            "fecha_egreso": self.end_date,
-            "noches": noches,
-            "valor_dia": valor_dia,
-            "costo_total": costo_total,
-            "descuento": descuento_monto,
-            "costo_con_descuento": costo_con_desc
+            "id_cliente": client_id, "id_inmueble": self.selected_property[0],
+            "fecha_ingreso": self.start_date, "fecha_egreso": self.end_date,
+            "noches": noches, "valor_dia": valor_dia, "costo_total": costo_total,
+            "descuento": descuento_monto, "costo_con_descuento": costo_con_desc
         }
         
         quot_id = self.db.insert_quotation(quotation_data)
-
-        if not quot_id:
-            messagebox.showerror("Error", "No se pudo registrar la cotización en la base de datos.", parent=self.window)
-            return
+        if not quot_id: return
 
         # 2. Enviar Correo
         servicios_raw = self.db.get_property_services(self.selected_property[0])
         servicios_str = ", ".join([f"{s[0]} {s[1]}" for s in servicios_raw]) if servicios_raw else "No especificados"
         
         data = {
-
-            "id": quot_id,
-            "inmueble": self.selected_property[1],
-            "servicios": servicios_str,
+            "id": quot_id, "inmueble": self.selected_property[1], "servicios": servicios_str,
             "fecha_ingreso": self.start_date.strftime("%d/%m/%Y"),
             "fecha_egreso": self.end_date.strftime("%d/%m/%Y"),
-            "noches": (self.end_date - self.start_date).days,
-            "ubicacion": f"{self.selected_property[4]}, {self.selected_property[5]}",
+            "noches": noches, "ubicacion": f"{self.selected_property[4]}, {self.selected_property[5]}",
             "costo_total": self.lbl_costo_total.cget("text").replace("Costo Total: ", ""),
             "final_price": self.lbl_final_price.cget("text").replace("Precio Final: ", ""),
             "final_per_night": self.lbl_final_per_night.cget("text").replace("P/Noche Final: ", "")
         }
         
-        if send_quotation_email(email, nombre, data):
-            quot_code = f"Q-{str(quot_id).zfill(5)}"
-            msg = f"Cotización {quot_code} enviada correctamente a {email}."
-            if not client_exists:
-                msg += "\nCliente registrado exitosamente."
-            messagebox.showinfo("Éxito", msg, parent=self.window)
-            # Limpiar campos de lead
-            for var in self.lead_fields.values(): var.set("")
+        self.window.config(cursor="watch")
+        self.window.update()
+        
+        if send_quotation_email(email, nombre, data, image_paths=selected_images):
+            messagebox.showinfo("Éxito", f"Cotización enviada correctamente a {email}.", parent=self.window)
+            for var in self.lead_fields.values():
+                if isinstance(var, tk.StringVar): var.set("")
+                elif isinstance(var, tk.BooleanVar): var.set(False)
         else:
-            messagebox.showerror("Error", "No se pudo enviar el correo. Verifica la configuración SMTP.", parent=self.window)
+            messagebox.showerror("Error", "Fallo al enviar correo.", parent=self.window)
+        
+        self.window.config(cursor="")
 
     def setup_ui(self):
         # --- ESTILOS ---
@@ -177,19 +297,49 @@ class ConsultationWindow:
         tk.Label(header_frame, text="🔍 CONSULTA DE DISPONIBILIDAD", font=("Segoe UI", 16, "bold"), 
                  bg="#2c3e50", fg="#ecf0f1").pack(side=tk.LEFT, padx=30, pady=20)
 
-        # --- CONTENIDO PRINCIPAL ---
-        main_frame = ttk.Frame(self.window, padding=20, style="Cons.TFrame")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # --- CONTENIDO PRINCIPAL CON SCROLL ---
+        outer_container = tk.Frame(self.window, bg="#f0f2f5")
+        outer_container.pack(fill=tk.BOTH, expand=True)
+
+        canvas = tk.Canvas(outer_container, bg="#f0f2f5", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(outer_container, orient="vertical", command=canvas.yview)
         
+        # main_frame ahora estará dentro del canvas - Usamos tk.Frame para mejor compatibilidad con canvas
+        main_frame = tk.Frame(canvas, bg="#f0f2f5")
+        
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        canvas_window = canvas.create_window((0, 0), window=main_frame, anchor="nw")
+        
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        main_frame.bind("<Configure>", on_frame_configure)
+        
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        # Vincular la rueda del ratón al scroll
+        def _on_mousewheel(event):
+            if canvas.winfo_exists():
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
         # Panel Izquierdo: Selección y Resumen
-        left_panel = ttk.Frame(main_frame, width=350, style="Cons.TFrame")
-        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 20))
-        left_panel.pack_propagate(False)
+        left_panel = tk.Frame(main_frame, bg="#f0f2f5")
+        left_panel.grid(row=0, column=0, sticky="nw", padx=(20, 10), pady=20)
         
         # Selección de Rango
         self.range_card = tk.LabelFrame(left_panel, text=" 📅 ESTADÍA SELECCIONADA ", font=("Segoe UI", 9, "bold"), 
-                                      bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+                                      bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1,
+                                      width=350) 
         self.range_card.pack(fill=tk.X, pady=(0, 20))
+        self.range_card.pack_propagate(False) # Mantener el ancho del card
         
         self.lbl_desde = tk.Label(self.range_card, text="Desde: No seleccionada", bg="white", font=("Segoe UI", 9), anchor="w")
         self.lbl_desde.pack(fill=tk.X, pady=2)
@@ -201,15 +351,25 @@ class ConsultationWindow:
         self.lbl_costo_total = tk.Label(self.range_card, text="Costo Total: $0,00", bg="white", font=("Segoe UI", 12, "bold"), fg="#27ae60", anchor="w")
         self.lbl_costo_total.pack(fill=tk.X, pady=(5, 10))
 
-        # --- SECCIÓN DE NEGOCIACIÓN (En el panel izquierdo, debajo de estadía) ---
-        self.discount_card = tk.LabelFrame(left_panel, text=" 💰 NEGOCIACIÓN / DESCUENTO ", font=("Segoe UI", 9, "bold"), 
-                                         bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+        # ... (el resto de los widgets de left_panel se mantienen igual con .pack() dentro de left_panel) ...
+        # --- SECCIÓN DE NEGOCIACIÓN PLEGABLE ---
+        self.discount_header = tk.Frame(left_panel, bg="#2c3e50")
+        self.discount_header.pack(fill=tk.X, pady=(0, 0))
+        
+        self.btn_toggle_discount = tk.Button(self.discount_header, text="💰 NEGOCIACIÓN ▲", font=("Segoe UI", 8, "bold"), 
+                                           bg="#2c3e50", fg="white", bd=0, activebackground="#34495e", 
+                                           activeforeground="white", anchor="w", padx=10, pady=5,
+                                           command=self.toggle_discount_section)
+        self.btn_toggle_discount.pack(fill=tk.X)
+
+        self.discount_card = tk.Frame(left_panel, bg="white", padx=15, pady=15, highlightbackground="#e0e0e0", highlightthickness=1)
         self.discount_card.pack(fill=tk.X, pady=(0, 20))
 
         self.discount_is_percentage = tk.BooleanVar(value=True)
         disc_type_frame = tk.Frame(self.discount_card, bg="white")
         disc_type_frame.pack(fill=tk.X, pady=5)
         
+        tk.Label(disc_type_frame, text="Descuento:", font=("Segoe UI", 9, "bold"), bg="white", fg="#7f8c8d").pack(side=tk.LEFT, padx=(0, 10))
         tk.Radiobutton(disc_type_frame, text="%", variable=self.discount_is_percentage, value=True, 
                        bg="white", command=self.update_selection_display).pack(side=tk.LEFT)
         tk.Radiobutton(disc_type_frame, text="$", variable=self.discount_is_percentage, value=False, 
@@ -220,6 +380,15 @@ class ConsultationWindow:
         self.ent_discount.pack(fill=tk.X, pady=5)
         self.ent_discount.bind("<KeyRelease>", self.on_discount_change)
 
+        # Resumen de estadía dentro de negociación para contexto
+        self.lbl_disc_rango = tk.Label(self.discount_card, text="Estadía: -", bg="white", 
+                                      font=("Segoe UI", 9, "bold"), fg="#34495e", anchor="w")
+        self.lbl_disc_rango.pack(fill=tk.X, pady=(10, 0))
+        
+        self.lbl_disc_noches = tk.Label(self.discount_card, text="Noches: 0", bg="white", 
+                                       font=("Segoe UI", 9), fg="#7f8c8d", anchor="w")
+        self.lbl_disc_noches.pack(fill=tk.X, pady=(0, 5))
+
         self.lbl_final_price = tk.Label(self.discount_card, text="Precio Final: $0,00", bg="white", 
                                         font=("Segoe UI", 12, "bold"), fg="#e67e22", anchor="w")
         self.lbl_final_price.pack(fill=tk.X, pady=(5, 0))
@@ -228,10 +397,18 @@ class ConsultationWindow:
                                             font=("Segoe UI", 9, "italic"), fg="#7f8c8d", anchor="w")
         self.lbl_final_per_night.pack(fill=tk.X, pady=2)
 
-        # --- SECCIÓN DE CAPTACIÓN DE CLIENTE ---
-        self.lead_card = tk.LabelFrame(left_panel, text=" 📋 COTIZACIÓN / CAPTACIÓN ", font=("Segoe UI", 9, "bold"), 
-                                      bg="white", padx=15, pady=15, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
-        self.lead_card.pack(fill=tk.X, pady=(0, 20))
+        # --- SECCIÓN DE CAPTACIÓN PLEGABLE ---
+        self.lead_header = tk.Frame(left_panel, bg="#2c3e50")
+        self.lead_header.pack(fill=tk.X)
+        
+        self.btn_toggle_lead = tk.Button(self.lead_header, text="📋 COTIZACIÓN ▼", font=("Segoe UI", 8, "bold"), 
+                                        bg="#2c3e50", fg="white", bd=0, activebackground="#34495e", 
+                                        activeforeground="white", anchor="w", padx=10, pady=5,
+                                        command=self.toggle_lead_section)
+        self.btn_toggle_lead.pack(fill=tk.X)
+
+        self.lead_card = tk.Frame(left_panel, bg="white", padx=15, pady=15, highlightbackground="#e0e0e0", highlightthickness=1)
+        # Inicia oculto por defecto
 
         tk.Label(self.lead_card, text="NOMBRE COMPLETO:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
         ttk.Entry(self.lead_card, textvariable=self.lead_fields["nombre"], font=("Segoe UI", 9)).pack(fill=tk.X, pady=(2, 8))
@@ -241,6 +418,9 @@ class ConsultationWindow:
 
         tk.Label(self.lead_card, text="EMAIL:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
         ttk.Entry(self.lead_card, textvariable=self.lead_fields["email"], font=("Segoe UI", 9)).pack(fill=tk.X, pady=(2, 8))
+
+        tk.Checkbutton(self.lead_card, text="📸 Incluir fotos (max 10)", variable=self.lead_fields["include_photos"], 
+                       bg="white", font=("Segoe UI", 9)).pack(anchor="w", pady=5)
 
         ttk.Button(self.lead_card, text="📧 ENVIAR COTIZACIÓN", command=self.send_quotation).pack(fill=tk.X, pady=(5, 0))
 
@@ -252,9 +432,14 @@ class ConsultationWindow:
         self.btn_ver_servicios = ttk.Button(left_panel, text="✨ VER SERVICIOS", command=self.show_services_popup)
         self.btn_ver_servicios.pack(fill=tk.X, pady=(10, 0))
 
+        self.btn_ver_galeria = ttk.Button(left_panel, text="📸 VER GALERÍA", command=self.open_gallery)
+        self.btn_ver_galeria.pack(fill=tk.X, pady=(10, 0))
+
         # Panel Derecho: Calendario
-        right_panel = tk.Frame(main_frame, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
-        right_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        right_panel = tk.Frame(main_frame, bg="#f0f2f5")
+        right_panel.grid(row=0, column=1, sticky="nw", padx=(10, 20), pady=(20, 50))
+        
+        main_frame.columnconfigure(1, weight=1) # El calendario toma el espacio restante horizontalmente
 
         # --- SECCIÓN DE BÚSQUEDA Y FILTROS (Horizontal con Plegado) ---
         sel_card = tk.Frame(right_panel, bg="white", padx=20, pady=10, highlightbackground="#e0e0e0", highlightthickness=1)
@@ -529,6 +714,23 @@ class ConsultationWindow:
         
         ttk.Button(popup, text="CERRAR", command=popup.destroy).pack(pady=15)
 
+    def open_gallery(self):
+        """Abre el visor de galería para el inmueble seleccionado."""
+        if not self.selected_property:
+            messagebox.showwarning("Atención", "Seleccione un inmueble para ver su galería.", parent=self.window)
+            return
+            
+        images = self.db.get_gallery_images(self.selected_property[0])
+        if not images:
+            messagebox.showinfo("Información", "Este inmueble no tiene fotos en su galería.", parent=self.window)
+            return
+            
+        paths = [img[1] for img in images]
+        client_email = self.lead_fields["email"].get() if "email" in self.lead_fields else None
+        client_phone = self.lead_fields["telefono"].get() if "telefono" in self.lead_fields else None
+        GalleryWindow(self.window, self.selected_property[1], paths, 
+                      client_email=client_email, client_phone=client_phone)
+
     def on_property_selected(self, event=None):
         name = self.prop_var.get()
         if name in self.property_map:
@@ -592,13 +794,13 @@ class ConsultationWindow:
                     fg = "white"
                 
                 btn = tk.Button(self.days_frame, text=str(day), font=("Segoe UI", 14, "bold"),
-                               bg=color, fg=fg, relief=tk.FLAT, bd=0,
+                               bg=color, fg=fg, relief=tk.FLAT, bd=0, height=3, # Aumentar más la altura
                                command=lambda dd=d, info=day_info: self.on_day_click(dd, info))
                 
                 if is_past:
                      btn.config(state=tk.DISABLED)
                 
-                btn.grid(row=row_idx, column=col_idx, padx=2, pady=2, sticky="nsew")
+                btn.grid(row=row_idx, column=col_idx, padx=3, pady=8, sticky="nsew") # Más padding vertical para estirar el calendario
 
         for i in range(7):
             self.days_frame.columnconfigure(i, weight=1)
@@ -732,23 +934,27 @@ class ConsultationWindow:
             self.lbl_desde.config(text=f"Desde: {self.start_date.strftime('%d/%m/%Y')}")
         else:
             self.lbl_desde.config(text="Desde: No seleccionada")
-            
+
         if self.end_date:
             self.lbl_hasta.config(text=f"Hasta: {self.end_date.strftime('%d/%m/%Y')}")
             noches = (self.end_date - self.start_date).days
             self.lbl_noches.config(text=f"Noches: {noches}")
-            
+
+            # Actualizar labels en sección de negociación
+            self.lbl_disc_rango.config(text=f"Estadía: {self.start_date.strftime('%d/%m')} al {self.end_date.strftime('%d/%m/%Y')}")
+            self.lbl_disc_noches.config(text=f"Noches: {noches}")
+
             # Calcular costo total
             total_sin_desc = 0
             if self.selected_property:
                 precio_noche = float(self.selected_property[7])
                 total_sin_desc = noches * precio_noche
                 self.lbl_costo_total.config(text=f"Costo Total: {self._format_currency(total_sin_desc)}")
-            
+
             # Calcular Descuento
             final_price = total_sin_desc
             discount_val_str = self.discount_var.get()
-            
+
             try:
                 if self.discount_is_percentage.get():
                     # Porcentaje
@@ -763,7 +969,7 @@ class ConsultationWindow:
                 final_price = total_sin_desc
 
             self.lbl_final_price.config(text=f"Precio Final: {self._format_currency(max(0, final_price))}")
-            
+
             # Calcular precio por noche final (guía para el dueño)
             if noches > 0:
                 p_noche_final = max(0, final_price) / noches
@@ -775,11 +981,12 @@ class ConsultationWindow:
         else:
             self.lbl_hasta.config(text="Hasta: No seleccionada")
             self.lbl_noches.config(text="Noches: 0")
+            self.lbl_disc_rango.config(text="Estadía: -")
+            self.lbl_disc_noches.config(text="Noches: 0")
             self.lbl_costo_total.config(text="Costo Total: $0,00")
             self.lbl_final_price.config(text="Precio Final: $0,00")
             self.lbl_final_per_night.config(text="P/Noche Final: $0,00")
             self.btn_reservar.config(state=tk.DISABLED)
-
     def reset_selection(self):
         self.start_date = None
         self.end_date = None

@@ -2,10 +2,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import shutil
 import os
+from datetime import datetime
 
 from controllers.database import Database
 from controllers.property_controller import PropertyController
 from PIL import Image, ImageTk
+from ui.gallery_window import GalleryWindow
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets", "inmuebles")
@@ -130,7 +132,27 @@ class EditPropertyWindow:
 
         ttk.Button(sec_services, text="ELIMINAR SELECCIONADO", command=self.remove_service).pack(fill=tk.X)
 
-        # --- SECCIÓN 4: MULTIMEDIA ---
+        # --- SECCIÓN 4: GALERÍA ---
+        sec_gal = tk.LabelFrame(content_padding, text=" GALERÍA DE FOTOS ", font=("Segoe UI", 9, "bold"), 
+                               bg="white", fg="#2c3e50", padx=25, pady=25, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+        sec_gal.pack(fill=tk.X, pady=10)
+
+        gal_btn_f = tk.Frame(sec_gal, bg="white")
+        gal_btn_f.pack(fill=tk.X)
+
+        ttk.Button(gal_btn_f, text="AÑADIR FOTOS", command=self.add_to_gallery).pack(side=tk.LEFT, padx=5)
+        ttk.Button(gal_btn_f, text="VER GALERÍA", command=self.open_gallery_viewer).pack(side=tk.LEFT, padx=5)
+        
+        self.lbl_gal_info = tk.Label(gal_btn_f, text="0 fotos cargadas", bg="white", fg="#7f8c8d", font=("Segoe UI", 8))
+        self.lbl_gal_info.pack(side=tk.LEFT, padx=15)
+
+        # Lista de imágenes (solo nombres/rutas)
+        self.gal_listbox = tk.Listbox(sec_gal, height=4, font=("Segoe UI", 9))
+        self.gal_listbox.pack(fill=tk.X, pady=10)
+
+        ttk.Button(sec_gal, text="ELIMINAR FOTO SELECCIONADA", command=self.delete_from_gallery).pack(fill=tk.X)
+
+        # --- SECCIÓN 5: MULTIMEDIA ---
         sec_img = tk.LabelFrame(content_padding, text=" VISTA PREVIA Y MULTIMEDIA ", font=("Segoe UI", 9, "bold"), 
                                bg="white", fg="#2c3e50", padx=25, pady=25, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sec_img.pack(fill=tk.X, pady=10)
@@ -188,6 +210,65 @@ class EditPropertyWindow:
         if selected:
             self.services_listbox.delete(selected)
 
+    def delete_from_gallery(self):
+        selected = self.gal_listbox.curselection()
+        if not selected: return
+        
+        index = selected[0]
+        img_id, path = self.gallery_data[index]
+        
+        if messagebox.askyesno("Confirmar", "¿Eliminar esta foto de la galería?", parent=self.window):
+            db = Database()
+            if db.connect():
+                if db.delete_gallery_image(img_id):
+                    # Opcional: borrar archivo físico
+                    # if os.path.exists(path): os.remove(path)
+                    self.load_gallery_data()
+            else:
+                messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+
+    def add_to_gallery(self):
+        paths = filedialog.askopenfilenames(
+            title="Seleccionar fotos",
+            filetypes=[("Imágenes", "*.png *.jpg *.jpeg *.gif *.bmp")]
+        )
+        if not paths: return
+        
+        db = Database()
+        if db.connect():
+            gallery_dir = os.path.join(ASSETS_DIR, "gallery", str(self.property_id))
+            os.makedirs(gallery_dir, exist_ok=True)
+            
+            for path in paths:
+                ext = os.path.splitext(path)[1]
+                dest = os.path.join(gallery_dir, f"gal_{int(datetime.now().timestamp())}_{os.path.basename(path)}")
+                try:
+                    shutil.copy2(path, dest)
+                    db.insert_gallery_image(self.property_id, dest)
+                except Exception as e:
+                    print(f"Error copiando: {e}")
+            
+            self.load_gallery_data()
+        else:
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos")
+
+    def open_gallery_viewer(self):
+        if not hasattr(self, "gallery_data") or not self.gallery_data:
+            messagebox.showinfo("Información", "No hay fotos cargadas en la galería.")
+            return
+        
+        paths = [g[1] for s, g in enumerate(self.gallery_data)]
+        GalleryWindow(self.window, self.fields["nombre"].get(), paths)
+
+    def load_gallery_data(self):
+        self.gal_listbox.delete(0, tk.END)
+        db = Database()
+        if db.connect():
+            self.gallery_data = db.get_gallery_images(self.property_id)
+            for _, path in self.gallery_data:
+                self.gal_listbox.insert(tk.END, os.path.basename(path))
+            self.lbl_gal_info.config(text=f"{len(self.gallery_data)} fotos cargadas")
+
     def select_image(self):
         path = filedialog.askopenfilename(
             title="Seleccionar imagen",
@@ -236,6 +317,9 @@ class EditPropertyWindow:
             servicios = db.get_property_services(self.property_id)
             for icon, name in servicios:
                 self.services_listbox.insert(tk.END, f"{icon} {name}")
+                
+            # Cargar galería
+            self.load_gallery_data()
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 

@@ -1,8 +1,13 @@
 import smtplib
 import os
+import tempfile
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+from email.mime.base import MIMEBase
+from email import encoders
 from controllers.database import Database
+from PIL import Image
 
 def get_smtp_config():
     db = Database()
@@ -25,6 +30,25 @@ def get_smtp_config():
         "whatsapp_number": "5492236689548"
     }
 
+def optimize_image_for_email(source_path, max_size=(1024, 1024), quality=70):
+    """Redimensiona y comprime una imagen para que sea apta para envío por email."""
+    try:
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        temp_path = temp_file.name
+        temp_file.close()
+
+        img = Image.open(source_path)
+        # Convertir a RGB si es necesario
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        img.thumbnail(max_size, Image.Resampling.LANCZOS)
+        img.save(temp_path, "JPEG", quality=quality, optimize=True)
+        return temp_path
+    except Exception as e:
+        print(f"Error optimizando imagen {source_path}: {e}")
+        return None
+
 def send_reservation_email(client_email, client_name, data):
     config = get_smtp_config()
     smtp_user = config.get("smtp_user")
@@ -34,7 +58,6 @@ def send_reservation_email(client_email, client_name, data):
     from_email = config.get("from_email")
 
     if not smtp_user or not smtp_password:
-        print("Email SMTP no configurado. No se envió el correo.")
         return False
 
     res_id = data.get('id_reserva', '—')
@@ -79,15 +102,13 @@ def send_reservation_email(client_email, client_name, data):
             server.starttls()
             server.login(smtp_user, smtp_password)
             server.sendmail(from_email, client_email, msg.as_string())
-        print(f"Correo enviado a {client_email}")
         return True
     except Exception as e:
         print(f"Error al enviar correo: {e}")
         return False
 
-
-def send_quotation_email(client_email, client_name, data):
-    """Envía un correo de cotización formal."""
+def send_quotation_email(client_email, client_name, data, image_paths=None):
+    """Envía un correo de cotización formal con opción de adjuntar fotos."""
     config = get_smtp_config()
     smtp_user = config.get("smtp_user")
     smtp_password = config.get("smtp_password")
@@ -104,6 +125,11 @@ def send_quotation_email(client_email, client_name, data):
     quot_code = f"Q-{str(quot_id).zfill(5)}" if str(quot_id).isdigit() else quot_id
     
     subject = f"🏨 Presupuesto de Estadía {quot_code} - {data.get('inmueble', '')}"
+
+    msg = MIMEMultipart()
+    msg["Subject"] = subject
+    msg["From"] = from_email
+    msg["To"] = client_email
 
     body = f"""
     <html>
@@ -144,22 +170,125 @@ def send_quotation_email(client_email, client_name, data):
     </body>
     </html>
     """
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = from_email
-    msg["To"] = client_email
     msg.attach(MIMEText(body, "html"))
+
+    # Adjuntar imágenes si existen
+    temp_attachments = []
+    if image_paths:
+        for i, path in enumerate(image_paths[:10]): # Límite de 10 como pidió el usuario
+            if os.path.exists(path):
+                optimized_path = optimize_image_for_email(path)
+                if optimized_path:
+                    try:
+                        with open(optimized_path, "rb") as attachment:
+                            part = MIMEBase("application", "octet-stream")
+                            part.set_payload(attachment.read())
+                            encoders.encode_base64(part)
+                            filename = f"inmueble_{i+1}.jpg"
+                            part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
+                            msg.attach(part)
+                            temp_attachments.append(optimized_path)
+                    except Exception as e:
+                        print(f"Error adjuntando en cotización: {e}")
 
     try:
         with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
             server.login(smtp_user, smtp_password)
             server.sendmail(from_email, client_email, msg.as_string())
+        
+        # Limpiar temporales
+        for temp_p in temp_attachments:
+            try: os.remove(temp_p)
+            except: pass
         return True
     except Exception as e:
-        print(f"Error al enviar correo: {e}")
+        print(f"Error al enviar cotización: {e}")
+        for temp_p in temp_attachments:
+            try: os.remove(temp_p)
+            except: pass
         return False
+
+def send_gallery_email(client_email, property_name, image_paths):
+    """Envía imágenes de la galería, dividiendo en varios correos si son muchas."""
+    config = get_smtp_config()
+    smtp_user = config.get("smtp_user")
+    smtp_password = config.get("smtp_password")
+    smtp_server = config.get("smtp_server")
+    smtp_port = config.get("smtp_port")
+    from_email = config.get("from_email")
+    business_name = config.get("business_name")
+
+    if not smtp_user or not smtp_password:
+        return False
+
+    # Dividir imágenes en lotes de 10 para evitar límites de tamaño/adjuntos
+    batch_size = 10
+    batches = [image_paths[i:i + batch_size] for i in range(0, len(image_paths), batch_size)]
+    total_parts = len(batches)
+    
+    overall_success = True
+
+    for part_idx, current_batch in enumerate(batches):
+        part_num = part_idx + 1
+        suffix = f" (Parte {part_num} de {total_parts})" if total_parts > 1 else ""
+        subject = f"📸 Galería de Fotos: {property_name}{suffix} - {business_name}"
+
+        msg = MIMEMultipart()
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = client_email
+
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2 style="color: #2c3e50;">{business_name}</h2>
+            <p>Hola,</p>
+            <p>A continuación te enviamos las fotos del inmueble: <strong>{property_name}</strong>.{suffix}</p>
+            <p>Quedamos a tu disposición por cualquier consulta adicional.</p>
+            <br>
+            <p style="font-size: 12px; color: #7f8c8d;">Atentamente,<br>{business_name}</p>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(body, "html"))
+
+        temp_attachments = []
+        for i, path in enumerate(current_batch):
+            if os.path.exists(path):
+                optimized_path = optimize_image_for_email(path)
+                if optimized_path:
+                    try:
+                        with open(optimized_path, "rb") as attachment:
+                            part = MIMEBase("application", "octet-stream")
+                            part.set_payload(attachment.read())
+                            encoders.encode_base64(part)
+                            
+                            filename = f"foto_{part_idx*batch_size + i + 1}.jpg"
+                            part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
+                            msg.attach(part)
+                            temp_attachments.append(optimized_path)
+                    except Exception as e:
+                        print(f"Error adjuntando {path}: {e}")
+
+        try:
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(from_email, client_email, msg.as_string())
+            
+            # Limpiar temporales del lote
+            for temp_p in temp_attachments:
+                try: os.remove(temp_p)
+                except: pass
+        except Exception as e:
+            print(f"Error al enviar parte {part_num}: {e}")
+            overall_success = False
+            for temp_p in temp_attachments:
+                try: os.remove(temp_p)
+                except: pass
+
+    return overall_success
 
 def send_marketing_offer_email(client_email, client_name, data):
     """Envía un correo de marketing mejorando la oferta original."""

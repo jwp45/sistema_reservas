@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import shutil
 import os
+from datetime import datetime
 
 from controllers.database import Database
 from PIL import Image, ImageTk
@@ -14,6 +15,7 @@ class PropertyFormWindow:
     def __init__(self, master):
         self.master = master
         self.imagen_path = ""
+        self.gallery_paths = []
 
         self.window = tk.Toplevel(master)
         self.window.title("Registrar Nuevo Inmueble")
@@ -136,6 +138,18 @@ class PropertyFormWindow:
         self.img_preview = ttk.Label(sec_img, background="#ecf0f1", relief=tk.RIDGE)
         self.img_preview.pack(pady=15)
 
+        # --- SECCIÓN 5: GALERÍA ---
+        sec_gal = ttk.LabelFrame(scrollable_frame, text=" Galería de Fotos ", padding=15, style="FormSection.TLabelframe")
+        sec_gal.pack(fill=tk.X, pady=10)
+
+        gal_row = ttk.Frame(sec_gal)
+        gal_row.pack(fill=tk.X)
+        ttk.Button(gal_row, text="Añadir Fotos a Galería", command=self.select_gallery).pack(side=tk.LEFT, padx=5)
+        self.lbl_gal_count = ttk.Label(gal_row, text="0 fotos seleccionadas", foreground="gray", font=("Segoe UI", 9))
+        self.lbl_gal_count.pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(sec_gal, text="Limpiar Galería", command=self.clear_gallery).pack(side=tk.RIGHT, padx=5)
+
         # Botones de Acción
         btn_frame = ttk.Frame(scrollable_frame, padding=(0, 20, 0, 0))
         btn_frame.pack(fill=tk.X)
@@ -187,6 +201,19 @@ class PropertyFormWindow:
         if selected:
             self.services_listbox.delete(selected)
 
+    def select_gallery(self):
+        paths = filedialog.askopenfilenames(
+            title="Seleccionar fotos para la galería",
+            filetypes=[("Imágenes", "*.png *.jpg *.jpeg *.gif *.bmp")]
+        )
+        if paths:
+            self.gallery_paths.extend(list(paths))
+            self.lbl_gal_count.config(text=f"{len(self.gallery_paths)} fotos seleccionadas", foreground="black")
+
+    def clear_gallery(self):
+        self.gallery_paths = []
+        self.lbl_gal_count.config(text="0 fotos seleccionadas", foreground="gray")
+
     def save_property(self):
         if not all(v.get() for v in self.fields.values()):
             messagebox.showerror("Error", "Todos los campos son obligatorios", parent=self.window)
@@ -230,6 +257,19 @@ class PropertyFormWindow:
                     parsed_services.append(("✨", rs))
                     
             db.insert_property_services(id_inmueble, parsed_services)
+
+            # Guardar galería
+            if self.gallery_paths:
+                gallery_dir = os.path.join(ASSETS_DIR, "gallery", str(id_inmueble))
+                os.makedirs(gallery_dir, exist_ok=True)
+                for i, path in enumerate(self.gallery_paths):
+                    ext = os.path.splitext(path)[1]
+                    dest = os.path.join(gallery_dir, f"gal_{i}_{int(datetime.now().timestamp())}{ext}")
+                    try:
+                        shutil.copy2(path, dest)
+                        db.insert_gallery_image(id_inmueble, dest)
+                    except Exception as e:
+                        print(f"Error al copiar imagen de galería: {e}")
 
             if self.imagen_path:
                 ext = os.path.splitext(self.imagen_path)[1]
