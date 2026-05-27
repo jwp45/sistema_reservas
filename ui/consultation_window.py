@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 import calendar
 from datetime import date, datetime, timedelta
 from controllers.database import Database
+from utils.email_sender import send_quotation_email
 
 class ConsultationWindow:
     def __init__(self, master, reservation_controller):
@@ -129,9 +130,8 @@ class ConsultationWindow:
             return
 
         # 2. Enviar Correo
-        from utils.email_sender import send_quotation_email
-        
         data = {
+
             "id": quot_id,
             "inmueble": self.selected_property[1],
             "fecha_ingreso": self.start_date.strftime("%d/%m/%Y"),

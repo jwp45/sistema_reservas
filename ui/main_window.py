@@ -11,6 +11,9 @@ from ui.property_list_window import PropertyListWindow
 from ui.reservation_list_window import ReservationListWindow
 from ui.finance_window import FinanceWindow
 from ui.consultation_window import ConsultationWindow
+from ui.config_window import ConfigWindow
+from PIL import Image, ImageTk
+import os
 
 class MainWindow:
     def __init__(self):
@@ -51,6 +54,8 @@ class MainWindow:
         style.configure("Sidebar.TFrame", background="#2c3e50")
         style.configure("Content.TFrame", background="#f0f2f5")
         style.configure("Nav.TButton", font=("Segoe UI", 10, "bold"), padding=12, width=22)
+        style.configure("SubNav.TButton", font=("Segoe UI", 9), padding=8, width=25)
+        style.configure("Group.TButton", font=("Segoe UI", 10, "bold"), padding=12, width=22, foreground="#3498db")
         style.configure("DashboardHeader.TLabel", font=("Segoe UI", 22, "bold"), background="#f0f2f5", foreground="#2c3e50")
         style.configure("Card.TFrame", background="white", relief="flat", borderwidth=0)
         style.configure("CardHeader.TLabel", font=("Segoe UI", 14, "bold"), background="white", foreground="#34495e")
@@ -60,29 +65,45 @@ class MainWindow:
         self.sidebar = ttk.Frame(self.root, style="Sidebar.TFrame")
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
 
+        # Contenedor para el Logo/Header (asegura que esté arriba de los botones)
+        self.sidebar_header = tk.Frame(self.sidebar, bg="#2c3e50")
+        self.sidebar_header.pack(side=tk.TOP, fill=tk.X)
+
         # Contenedor Principal (Derecha)
         self.main_container = ttk.Frame(self.root, style="Content.TFrame")
         self.main_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # --- CONTENIDO SIDEBAR ---
-        ttk.Label(self.sidebar, text="SISTEMA HOTEL", font=("Segoe UI", 16, "bold"), background="#2c3e50", foreground="#ecf0f1").pack(pady=40)
+        self.db = Database()
+        self.logo_image = None
+        self._display_sidebar_header()
         
-        nav_items = [
-            ("INICIO / REFRESCAR", self.refresh_dashboard),
-            ("CONSULTAR DISPONIBILIDAD", self.show_consultation_tool),
-            ("NUEVA RESERVA", self.handle_new_reservation),
-            ("VER RESERVAS", self.handle_my_reservations),
-            ("VER COTIZACIONES", self.show_quotation_list),
-            ("VER CLIENTES", self.show_client_list),
-            ("VER INMUEBLES", self.show_property_list),
-            ("REGISTRAR CLIENTE", self.handle_clients),
-            ("REGISTRAR INMUEBLE", self.handle_properties),
-            ("CONTROL FINANCIERO", self.show_finance_dashboard)
-        ]
+        # Grupo: INICIO
+        btn_refresh = ttk.Button(self.sidebar, text="🏠 INICIO / REFRESCAR", 
+                                 command=self.refresh_dashboard, style="Nav.TButton")
+        btn_refresh.pack(fill=tk.X, padx=20, pady=(10, 5))
 
-        for text, cmd in nav_items:
-            btn = ttk.Button(self.sidebar, text=text, command=cmd, style="Nav.TButton")
-            btn.pack(fill=tk.X, padx=20, pady=6)
+        # Grupo: RESERVAS
+        self._create_nav_group("📅 RESERVAS", [
+            ("Consultar Disponibilidad", self.show_consultation_tool),
+            ("Nueva Reserva", self.handle_new_reservation),
+            ("Ver Reservas", self.handle_my_reservations),
+            ("Ver Cotizaciones", self.show_quotation_list),
+        ])
+
+        # Grupo: GESTIÓN
+        self._create_nav_group("🏨 GESTIÓN", [
+            ("Ver Clientes", self.show_client_list),
+            ("Ver Inmuebles", self.show_property_list),
+            ("Registrar Cliente", self.handle_clients),
+            ("Registrar Inmueble", self.handle_properties),
+            ("Control Financiero", self.show_finance_dashboard),
+        ])
+
+        # Grupo: ADMINISTRACIÓN
+        self._create_nav_group("⚙️ SISTEMA", [
+            ("Configuración", self.show_config),
+        ])
 
         ttk.Label(self.sidebar, text="Admin Panel v2.5", font=("Segoe UI", 8), background="#2c3e50", foreground="#95a5a6").pack(side=tk.BOTTOM, pady=30)
 
@@ -318,7 +339,71 @@ class MainWindow:
         """Mostrar la ventana de control financiero"""
         FinanceWindow(self.root)
 
+    def show_config(self):
+        """Mostrar la ventana de configuración"""
+        ConfigWindow(self.root)
+
+    def _display_sidebar_header(self):
+        """Muestra el logo o el nombre del hotel en el sidebar"""
+        config = None
+        if self.db.connect():
+            config = self.db.get_config()
+        
+        # Limpiar header anterior
+        for widget in self.sidebar_header.winfo_children():
+            widget.destroy()
+
+        if config and config.get('logo_path') and os.path.exists(config.get('logo_path')):
+            try:
+                img = Image.open(config.get('logo_path'))
+                # Redimensionar manteniendo proporción (máx 180x120)
+                img.thumbnail((180, 120))
+                self.logo_image = ImageTk.PhotoImage(img)
+                lbl_logo = tk.Label(self.sidebar_header, image=self.logo_image, background="#2c3e50")
+                lbl_logo.pack(pady=(30, 10), padx=20)
+                
+                # También mostrar el nombre si existe
+                if config.get('business_name'):
+                    lbl_name = ttk.Label(self.sidebar_header, text=config.get('business_name'), 
+                                         font=("Segoe UI", 12, "bold"), background="#2c3e50", foreground="#ecf0f1")
+                    lbl_name.pack(pady=(0, 20))
+                return
+            except Exception as e:
+                print(f"Error cargando logo: {e}")
+
+        # Default fallback
+        header_text = config.get('business_name') if config and config.get('business_name') else "SISTEMA HOTEL"
+        lbl_default = ttk.Label(self.sidebar_header, text=header_text, font=("Segoe UI", 16, "bold"), 
+                                background="#2c3e50", foreground="#ecf0f1")
+        lbl_default.pack(pady=40)
+
+    def _create_nav_group(self, title, items):
+        """Crea un grupo de navegación desplegable en el sidebar"""
+        group_frame = tk.Frame(self.sidebar, bg="#2c3e50")
+        group_frame.pack(fill=tk.X, padx=20, pady=2)
+
+        sub_frame = tk.Frame(group_frame, bg="#34495e")
+        sub_frame.is_collapsed = True
+
+        def toggle():
+            if sub_frame.is_collapsed:
+                sub_frame.pack(fill=tk.X, after=btn_group)
+                btn_group.config(text=f"▼ {title}")
+                sub_frame.is_collapsed = False
+            else:
+                sub_frame.pack_forget()
+                btn_group.config(text=f"▶ {title}")
+                sub_frame.is_collapsed = True
+
+        btn_group = ttk.Button(group_frame, text=f"▶ {title}", command=toggle, style="Nav.TButton")
+        btn_group.pack(fill=tk.X)
+
+        for text, cmd in items:
+            btn = ttk.Button(sub_frame, text=text, command=cmd, style="SubNav.TButton")
+            btn.pack(fill=tk.X, padx=(20, 0), pady=2)
+
     def refresh_dashboard(self):
+        self._display_sidebar_header()
         from datetime import datetime
         now = datetime.now()
         meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
