@@ -120,18 +120,18 @@ class ClientListWindow:
     def __init__(self, master, select_callback=None):
         self.master = master
         self.select_callback = select_callback
+        self.cards = []
+        self.selected_id = None
+        self.client_data_map = {}
 
         self.window = tk.Toplevel(master)
         self.window.title("Directorio de Clientes - Gestión Hotelera")
-        self.window.geometry("1000x750")
+        self.window.geometry("1000x800")
         self.window.configure(bg="#f0f2f5")
 
         # --- ESTILOS LOCALES ---
         style = ttk.Style(self.window)
         style.configure("ClDashboard.TFrame", background="#f0f2f5")
-        style.configure("ClCard.TFrame", background="white", relief="flat")
-        style.configure("ClHeader.TLabel", font=("Segoe UI", 20, "bold"), foreground="#2c3e50", background="#f0f2f5")
-        style.configure("ClStat.TLabel", font=("Segoe UI", 11), foreground="#7f8c8d", background="#f0f2f5")
         style.configure("ClAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
 
         # --- ENCABEZADO DASHBOARD ---
@@ -157,28 +157,24 @@ class ClientListWindow:
         self.search_var = tk.StringVar()
         search_entry = ttk.Entry(search_card, textvariable=self.search_var, font=("Segoe UI", 11))
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        search_entry.bind("<KeyRelease>", lambda e: self.filter_clients())
+        search_entry.bind("<KeyRelease>", lambda e: self.filter_cards())
 
         ttk.Button(search_card, text="RECARGAR LISTA", command=self.refresh_clients).pack(side=tk.RIGHT, padx=(15, 0))
 
-        # --- TABLA DE RESULTADOS (CARD) ---
-        table_container = tk.Frame(main_container, bg="white", highlightbackground="#e0e0e0", highlightthickness=1, padx=2, pady=2)
-        table_container.pack(fill=tk.BOTH, expand=True)
+        # --- LISTADO (SCROLL) ---
+        canvas_frame = ttk.Frame(main_container, style="ClDashboard.TFrame")
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Scrollbar
-        tree_scroll = ttk.Scrollbar(table_container)
-        tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.canvas = tk.Canvas(canvas_frame, bg="#f0f2f5", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.canvas.yview)
+        self.scrollable = tk.Frame(self.canvas, bg="#f0f2f5")
 
-        self.client_table = ttk.Treeview(table_container, columns=("ID", "Documento", "Nombre", "Apellido", "Email", "Teléfono"), 
-                                         show="headings", yscrollcommand=tree_scroll.set, selectmode="browse")
-        self.client_table.pack(fill=tk.BOTH, expand=True)
-        tree_scroll.config(command=self.client_table.yview)
+        self.scrollable.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable, anchor="nw", width=920)
+        self.canvas.configure(yscrollcommand=scrollbar.set)
 
-        # Cabeceras y Columnas
-        headers = [("ID", 60, tk.CENTER), ("Documento", 110, tk.W), ("Nombre", 160, tk.W), ("Apellido", 160, tk.W), ("Email", 240, tk.W), ("Teléfono", 140, tk.W)]
-        for h, w, a in headers:
-            self.client_table.heading(h, text=h.upper(), anchor=a)
-            self.client_table.column(h, width=w, anchor=a)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # --- BARRA DE ACCIONES INFERIOR ---
         actions_frame = ttk.Frame(main_container, style="ClDashboard.TFrame")
@@ -188,76 +184,136 @@ class ClientListWindow:
             ttk.Button(actions_frame, text="✅ SELECCIONAR CLIENTE PARA RESERVA", 
                        style="ClAction.TButton", command=self.select_client_and_close).pack(side=tk.RIGHT)
             ttk.Button(actions_frame, text="🔄 ACTUALIZAR DATOS", command=self.edit_client).pack(side=tk.RIGHT, padx=10)
-            self.client_table.bind("<Double-Button-1>", lambda e: self.select_client_and_close())
         else:
-            ttk.Button(actions_frame, text="ELIMINAR SELECCIONADO", command=self.delete_client).pack(side=tk.LEFT)
-            ttk.Button(actions_frame, text="GESTIONAR PERFIL", style="ClAction.TButton", command=self.edit_client).pack(side=tk.RIGHT)
+            ttk.Button(actions_frame, text="🗑️ ELIMINAR SELECCIONADO", command=self.delete_client).pack(side=tk.LEFT)
+            ttk.Button(actions_frame, text="👤 GESTIONAR PERFIL", style="ClAction.TButton", command=self.edit_client).pack(side=tk.RIGHT)
 
         # Cargar los clientes
         self.load_clients()
 
+    def bind_select(self, widget, client_id):
+        widget.bind("<Button-1>", lambda e, i=client_id: self.select_card(i))
+        if self.select_callback:
+             widget.bind("<Double-Button-1>", lambda e: self.select_client_and_close())
+        for child in widget.winfo_children():
+            self.bind_select(child, client_id)
+
+    def create_card(self, c):
+        # c = (id, documento, nombre, apellido, email, telefono)
+        client_id = c[0]
+        full_name = f"{c[2]} {c[3]}".upper()
+        doc = c[1]
+        email = c[4]
+        phone = c[5]
+
+        card = tk.Frame(self.scrollable, bg="white", bd=0, highlightbackground="#d1d8e0", highlightthickness=1)
+        card.pack(fill=tk.X, padx=5, pady=8)
+        self.bind_select(card, client_id)
+
+        inner = tk.Frame(card, bg="white", padx=15, pady=15)
+        inner.pack(fill=tk.X)
+        self.bind_select(inner, client_id)
+
+        # Izquierda: Avatar e Info Principal
+        info_f = tk.Frame(inner, bg="white")
+        info_f.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.bind_select(info_f, client_id)
+
+        avatar_f = tk.Frame(info_f, bg="#f4f6f7", width=40, height=40)
+        avatar_f.pack_propagate(False)
+        avatar_f.pack(side=tk.LEFT, padx=(0, 15))
+        tk.Label(avatar_f, text="👤", font=("Segoe UI", 16), bg="#f4f6f7").pack(expand=True)
+        self.bind_select(avatar_f, client_id)
+
+        text_f = tk.Frame(info_f, bg="white")
+        text_f.pack(side=tk.LEFT, fill=tk.BOTH)
+        self.bind_select(text_f, client_id)
+
+        tk.Label(text_f, text=full_name, font=("Segoe UI", 12, "bold"), bg="white", fg="#2c3e50").pack(anchor="w")
+        tk.Label(text_f, text=f"Documento: {doc}", font=("Segoe UI", 9, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
+
+        # Derecha: Contacto
+        contact_f = tk.Frame(inner, bg="white")
+        contact_f.pack(side=tk.RIGHT, fill=tk.Y)
+        self.bind_select(contact_f, client_id)
+
+        tk.Label(contact_f, text=f"✉️ {email}", font=("Segoe UI", 10), bg="white", fg="#34495e").pack(anchor="e")
+        tk.Label(contact_f, text=f"📞 {phone}", font=("Segoe UI", 10, "bold"), bg="white", fg="#2980b9").pack(anchor="e")
+        tk.Label(contact_f, text=f"ID #{client_id}", font=("Segoe UI", 8), bg="white", fg="#bdc3c7").pack(anchor="e", pady=(5,0))
+
+        card.client_id = client_id
+        card.search_data = f"{full_name} {doc} {email} {phone} {client_id}".lower()
+        self.cards.append(card)
+        self.client_data_map[client_id] = c
+
+    def select_card(self, client_id):
+        self.selected_id = client_id
+        for c in self.cards:
+            is_sel = c.client_id == client_id
+            c.configure(highlightbackground="#3498db" if is_sel else "#d1d8e0", highlightthickness=2 if is_sel else 1)
+            bg_color = "#f1f9ff" if is_sel else "white"
+            self._update_bg_recursive(c, bg_color)
+
+    def _update_bg_recursive(self, widget, color):
+        try:
+            current_bg = str(widget.cget("background"))
+            if current_bg != "#f4f6f7":
+                widget.configure(bg=color)
+        except: pass
+        for child in widget.winfo_children():
+            self._update_bg_recursive(child, color)
+
     def select_client_and_close(self):
         """Selecciona el cliente y llama al callback"""
-        selected_item = self.client_table.selection()
-        if not selected_item:
+        if not self.selected_id:
             messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente.", parent=self.window)
             return
         
-        client_data = self.client_table.item(selected_item)['values']
-        self.select_callback(client_data) # Enviamos todos los valores (id, documento, nombre, apellido, email, telefono)
+        client_data = self.client_data_map[self.selected_id]
+        self.select_callback(client_data) 
         self.window.destroy()
 
     def load_clients(self):
-        """Cargar los clientes desde la base de datos y mostrarlos en la tabla"""
+        """Cargar los clientes desde la base de datos y mostrarlos en tarjetas"""
+        for w in self.scrollable.winfo_children(): w.destroy()
+        self.cards = []
+        self.client_data_map = {}
+        self.selected_id = None
+        self.search_var.set("")
+
         db = Database()
         if db.connect():
             clients = db.get_all_clients()
             self.lbl_total_clients.config(text=f"TOTAL: {len(clients)} CLIENTES")
             for client in clients:
-                self.client_table.insert("", "end", values=client)
+                self.create_card(client)
+            self.filter_cards()
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
-    def filter_clients(self):
-        """Filtrar los clientes en tiempo real"""
-        search_text = self.search_var.get().lower()
-        self.refresh_clients_with_filter(search_text)
-
-    def refresh_clients_with_filter(self, filter_text):
-        for item in self.client_table.get_children():
-            self.client_table.delete(item)
-        
-        db = Database()
-        if db.connect():
-            clients = db.get_all_clients()
-            filtered = []
-            for c in clients:
-                # c = (id, documento, nombre, apellido, email, telefono)
-                full_name = f"{c[2]} {c[3]}".lower()
-                full_name_reverse = f"{c[3]} {c[2]}".lower()
-                searchable_values = [str(v).lower() for v in c]
-                if (filter_text in full_name or 
-                    filter_text in full_name_reverse or 
-                    any(filter_text in v for v in searchable_values)):
-                    filtered.append(c)
-            
-            for client in filtered:
-                self.client_table.insert("", "end", values=client)
-            self.lbl_total_clients.config(text=f"RESULTADOS: {len(filtered)} / TOTAL: {len(clients)}")
+    def filter_cards(self):
+        """Filtrar las tarjetas de clientes en tiempo real"""
+        query = self.search_var.get().lower()
+        visible_count = 0
+        for card in self.cards:
+            if query in card.search_data:
+                card.pack(fill=tk.X, padx=5, pady=8)
+                visible_count += 1
+            else:
+                card.pack_forget()
+        self.lbl_total_clients.config(text=f"MOSTRANDO: {visible_count} / TOTAL: {len(self.cards)} CLIENTES")
 
     def delete_client(self):
         """Eliminar el cliente seleccionado"""
-        selected_item = self.client_table.selection()
-        if not selected_item:
+        if not self.selected_id:
             messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente para eliminar.", parent=self.window)
             return
 
-        client_id = self.client_table.item(selected_item)['values'][0]
-        client_name = self.client_table.item(selected_item)['values'][1]
+        client_name = self.client_data_map[self.selected_id][2] + " " + self.client_data_map[self.selected_id][3]
 
         if messagebox.askyesno("Confirmación", f"¿Está seguro de eliminar a {client_name}?", parent=self.window):
             client_controller = ClientController()
-            if client_controller.delete_client(client_id):
+            if client_controller.delete_client(self.selected_id):
                 messagebox.showinfo("Éxito", "Cliente eliminado correctamente", parent=self.window)
                 self.refresh_clients()
             else:
@@ -265,19 +321,14 @@ class ClientListWindow:
 
     def edit_client(self):
         """Editar el cliente seleccionado"""
-        selected_item = self.client_table.selection()
-        if not selected_item:
+        if not self.selected_id:
             messagebox.showwarning("Advertencia", "Por favor, seleccione un cliente para editar.", parent=self.window)
             return
 
-        client_id = self.client_table.item(selected_item)['values'][0]
-        EditClientWindow(self.window, client_id, self)
+        EditClientWindow(self.window, self.selected_id, self)
 
     def refresh_clients(self):
         """Refrescar la lista de clientes"""
-        self.search_var.set("")
-        for item in self.client_table.get_children():
-            self.client_table.delete(item)
         self.load_clients()
 
     def show(self):

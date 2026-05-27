@@ -15,12 +15,16 @@ def send_reservation_email(client_email, client_name, data):
         print("Email SMTP no configurado. No se envió el correo.")
         return False
 
-    subject = f"Confirmación de Reserva - {data.get('inmueble', '')}"
+    res_id = data.get('id_reserva', '—')
+    res_code = f"R-{str(res_id).zfill(5)}" if str(res_id).isdigit() else res_id
+
+    subject = f"Confirmación de Reserva {res_code} - {data.get('inmueble', '')}"
 
     body = f"""
     <html>
     <body style="font-family: Arial, sans-serif; padding: 20px;">
         <h2 style="color: #2e7d32;">¡Reserva Confirmada!</h2>
+        <p style="color: #555;">Código de Reserva: <strong>{res_code}</strong></p>
         <p>Hola <strong>{client_name}</strong>,</p>
         <p>Te confirmamos los detalles de tu reserva:</p>
         <table style="border-collapse: collapse; width: 100%; max-width: 500px;">
@@ -63,7 +67,10 @@ def send_quotation_email(client_email, client_name, data):
     if not SMTP_USER or not SMTP_PASSWORD:
         return False
 
-    subject = f"🏨 Presupuesto de Estadía - {data.get('inmueble', '')}"
+    quot_id = data.get('id', '—')
+    quot_code = f"Q-{str(quot_id).zfill(5)}" if str(quot_id).isdigit() else quot_id
+    
+    subject = f"🏨 Presupuesto de Estadía {quot_code} - {data.get('inmueble', '')}"
 
     body = f"""
     <html>
@@ -71,6 +78,7 @@ def send_quotation_email(client_email, client_name, data):
         <div style="max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
             <div style="background-color: #2c3e50; color: white; padding: 20px; text-align: center;">
                 <h1 style="margin: 0;">Presupuesto de Estadía</h1>
+                <p style="margin: 5px 0; font-size: 14px; opacity: 0.8;">Código de Seguimiento: {quot_code}</p>
             </div>
             <div style="padding: 30px;">
                 <p>Hola <strong>{client_name}</strong>,</p>
@@ -90,12 +98,12 @@ def send_quotation_email(client_email, client_name, data):
                 </div>
 
                 <p style="text-align: center; margin-top: 40px;">
-                    <a href="https://wa.me/5492236689548?text=Hola!%20Quiero%20confirmar%20la%20reserva%20de%20{data.get('inmueble', '').replace(' ', '%20')}%20para%20las%20fechas%20{data.get('fecha_ingreso', '')}%20al%20{data.get('fecha_egreso', '')}" 
+                    <a href="https://wa.me/5492236689548?text=Hola!%20Quiero%20confirmar%20la%20reserva%20{quot_code}%20de%20{data.get('inmueble', '').replace(' ', '%20')}%20para%20las%20fechas%20{data.get('fecha_ingreso', '')}%20al%20{data.get('fecha_egreso', '')}" 
                        style="background-color: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">RESERVAR AHORA</a>
                 </p>
                 
                 <p style="font-size: 13px; color: #95a5a6; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
-                    * Este presupuesto tiene validez por 72 horas y está sujeto a disponibilidad al momento de confirmar.
+                    * Este presupuesto tiene validez por 15 días y está sujeto a disponibilidad al momento de confirmar. Por favor, mencione el código <strong>{quot_code}</strong> al contactarnos.
                 </p>
             </div>
         </div>

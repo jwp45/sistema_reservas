@@ -339,7 +339,8 @@ class ReservationController:
             "pago_pendiente": tk.StringVar(),
             "discount_is_percentage": tk.BooleanVar(),
             "display_adelanto": tk.StringVar(),
-            "display_descuento": tk.StringVar()
+            "display_descuento": tk.StringVar(),
+            "quotation_id": tk.StringVar()
         }
 
         client_fields["fecha_registro"].set(date.today().strftime("%d/%m/%Y"))
@@ -347,6 +348,8 @@ class ReservationController:
 
         # Aplicar datos iniciales si existen
         if initial_data:
+            if "quotation_id" in initial_data:
+                client_fields["quotation_id"].set(str(initial_data["quotation_id"]))
             if "inmueble" in initial_data:
                 client_fields["inmueble"].set(initial_data["inmueble"])
             if "fecha_ingreso" in initial_data:
@@ -784,11 +787,17 @@ class ReservationController:
                 "provincia": client_fields["provincia"].get()
             }
             
-            self.db.insert_reservation(reservation_data)
+            reservation_id = self.db.insert_reservation(reservation_data)
+
+            # Si la reserva proviene de una cotización, eliminar la cotización
+            q_id = client_fields.get("quotation_id", tk.StringVar()).get()
+            if q_id:
+                self.db.delete_quotation(q_id)
 
             client_email = client_fields["email"].get()
             client_name = f"{client_fields['nombre'].get()} {client_fields['apellido'].get()}"
             email_data = {
+                "id_reserva": reservation_id,
                 "inmueble": inmueble_nombre,
                 "fecha_ingreso": fecha_ingreso.strftime("%d/%m/%Y"),
                 "fecha_egreso": fecha_egreso.strftime("%d/%m/%Y"),

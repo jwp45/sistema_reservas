@@ -198,13 +198,14 @@ class Database:
                 VALUES (%(id_cliente)s, %(id_inmueble)s, %(fecha_ingreso)s, %(fecha_egreso)s, %(valor_dia)s, %(noches)s, %(costo_total)s, %(costo_con_descuento)s, %(adelanto)s, %(pago_pendiente)s, %(provincia)s)"""
             cursor.execute(query, data)
             reservation_id = cursor.lastrowid
-            
+
             adelanto = float(data.get("adelanto", 0))
             if adelanto > 0:
                 cursor.execute("INSERT INTO historial_pagos (id_reserva, monto) VALUES (%s, %s)", (reservation_id, adelanto))
-            
+
             self.connection.commit()
             return reservation_id
+
         except Exception as e:
             print(f"Error al guardar la reserva: {e}")
             raise
@@ -492,8 +493,9 @@ class Database:
                 (id_cliente, id_inmueble, fecha_ingreso, fecha_egreso, noches, valor_dia, costo_total, descuento, costo_con_descuento)
                 VALUES (%(id_cliente)s, %(id_inmueble)s, %(fecha_ingreso)s, %(fecha_egreso)s, %(noches)s, %(valor_dia)s, %(costo_total)s, %(descuento)s, %(costo_con_descuento)s)"""
             cursor.execute(query, data)
+            quot_id = cursor.lastrowid
             self.connection.commit()
-            return True
+            return quot_id
         except Exception as e:
             print(f"Error al guardar la cotización: {e}")
             return False
@@ -531,6 +533,24 @@ class Database:
         except Exception as e:
             print(f"Error al eliminar cotización: {e}")
             return False
+        finally:
+            if cursor: cursor.close()
+
+    def cleanup_old_quotations(self, hours=72):
+        """Elimina cotizaciones que superen el tiempo de validez."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor()
+            query = "DELETE FROM cotizaciones WHERE fecha_cotizacion < DATE_SUB(NOW(), INTERVAL %s HOUR)"
+            cursor.execute(query, (hours,))
+            count = cursor.rowcount
+            self.connection.commit()
+            if count > 0:
+                print(f"Limpieza: Se eliminaron {count} cotizaciones vencidas (> {hours}hs).")
+            return count
+        except Exception as e:
+            print(f"Error al limpiar cotizaciones: {e}")
+            return 0
         finally:
             if cursor: cursor.close()
 

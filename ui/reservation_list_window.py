@@ -248,196 +248,224 @@ class EditReservationWindow:
 
 
 class ReservationListWindow:
-    def __init__(self, master):
+    def __init__(self, master, reservation_controller):
         self.master = master
+        self.controller = reservation_controller
+        self.db = Database()
+        self.db.connect()
+        self.cards = []
+        self.selected_id = None
 
         self.window = tk.Toplevel(master)
         self.window.title("Historial de Reservas")
-        self.window.geometry("1200x700")
-        self.window.configure(bg="#f8f9fa")
+        self.window.geometry("1150x850")
+        self.window.configure(bg="#f0f2f5")
 
         # Estilos locales
         style = ttk.Style(self.window)
-        style.configure("Res.TFrame", background="#f8f9fa")
-        style.configure("Card.TFrame", background="white", relief="ridge", borderwidth=1)
-        style.configure("Header.TLabel", font=("Segoe UI", 18, "bold"), foreground="#2c3e50", background="#f8f9fa")
-        style.configure("Stat.TLabel", font=("Segoe UI", 10), foreground="#7f8c8d", background="#f8f9fa")
-        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=10)
+        style.configure("Res.TFrame", background="#f0f2f5")
+        style.configure("ResAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
 
-        main_container = ttk.Frame(self.window, padding=25, style="Res.TFrame")
+        # --- ENCABEZADO ---
+        header_frame = tk.Frame(self.window, bg="#2c3e50", height=80)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        tk.Label(header_frame, text="📅 GESTIÓN DE RESERVAS", font=("Segoe UI", 16, "bold"), 
+                 bg="#2c3e50", fg="#ecf0f1").pack(side=tk.LEFT, padx=30, pady=20)
+        
+        self.lbl_stats = tk.Label(header_frame, text="Cargando...", font=("Segoe UI", 10), 
+                                 bg="#2c3e50", fg="#95a5a6")
+        self.lbl_stats.pack(side=tk.RIGHT, padx=30)
+
+        main_container = ttk.Frame(self.window, padding=30, style="Res.TFrame")
         main_container.pack(fill=tk.BOTH, expand=True)
 
-        # --- CABECERA ---
-        header_frame = ttk.Frame(main_container, style="Res.TFrame")
-        header_frame.pack(fill=tk.X, pady=(0, 20))
-        ttk.Label(header_frame, text="Gestión de Reservas", style="Header.TLabel").pack(side=tk.LEFT)
+        # --- BARRA DE BÚSQUEDA ---
+        search_card = tk.Frame(main_container, bg="white", highlightbackground="#e0e0e0", highlightthickness=1, padx=20, pady=15)
+        search_card.pack(fill=tk.X, pady=(0, 20))
         
-        self.lbl_stats = ttk.Label(header_frame, text="Cargando datos...", style="Stat.TLabel")
-        self.lbl_stats.pack(side=tk.LEFT, padx=25, pady=(12, 0))
-
-        # --- BARRA DE FILTROS ---
-        filter_card = ttk.Frame(main_container, padding=15, style="Card.TFrame")
-        filter_card.pack(fill=tk.X, pady=(0, 20))
-
-        ttk.Label(filter_card, text="BUSCAR:", font=("Segoe UI", 9, "bold"), background="white").pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(search_card, text="🔎 BUSCAR RESERVA:", font=("Segoe UI", 9, "bold"), bg="white", fg="#2c3e50").pack(side=tk.LEFT, padx=(0, 15))
         self.search_var = tk.StringVar()
-        search_entry = ttk.Entry(filter_card, textvariable=self.search_var, font=("Segoe UI", 10), width=40)
-        search_entry.pack(side=tk.LEFT, padx=(0, 10))
-        search_entry.bind("<KeyRelease>", lambda e: self.filter_reservations())
+        search_entry = ttk.Entry(search_card, textvariable=self.search_var, font=("Segoe UI", 11))
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        search_entry.bind("<KeyRelease>", lambda e: self.filter_cards())
 
-        ttk.Button(filter_card, text="Refrescar Lista", command=self.refresh_table).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(search_card, text="🔄 REFRESCAR", command=self.load_reservations).pack(side=tk.RIGHT, padx=(15, 0))
 
-        # --- TABLA DE RESERVAS ---
-        table_frame = ttk.Frame(main_container, style="Card.TFrame")
-        table_frame.pack(fill=tk.BOTH, expand=True)
+        # --- LISTADO (SCROLL) ---
+        canvas_frame = ttk.Frame(main_container, style="Res.TFrame")
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
 
-        columns = (
-            "ID", "Cliente", "Teléfono", "Inmueble",
-            "Ingreso", "Egreso", "Noches", "Valor/día",
-            "Total", "C/Desc", "Adelanto", "Pendiente"
-        )
-        
-        # Scrollbars
-        y_scroll = ttk.Scrollbar(table_frame, orient="vertical")
-        x_scroll = ttk.Scrollbar(table_frame, orient="horizontal")
-        
-        self.table = ttk.Treeview(table_frame, columns=columns, show="headings", 
-                                 yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set,
-                                 selectmode="browse")
-        
-        y_scroll.config(command=self.table.yview)
-        x_scroll.config(command=self.table.xview)
-        
-        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
-        self.table.pack(fill=tk.BOTH, expand=True)
+        self.canvas = tk.Canvas(canvas_frame, bg="#f0f2f5", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.canvas.yview)
+        self.scrollable = tk.Frame(self.canvas, bg="#f0f2f5")
 
-        # Configuración de columnas
-        col_widths = [40, 160, 110, 140, 120, 120, 60, 90, 100, 100, 100, 110]
-        for col, w in zip(columns, col_widths):
-            self.table.heading(col, text=col.upper(), anchor=tk.CENTER)
-            self.table.column(col, width=w, anchor=tk.CENTER if col in ["ID", "Noches"] else tk.W)
+        self.scrollable.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable, anchor="nw", width=1070)
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # --- ACCIONES ---
         btn_frame = ttk.Frame(main_container, style="Res.TFrame")
         btn_frame.pack(fill=tk.X, pady=(20, 0))
 
-        ttk.Button(btn_frame, text="ELIMINAR RESERVA", command=self.delete_reservation).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(btn_frame, text="VER PAGOS / ABONAR", command=self.open_payment_window).pack(side=tk.LEFT)
-        ttk.Button(btn_frame, text="MODIFICAR DETALLES", style="Action.TButton", command=self.modify_reservation).pack(side=tk.RIGHT)
+        ttk.Button(btn_frame, text="🗑️ ELIMINAR SELECCIONADA", command=self.delete_reservation).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(btn_frame, text="💳 VER PAGOS / ABONAR", command=self.open_payment_window).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="✏️ MODIFICAR DETALLES", style="ResAction.TButton", command=self.modify_reservation).pack(side=tk.RIGHT)
 
         self.load_reservations()
 
-    def _parse_currency(self, value_str):
-        """Convierte una cadena de moneda ($1.234,56) a float de forma robusta."""
-        try:
-            # Eliminar $, espacios y puntos de miles, luego cambiar coma decimal por punto
-            clean = str(value_str).replace('$', '').replace(' ', '').replace('.', '').replace(',', '.')
-            return float(clean)
-        except (ValueError, TypeError):
-            return 0.0
+    def bind_select(self, widget, res_id):
+        widget.bind("<Button-1>", lambda e, i=res_id: self.select_card(i))
+        for child in widget.winfo_children():
+            self.bind_select(child, res_id)
 
-    def open_payment_window(self):
-        """Abre la ventana para consultar historial o registrar un abono."""
-        selected = self.table.selection()
-        if not selected:
-            messagebox.showwarning("Advertencia", "Seleccione una reserva para consultar pagos.", parent=self.window)
-            return
+    def create_card(self, row):
+        # row mapping from get_all_reservations:
+        # 0:id, 1:cliente_nombre, 2:telefono, 3:inmueble_nombre, 4:f_ing, 5:f_eg, 
+        # 6:noches, 7:val_d, 8:total, 9:final, 10:adelanto, 11:pendiente, 12:provincia
+        res_id = row[0]
+        res_code = f"R-{str(res_id).zfill(5)}"
+        client_name = row[1]
+        phone = row[2]
+        property_name = row[3]
         
-        vals = self.table.item(selected[0])['values']
-        # vals: 0:ID, 1:Cliente, ..., 11:Pendiente
-        try:
-            rid = vals[0]
-            client = vals[1]
-            pending = self._parse_currency(vals[11])
-            
-            # Abrimos la ventana siempre, el PaymentWindow manejará si permite abonar o no
-            PaymentWindow(self.window, rid, client, pending, self.load_reservations)
-        except Exception as e:
-            messagebox.showerror("Error", f"No se pudo procesar la información de pagos: {str(e)}", parent=self.window)
-
-    def load_reservations(self):
-        from datetime import datetime
         meses = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio",
                  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
-        
-        for item in self.table.get_children():
-            self.table.delete(item)
-            
-        db = Database()
-        if db.connect():
-            rows = db.get_all_reservations()
-            total_pending = 0.0
-            
-            for row in rows:
-                vals = list(row)
-                
-                # Formatear montos
-                for i in (7, 8, 9, 10, 11):
-                    try:
-                        val = float(vals[i])
-                        if i == 11: total_pending += val # Acumular pendiente
-                        formatted = f"{val:,.2f}"
-                        m, d_part = formatted.split('.')
-                        m = m.replace(',', '.')
-                        vals[i] = f"${m},{d_part}"
-                    except: pass
-                
-                # Formatear fechas
-                for i in (4, 5):
-                    try:
-                        d = datetime.strptime(str(vals[i]), "%Y-%m-%d")
-                        vals[i] = f"{d.day} {meses[d.month]} {d.year}"
-                    except: pass
-                
-                self.table.insert("", "end", values=tuple(vals))
-            
-            # Actualizar estadísticas
-            self.lbl_stats.config(text=f"Total: {len(rows)} reservas | Cobro Pendiente: ${total_pending:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
-        else:
-            messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
-    def filter_reservations(self):
-        query = self.search_var.get().lower()
-        # Para filtrar Treeview en tiempo real, solemos recargar.
-        # Una alternativa más eficiente es ocultar items, pero recargar es más seguro con la BD.
-        # Aquí implementaremos un filtrado local sobre los datos cargados si fuera posible, 
-        # pero por simplicidad y consistencia refrescaremos con lógica local.
-        
-        for item in self.table.get_children():
-            values = self.table.item(item, 'values')
-            # Buscar en Cliente, Inmueble e ID
-            search_text = f"{values[0]} {values[1]} {values[3]}".lower()
-            if query in search_text:
-                pass # Mantener
-            else:
-                self.table.detach(item) # Ocultar temporalmente
+        def fmt_d(d):
+            try:
+                dt = datetime.strptime(str(d), "%Y-%m-%d")
+                return f"{dt.day} {meses[dt.month]} {dt.year}"
+            except: return str(d)
 
-    def refresh_table(self):
+        card = tk.Frame(self.scrollable, bg="white", bd=0, highlightbackground="#d1d8e0", highlightthickness=1)
+        card.pack(fill=tk.X, padx=5, pady=8)
+        self.bind_select(card, res_id)
+
+        inner = tk.Frame(card, bg="white", padx=15, pady=15)
+        inner.pack(fill=tk.X)
+        self.bind_select(inner, res_id)
+
+        # Izquierda: Código e Info Cliente
+        info_f = tk.Frame(inner, bg="white")
+        info_f.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.bind_select(info_f, res_id)
+
+        code_f = tk.Frame(info_f, bg="#e8f8f5", padx=8, pady=2)
+        code_f.pack(anchor="w")
+        tk.Label(code_f, text=res_code, font=("Segoe UI", 10, "bold"), bg="#e8f8f5", fg="#16a085").pack()
+        
+        tk.Label(info_f, text=client_name.upper(), font=("Segoe UI", 13, "bold"), bg="white", fg="#2c3e50").pack(anchor="w", pady=(5,0))
+        tk.Label(info_f, text=f"📞 {phone} | 📍 {row[12]}", font=("Segoe UI", 9), bg="white", fg="#7f8c8d").pack(anchor="w")
+        tk.Label(info_f, text=f"🏠 {property_name}", font=("Segoe UI", 11, "bold"), bg="white", fg="#34495e").pack(anchor="w", pady=(5,0))
+
+        # Centro: Estadía
+        stay_f = tk.Frame(inner, bg="white", padx=20)
+        stay_f.pack(side=tk.LEFT, fill=tk.Y)
+        self.bind_select(stay_f, res_id)
+
+        tk.Label(stay_f, text="ESTADÍA", font=("Segoe UI", 8, "bold"), bg="white", fg="#bdc3c7").pack(anchor="w")
+        tk.Label(stay_f, text=f"Desde: {fmt_d(row[4])}", font=("Segoe UI", 10), bg="white", fg="#2c3e50").pack(anchor="w")
+        tk.Label(stay_f, text=f"Hasta: {fmt_d(row[5])}", font=("Segoe UI", 10), bg="white", fg="#2c3e50").pack(anchor="w")
+        tk.Label(stay_f, text=f"({row[6]} noches)", font=("Segoe UI", 9, "italic"), bg="white", fg="#95a5a6").pack(anchor="w")
+
+        # Derecha: Resumen Financiero
+        fin_f = tk.Frame(inner, bg="white", padx=10)
+        fin_f.pack(side=tk.RIGHT, fill=tk.Y)
+        self.bind_select(fin_f, res_id)
+
+        pending = float(row[11])
+        status_color = "#e74c3c" if pending > 0 else "#27ae60"
+        status_text = "SALDO PENDIENTE" if pending > 0 else "TOTALMENTE PAGO"
+
+        tk.Label(fin_f, text=status_text, font=("Segoe UI", 8, "bold"), bg="white", fg=status_color).pack(anchor="e")
+        tk.Label(fin_f, text=self._format_currency(pending), font=("Segoe UI", 16, "bold"), bg="white", fg=status_color).pack(anchor="e")
+        
+        tk.Label(fin_f, text=f"Total: {self._format_currency(row[9])}", font=("Segoe UI", 9), bg="white", fg="#7f8c8d").pack(anchor="e", pady=(5,0))
+        tk.Label(fin_f, text=f"Adelanto: {self._format_currency(row[10])}", font=("Segoe UI", 9), bg="white", fg="#2980b9").pack(anchor="e")
+
+        card.res_id = res_id
+        card.search_data = f"{res_code} {client_name} {property_name} {phone}".lower()
+        self.cards.append(card)
+
+    def select_card(self, res_id):
+        self.selected_id = res_id
+        for c in self.cards:
+            is_sel = c.res_id == res_id
+            c.configure(highlightbackground="#3498db" if is_sel else "#d1d8e0", highlightthickness=2 if is_sel else 1)
+            bg_color = "#f1f9ff" if is_sel else "white"
+            self._update_bg_recursive(c, bg_color)
+
+    def _update_bg_recursive(self, widget, color):
+        try:
+            current_bg = str(widget.cget("background"))
+            if "e8f8f5" not in current_bg:
+                widget.configure(bg=color)
+        except: pass
+        for child in widget.winfo_children():
+            self._update_bg_recursive(child, color)
+
+    def load_reservations(self):
+        for w in self.scrollable.winfo_children(): w.destroy()
+        self.cards = []
+        self.selected_id = None
         self.search_var.set("")
-        self.load_reservations()
+        
+        if self.db.connect():
+            rows = self.db.get_all_reservations()
+            total_pending = 0.0
+            for row in rows:
+                self.create_card(row)
+                total_pending += float(row[11])
+            
+            self.lbl_stats.config(text=f"TOTAL: {len(rows)} RESERVAS | PENDIENTE: {self._format_currency(total_pending)}")
+            self.filter_cards()
 
-    def get_selected_id(self):
-        selected = self.table.selection()
-        if not selected:
-            messagebox.showwarning("Advertencia", "Seleccione una reserva de la lista", parent=self.window)
-            return None
-        return int(self.table.item(selected[0])['values'][0])
+    def filter_cards(self):
+        query = self.search_var.get().lower()
+        visible_count = 0
+        for card in self.cards:
+            if query in card.search_data:
+                card.pack(fill=tk.X, padx=5, pady=8)
+                visible_count += 1
+            else:
+                card.pack_forget()
+        self.lbl_stats.config(text=f"MOSTRANDO: {visible_count} RESULTADOS")
+
+    def _format_currency(self, value):
+        try:
+            val = float(value)
+            formatted = f"{val:,.2f}"
+            m, d = formatted.split('.')
+            return f"${m.replace(',', '.')},{d}"
+        except: return str(value)
+
+    def open_payment_window(self):
+        if not self.selected_id:
+            messagebox.showwarning("Advertencia", "Seleccione una reserva.")
+            return
+        
+        row = next((r for r in self.db.get_all_reservations() if r[0] == self.selected_id), None)
+        if row:
+            PaymentWindow(self.window, self.selected_id, row[1], float(row[11]), self.load_reservations)
 
     def delete_reservation(self):
-        rid = self.get_selected_id()
-        if rid is None: return
+        if not self.selected_id:
+            messagebox.showwarning("Advertencia", "Seleccione una reserva.")
+            return
         
-        if messagebox.askyesno("Confirmar", f"¿Está seguro de eliminar la reserva #{rid}?", parent=self.window):
-            db = Database()
-            if db.connect():
-                if db.delete_reservation(rid):
-                    messagebox.showinfo("Éxito", "Reserva eliminada correctamente", parent=self.window)
-                    self.load_reservations()
-                else:
-                    messagebox.showerror("Error", "No se pudo eliminar la reserva", parent=self.window)
+        res_code = f"R-{str(self.selected_id).zfill(5)}"
+        if messagebox.askyesno("Confirmar", f"¿Está seguro de eliminar la reserva {res_code}?", parent=self.window):
+            if self.db.delete_reservation(self.selected_id):
+                messagebox.showinfo("Éxito", "Reserva eliminada correctamente", parent=self.window)
+                self.load_reservations()
 
     def modify_reservation(self):
-        rid = self.get_selected_id()
-        if rid is None: return
-        EditReservationWindow(self.master, rid, self.load_reservations)
+        if not self.selected_id:
+            messagebox.showwarning("Advertencia", "Seleccione una reserva.")
+            return
+        EditReservationWindow(self.master, self.selected_id, self.load_reservations)

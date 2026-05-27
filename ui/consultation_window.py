@@ -109,12 +109,17 @@ class ConsultationWindow:
             "costo_con_descuento": costo_con_desc
         }
         
-        self.db.insert_quotation(quotation_data)
+        quot_id = self.db.insert_quotation(quotation_data)
+
+        if not quot_id:
+            messagebox.showerror("Error", "No se pudo registrar la cotización en la base de datos.", parent=self.window)
+            return
 
         # 2. Enviar Correo
         from utils.email_sender import send_quotation_email
         
         data = {
+            "id": quot_id,
             "inmueble": self.selected_property[1],
             "fecha_ingreso": self.start_date.strftime("%d/%m/%Y"),
             "fecha_egreso": self.end_date.strftime("%d/%m/%Y"),
@@ -126,7 +131,8 @@ class ConsultationWindow:
         }
         
         if send_quotation_email(email, nombre, data):
-            msg = f"Cotización enviada correctamente a {email}."
+            quot_code = f"Q-{str(quot_id).zfill(5)}"
+            msg = f"Cotización {quot_code} enviada correctamente a {email}."
             if not client_exists:
                 msg += "\nCliente registrado exitosamente."
             messagebox.showinfo("Éxito", msg, parent=self.window)
