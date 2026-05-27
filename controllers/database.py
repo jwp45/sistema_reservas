@@ -89,9 +89,16 @@ class Database:
                     id_servicio INT AUTO_INCREMENT PRIMARY KEY,
                     id_inmueble INT NOT NULL,
                     nombre_servicio VARCHAR(100) NOT NULL,
+                    icono VARCHAR(50) DEFAULT '✨',
                     FOREIGN KEY (id_inmueble) REFERENCES inmuebles(id_inmueble) ON DELETE CASCADE
                 )
             """)
+            
+            # Asegurar que la columna icono existe
+            try:
+                cursor.execute("ALTER TABLE servicios_inmuebles ADD COLUMN icono VARCHAR(50) DEFAULT '✨'")
+                self.connection.commit()
+            except: pass
             
             # Asegurar que la columna existe por si la tabla ya fue creada
             try:
@@ -228,30 +235,30 @@ class Database:
             if cursor: cursor.close()
 
     def get_property_services(self, id_inmueble):
-        """Retorna la lista de servicios de un inmueble."""
+        """Retorna la lista de servicios de un inmueble (icono, nombre)."""
         cursor = None
         try:
             cursor = self.connection.cursor(buffered=True)
-            query = "SELECT nombre_servicio FROM servicios_inmuebles WHERE id_inmueble = %s"
+            query = "SELECT icono, nombre_servicio FROM servicios_inmuebles WHERE id_inmueble = %s"
             cursor.execute(query, (id_inmueble,))
-            return [s[0] for s in cursor.fetchall()]
+            return cursor.fetchall()
         except Exception as e:
             print(f"Error al obtener servicios del inmueble: {e}")
             return []
         finally:
             if cursor: cursor.close()
 
-    def insert_property_services(self, id_inmueble, servicios):
-        """Guarda una lista de servicios para un inmueble."""
+    def insert_property_services(self, id_inmueble, servicios_con_iconos):
+        """Guarda una lista de servicios (icono, nombre) para un inmueble."""
         cursor = None
         try:
             cursor = self.connection.cursor(buffered=True)
-            # Primero eliminamos los existentes para evitar duplicados en actualizaciones
+            # Primero eliminamos los existentes
             cursor.execute("DELETE FROM servicios_inmuebles WHERE id_inmueble = %s", (id_inmueble,))
             
-            if servicios:
-                query = "INSERT INTO servicios_inmuebles (id_inmueble, nombre_servicio) VALUES (%s, %s)"
-                data = [(id_inmueble, s) for s in servicios if s.strip()]
+            if servicios_con_iconos:
+                query = "INSERT INTO servicios_inmuebles (id_inmueble, icono, nombre_servicio) VALUES (%s, %s, %s)"
+                data = [(id_inmueble, s[0], s[1]) for s in servicios_con_iconos if s[1].strip()]
                 cursor.executemany(query, data)
             
             self.connection.commit()

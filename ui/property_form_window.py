@@ -97,6 +97,12 @@ class PropertyFormWindow:
         service_add_frame = tk.Frame(sec_services, bg="white")
         service_add_frame.pack(fill=tk.X, pady=5)
 
+        # Selector de Icono
+        self.icon_var = tk.StringVar(value="✨")
+        self.combo_icon = ttk.Combobox(service_add_frame, textvariable=self.icon_var, width=3, state="readonly", font=("Segoe UI", 12))
+        self.combo_icon['values'] = ["✨", "📶", "❄️", "🌡️", "🔥", "🌀", "🐾", "🍳", "☕", "🥐", "🥘", "🍝", "🍱", "🅿️", "🏊", "📺", "🚿", "🧺", "🧼", "🛏️", "🛌", "🚫", "🍖", "🧴", "🛡️", "🚲"]
+        self.combo_icon.pack(side=tk.LEFT, padx=(0, 10))
+
         self.service_var = tk.StringVar()
         self.ent_service = ttk.Entry(service_add_frame, textvariable=self.service_var)
         self.ent_service.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
@@ -108,7 +114,7 @@ class PropertyFormWindow:
         list_frame = tk.Frame(sec_services, bg="white")
         list_frame.pack(fill=tk.X, pady=10)
 
-        self.services_listbox = tk.Listbox(list_frame, height=5, font=("Segoe UI", 9))
+        self.services_listbox = tk.Listbox(list_frame, height=5, font=("Segoe UI", 10))
         self.services_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         list_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.services_listbox.yview)
@@ -165,11 +171,12 @@ class PropertyFormWindow:
 
     def add_service(self):
         service = self.service_var.get().strip()
+        icon = self.icon_var.get()
         if service:
-            # Evitar duplicados visuales
+            display_text = f"{icon} {service}"
             current_services = self.services_listbox.get(0, tk.END)
-            if service not in current_services:
-                self.services_listbox.insert(tk.END, service)
+            if display_text not in current_services:
+                self.services_listbox.insert(tk.END, display_text)
                 self.service_var.set("")
             else:
                 messagebox.showwarning("Atención", "El servicio ya está en la lista.")
@@ -211,9 +218,18 @@ class PropertyFormWindow:
             db.connection.commit()
             id_inmueble = cursor.lastrowid
 
-            # Guardar servicios
-            services = self.services_listbox.get(0, tk.END)
-            db.insert_property_services(id_inmueble, services)
+            # Guardar servicios parseando icono y nombre
+            raw_services = self.services_listbox.get(0, tk.END)
+            parsed_services = []
+            for rs in raw_services:
+                # El formato es "ICONO NOMBRE"
+                parts = rs.split(" ", 1)
+                if len(parts) == 2:
+                    parsed_services.append((parts[0], parts[1]))
+                else:
+                    parsed_services.append(("✨", rs))
+                    
+            db.insert_property_services(id_inmueble, parsed_services)
 
             if self.imagen_path:
                 ext = os.path.splitext(self.imagen_path)[1]

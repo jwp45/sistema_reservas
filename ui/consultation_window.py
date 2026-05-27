@@ -131,12 +131,14 @@ class ConsultationWindow:
             return
 
         # 2. Enviar Correo
-        servicios = self.db.get_property_services(self.selected_property[0])
+        servicios_raw = self.db.get_property_services(self.selected_property[0])
+        servicios_str = ", ".join([f"{s[0]} {s[1]}" for s in servicios_raw]) if servicios_raw else "No especificados"
+        
         data = {
 
             "id": quot_id,
             "inmueble": self.selected_property[1],
-            "servicios": ", ".join(servicios) if servicios else "No especificados",
+            "servicios": servicios_str,
             "fecha_ingreso": self.start_date.strftime("%d/%m/%Y"),
             "fecha_egreso": self.end_date.strftime("%d/%m/%Y"),
             "noches": (self.end_date - self.start_date).days,
@@ -479,7 +481,7 @@ class ConsultationWindow:
         self.draw_calendar()
 
     def show_services_popup(self):
-        """Muestra los servicios del inmueble seleccionado en un popup."""
+        """Muestra los servicios del inmueble seleccionado en un popup con scroll."""
         if not self.selected_property:
             messagebox.showwarning("Atención", "Seleccione un inmueble para ver sus servicios.", parent=self.window)
             return
@@ -488,7 +490,7 @@ class ConsultationWindow:
         
         popup = tk.Toplevel(self.window)
         popup.title(f"Servicios - {self.selected_property[1]}")
-        popup.geometry("350x400")
+        popup.geometry("380x550")
         popup.configure(bg="white")
         popup.transient(self.window)
         popup.grab_set()
@@ -496,20 +498,36 @@ class ConsultationWindow:
         tk.Label(popup, text=f"✨ SERVICIOS DISPONIBLES", font=("Segoe UI", 12, "bold"), 
                  bg="#2c3e50", fg="white", pady=15).pack(fill=tk.X)
         
-        content = tk.Frame(popup, bg="white", padx=20, pady=20)
-        content.pack(fill=tk.BOTH, expand=True)
+        # Contenedor para Scroll
+        main_frame = tk.Frame(popup, bg="white")
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        canvas = tk.Canvas(main_frame, bg="white", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="white")
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=340)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
         
         if not servicios:
-            tk.Label(content, text="No se especificaron servicios\npara este inmueble.", 
-                     font=("Segoe UI", 10, "italic"), bg="white", fg="#7f8c8d").pack(pady=50)
+            tk.Label(scrollable_frame, text="No se especificaron servicios\npara este inmueble.", 
+                     font=("Segoe UI", 10, "italic"), bg="white", fg="#7f8c8d").pack(pady=100, fill=tk.X)
         else:
-            for s in servicios:
-                s_frame = tk.Frame(content, bg="white")
-                s_frame.pack(fill=tk.X, pady=5)
-                tk.Label(s_frame, text="•", font=("Segoe UI", 12, "bold"), bg="white", fg="#3498db").pack(side=tk.LEFT, padx=(0, 10))
-                tk.Label(s_frame, text=s, font=("Segoe UI", 10), bg="white", fg="#2c3e50").pack(side=tk.LEFT)
+            for icon, name in servicios:
+                s_frame = tk.Frame(scrollable_frame, bg="white", padx=20)
+                s_frame.pack(fill=tk.X, pady=8)
+                tk.Label(s_frame, text=icon, font=("Segoe UI", 13), bg="white").pack(side=tk.LEFT, padx=(0, 15))
+                tk.Label(s_frame, text=name, font=("Segoe UI", 11), bg="white", fg="#2c3e50").pack(side=tk.LEFT)
         
-        ttk.Button(popup, text="CERRAR", command=popup.destroy).pack(pady=20)
+        ttk.Button(popup, text="CERRAR", command=popup.destroy).pack(pady=15)
 
     def on_property_selected(self, event=None):
         name = self.prop_var.get()

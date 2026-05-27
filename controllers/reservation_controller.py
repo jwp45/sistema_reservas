@@ -799,7 +799,8 @@ class ReservationController:
                 self.db.delete_quotation(q_id)
 
             # Obtener servicios para el email
-            servicios = self.db.get_property_services(id_inmueble)
+            servicios_raw = self.db.get_property_services(id_inmueble)
+            servicios_str = ", ".join([f"{s[0]} {s[1]}" for s in servicios_raw]) if servicios_raw else "No especificados"
             
             client_email = client_fields["email"].get()
             client_name = f"{client_fields['nombre'].get()} {client_fields['apellido'].get()}"
@@ -807,7 +808,7 @@ class ReservationController:
                 "id_reserva": reservation_id,
                 "inmueble": inmueble_nombre,
                 "ubicacion": prop_data[4] if prop_data else "Consultar",
-                "servicios": ", ".join(servicios) if servicios else "No especificados",
+                "servicios": servicios_str,
                 "fecha_ingreso": fecha_ingreso.strftime("%d/%m/%Y"),
                 "fecha_egreso": fecha_egreso.strftime("%d/%m/%Y"),
                 "noches": noches,
