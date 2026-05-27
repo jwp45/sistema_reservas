@@ -641,26 +641,45 @@ class Database:
             print(f"Error en get_revenue_by_property: {e}")
             return []
 
-    def get_pending_payments_list(self):
-        """Lista detallada de deudores (reservas con saldo pendiente)."""
+    def get_quotations_expiring_soon(self, hours=48):
+        """Retorna el conteo de cotizaciones que vencen en las próximas X horas."""
+        cursor = None
         try:
             cursor = self.connection.cursor()
-            query = """SELECT 
-                        r.id_reserva,
-                        CONCAT(c.nombre, ' ', c.apellido) as cliente,
-                        i.nombre as inmueble,
-                        r.fecha_ingreso,
-                        r.pago_pendiente
-                       FROM reservas r
-                       JOIN clientes c ON r.id_cliente = c.id_clientes
-                       JOIN inmuebles i ON r.id_inmueble = i.id_inmueble
-                       WHERE r.pago_pendiente > 0
-                       ORDER BY r.fecha_ingreso ASC"""
-            cursor.execute(query)
-            return cursor.fetchall()
+            # Validez de 15 días = 360 horas. 
+            # Vence pronto si: (fecha_cotizacion + 360h) está entre NOW y (NOW + hours)
+            query = """SELECT COUNT(*) FROM cotizaciones 
+                       WHERE DATE_ADD(fecha_cotizacion, INTERVAL 360 HOUR) 
+                       BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL %s HOUR)"""
+            cursor.execute(query, (hours,))
+            result = cursor.fetchone()
+            return result[0] if result else 0
         except Exception as e:
-            print(f"Error en get_pending_payments_list: {e}")
-            return []
+            print(f"Error en get_quotations_expiring_soon: {e}")
+            return 0
+        finally:
+            if cursor: cursor.close()
+
+    def get_today_occupancy_stats(self):
+        """Retorna el total de inmuebles y cuántos están ocupados hoy."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor()
+            # Total inmuebles
+            cursor.execute("SELECT COUNT(*) FROM inmuebles")
+            total = cursor.fetchone()[0]
+            
+            # Ocupados hoy (fecha actual entre ingreso y egreso)
+            cursor.execute("""SELECT COUNT(DISTINCT id_inmueble) FROM reservas 
+                            WHERE CURDATE() >= fecha_ingreso AND CURDATE() < fecha_egreso""")
+            occupied = cursor.fetchone()[0]
+            
+            return occupied, total
+        except Exception as e:
+            print(f"Error en get_today_occupancy_stats: {e}")
+            return 0, 0
+        finally:
+            if cursor: cursor.close()
 
     def add_payment_to_reservation(self, reservation_id, amount):
         """Añade un pago (abono) a una reserva existente y actualiza el saldo pendiente."""

@@ -87,7 +87,7 @@ class MainWindow:
         ttk.Label(self.sidebar, text="Admin Panel v2.5", font=("Segoe UI", 8), background="#2c3e50", foreground="#95a5a6").pack(side=tk.BOTTOM, pady=30)
 
         # --- CONTENIDO PRINCIPAL ---
-        header_area = ttk.Frame(self.main_container, style="Content.TFrame", padding=(40, 40, 40, 10))
+        header_area = ttk.Frame(self.main_container, style="Content.TFrame", padding=(40, 30, 40, 10))
         header_area.pack(fill=tk.X)
         
         ttk.Label(header_area, text="Panel de Control General", style="DashboardHeader.TLabel").pack(side=tk.LEFT)
@@ -99,25 +99,32 @@ class MainWindow:
         widgets_area.pack(fill=tk.BOTH, expand=True)
         widgets_area.columnconfigure(0, weight=1)
         widgets_area.columnconfigure(1, weight=1)
+        widgets_area.columnconfigure(2, weight=1)
+        widgets_area.columnconfigure(3, weight=1)
 
-        # --- CARD: PRÓXIMOS INGRESOS ---
+        # --- FILA 1: KPIs ---
+        self.kpi_pending = self._create_kpi_card(widgets_area, 0, 0, "COBROS PENDIENTES", "#e74c3c")
+        self.kpi_expiring = self._create_kpi_card(widgets_area, 0, 1, "VENTAS EN RIESGO", "#f39c12")
+        self.kpi_occupancy = self._create_kpi_card(widgets_area, 0, 2, "OCUPACIÓN HOY", "#3498db")
+        self.kpi_revenue = self._create_kpi_card(widgets_area, 0, 3, "INGRESOS MES", "#27ae60")
+
+        # --- FILA 2: PRÓXIMOS MOVIMIENTOS ---
+        # Card: Próximos Ingresos
         self.card_in = tk.Frame(widgets_area, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
-        self.card_in.grid(row=0, column=0, padx=(0, 20), sticky="nsew")
+        self.card_in.grid(row=1, column=0, columnspan=2, padx=(0, 10), pady=(30, 0), sticky="nsew")
         
         in_header = tk.Frame(self.card_in, bg="#27ae60", height=5)
         in_header.pack(fill=tk.X)
-        
-        in_content = tk.Frame(self.card_in, bg="white", padx=30, pady=30)
+        in_content = tk.Frame(self.card_in, bg="white", padx=30, pady=25)
         in_content.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(in_content, text="📥 PRÓXIMO CHECK-IN", font=("Segoe UI", 11, "bold"), bg="white", fg="#27ae60").pack(anchor="w")
-        self.lbl_checkin = tk.Label(in_content, text="—", font=("Segoe UI", 28, "bold"), bg="white", fg="#2c3e50")
-        self.lbl_checkin.pack(anchor="w", pady=15)
-        
-        self.lbl_checkin_name = tk.Label(in_content, text="", font=("Segoe UI", 14, "bold"), bg="white", fg="#34495e")
+        tk.Label(in_content, text="📥 PRÓXIMO CHECK-IN", font=("Segoe UI", 10, "bold"), bg="white", fg="#27ae60").pack(anchor="w")
+        self.lbl_checkin = tk.Label(in_content, text="—", font=("Segoe UI", 24, "bold"), bg="white", fg="#2c3e50")
+        self.lbl_checkin.pack(anchor="w", pady=10)
+        self.lbl_checkin_name = tk.Label(in_content, text="", font=("Segoe UI", 13, "bold"), bg="white", fg="#34495e")
         self.lbl_checkin_name.pack(anchor="w")
-        self.lbl_checkin_inmueble = tk.Label(in_content, text="", font=("Segoe UI", 12), bg="white", fg="#7f8c8d")
-        self.lbl_checkin_inmueble.pack(anchor="w", pady=(5, 15))
+        self.lbl_checkin_inmueble = tk.Label(in_content, text="", font=("Segoe UI", 11), bg="white", fg="#7f8c8d")
+        self.lbl_checkin_inmueble.pack(anchor="w", pady=(5, 10))
         
         info_in = tk.Frame(in_content, bg="white")
         info_in.pack(fill=tk.X)
@@ -126,24 +133,22 @@ class MainWindow:
         self.lbl_checkin_prov = tk.Label(info_in, text="", font=("Segoe UI", 11, "italic"), bg="white", fg="#95a5a6")
         self.lbl_checkin_prov.pack(side=tk.RIGHT)
 
-        # --- CARD: PRÓXIMOS EGRESOS ---
+        # Card: Próximos Egresos
         self.card_out = tk.Frame(widgets_area, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
-        self.card_out.grid(row=0, column=1, padx=(20, 0), sticky="nsew")
+        self.card_out.grid(row=1, column=2, columnspan=2, padx=(10, 0), pady=(30, 0), sticky="nsew")
         
         out_header = tk.Frame(self.card_out, bg="#2980b9", height=5)
         out_header.pack(fill=tk.X)
-        
-        out_content = tk.Frame(self.card_out, bg="white", padx=30, pady=30)
+        out_content = tk.Frame(self.card_out, bg="white", padx=30, pady=25)
         out_content.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(out_content, text="📤 PRÓXIMO CHECK-OUT", font=("Segoe UI", 11, "bold"), bg="white", fg="#2980b9").pack(anchor="w")
-        self.lbl_checkout = tk.Label(out_content, text="—", font=("Segoe UI", 28, "bold"), bg="white", fg="#2c3e50")
-        self.lbl_checkout.pack(anchor="w", pady=15)
-        
-        self.lbl_checkout_name = tk.Label(out_content, text="", font=("Segoe UI", 14, "bold"), bg="white", fg="#34495e")
+        tk.Label(out_content, text="📤 PRÓXIMO CHECK-OUT", font=("Segoe UI", 10, "bold"), bg="white", fg="#2980b9").pack(anchor="w")
+        self.lbl_checkout = tk.Label(out_content, text="—", font=("Segoe UI", 24, "bold"), bg="white", fg="#2c3e50")
+        self.lbl_checkout.pack(anchor="w", pady=10)
+        self.lbl_checkout_name = tk.Label(out_content, text="", font=("Segoe UI", 13, "bold"), bg="white", fg="#34495e")
         self.lbl_checkout_name.pack(anchor="w")
-        self.lbl_checkout_inmueble = tk.Label(out_content, text="", font=("Segoe UI", 12), bg="white", fg="#7f8c8d")
-        self.lbl_checkout_inmueble.pack(anchor="w", pady=(5, 15))
+        self.lbl_checkout_inmueble = tk.Label(out_content, text="", font=("Segoe UI", 11), bg="white", fg="#7f8c8d")
+        self.lbl_checkout_inmueble.pack(anchor="w", pady=(5, 10))
         
         info_out = tk.Frame(out_content, bg="white")
         info_out.pack(fill=tk.X)
@@ -151,6 +156,34 @@ class MainWindow:
         self.lbl_checkout_phone.pack(side=tk.LEFT)
         self.lbl_checkout_prov = tk.Label(info_out, text="", font=("Segoe UI", 11, "italic"), bg="white", fg="#95a5a6")
         self.lbl_checkout_prov.pack(side=tk.RIGHT)
+
+        self.refresh_dashboard()
+
+    def _create_kpi_card(self, parent, row, col, title, color):
+        card = tk.Frame(parent, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
+        card.grid(row=row, column=col, padx=10, sticky="nsew")
+        
+        line = tk.Frame(card, bg=color, height=4)
+        line.pack(fill=tk.X)
+        
+        content = tk.Frame(card, bg="white", padx=20, pady=20)
+        content.pack(fill=tk.BOTH)
+        
+        tk.Label(content, text=title, font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
+        lbl_val = tk.Label(content, text="—", font=("Segoe UI", 16, "bold"), bg="white", fg=color)
+        lbl_val.pack(anchor="w", pady=(5, 0))
+        return lbl_val
+
+    def _format_currency(self, value, decimals=True):
+        try:
+            val = float(value)
+            if decimals:
+                formatted = f"{val:,.2f}"
+                m, d = formatted.split('.')
+                return f"${m.replace(',', '.')},{d}"
+            else:
+                return f"${f'{val:,.0f}'.replace(',', '.')}"
+        except: return str(value)
 
         self.refresh_dashboard()
 
@@ -287,6 +320,7 @@ class MainWindow:
 
     def refresh_dashboard(self):
         from datetime import datetime
+        now = datetime.now()
         meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
@@ -298,6 +332,31 @@ class MainWindow:
 
         db = Database()
         if db.connect():
+            # 1. ACTUALIZAR KPIs
+            # Cobros Pendientes
+            summary = db.get_financial_summary()
+            self.kpi_pending.config(text=self._format_currency(summary[2], decimals=False))
+            
+            # Ventas en Riesgo (cotizaciones que vencen en < 48hs)
+            expiring_count = db.get_quotations_expiring_soon(hours=48)
+            self.kpi_expiring.config(text=str(expiring_count))
+            
+            # Ocupación Hoy
+            occ, total = db.get_today_occupancy_stats()
+            pct = int((occ/total)*100) if total > 0 else 0
+            self.kpi_occupancy.config(text=f"{occ}/{total} ({pct}%)")
+            
+            # Ingresos Mes (basado en lo cobrado/adelanto este mes)
+            rev_month = db.get_revenue_by_month()
+            current_month_str = now.strftime("%Y-%m")
+            current_rev = 0.0
+            for row in rev_month:
+                if row[0] == current_month_str:
+                    current_rev = float(row[1])
+                    break
+            self.kpi_revenue.config(text=self._format_currency(current_rev, decimals=False))
+
+            # 2. ACTUALIZAR MOVIMIENTOS (INGRESOS/EGRESOS)
             # Actualizar Ingreso
             checkins = db.get_upcoming_checkins()
             if checkins:
