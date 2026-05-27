@@ -131,10 +131,12 @@ class ConsultationWindow:
             return
 
         # 2. Enviar Correo
+        servicios = self.db.get_property_services(self.selected_property[0])
         data = {
 
             "id": quot_id,
             "inmueble": self.selected_property[1],
+            "servicios": ", ".join(servicios) if servicios else "No especificados",
             "fecha_ingreso": self.start_date.strftime("%d/%m/%Y"),
             "fecha_egreso": self.end_date.strftime("%d/%m/%Y"),
             "noches": (self.end_date - self.start_date).days,
@@ -244,6 +246,9 @@ class ConsultationWindow:
         self.btn_reservar.pack(fill=tk.X, pady=10)
         
         ttk.Button(left_panel, text="LIMPIAR SELECCIÓN", command=self.reset_selection).pack(fill=tk.X)
+
+        self.btn_ver_servicios = ttk.Button(left_panel, text="✨ VER SERVICIOS", command=self.show_services_popup)
+        self.btn_ver_servicios.pack(fill=tk.X, pady=(10, 0))
 
         # Panel Derecho: Calendario
         right_panel = tk.Frame(main_frame, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
@@ -472,6 +477,39 @@ class ConsultationWindow:
         
         self.update_selection_display()
         self.draw_calendar()
+
+    def show_services_popup(self):
+        """Muestra los servicios del inmueble seleccionado en un popup."""
+        if not self.selected_property:
+            messagebox.showwarning("Atención", "Seleccione un inmueble para ver sus servicios.", parent=self.window)
+            return
+            
+        servicios = self.db.get_property_services(self.selected_property[0])
+        
+        popup = tk.Toplevel(self.window)
+        popup.title(f"Servicios - {self.selected_property[1]}")
+        popup.geometry("350x400")
+        popup.configure(bg="white")
+        popup.transient(self.window)
+        popup.grab_set()
+        
+        tk.Label(popup, text=f"✨ SERVICIOS DISPONIBLES", font=("Segoe UI", 12, "bold"), 
+                 bg="#2c3e50", fg="white", pady=15).pack(fill=tk.X)
+        
+        content = tk.Frame(popup, bg="white", padx=20, pady=20)
+        content.pack(fill=tk.BOTH, expand=True)
+        
+        if not servicios:
+            tk.Label(content, text="No se especificaron servicios\npara este inmueble.", 
+                     font=("Segoe UI", 10, "italic"), bg="white", fg="#7f8c8d").pack(pady=50)
+        else:
+            for s in servicios:
+                s_frame = tk.Frame(content, bg="white")
+                s_frame.pack(fill=tk.X, pady=5)
+                tk.Label(s_frame, text="•", font=("Segoe UI", 12, "bold"), bg="white", fg="#3498db").pack(side=tk.LEFT, padx=(0, 10))
+                tk.Label(s_frame, text=s, font=("Segoe UI", 10), bg="white", fg="#2c3e50").pack(side=tk.LEFT)
+        
+        ttk.Button(popup, text="CERRAR", command=popup.destroy).pack(pady=20)
 
     def on_property_selected(self, event=None):
         name = self.prop_var.get()

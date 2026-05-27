@@ -90,7 +90,34 @@ class PropertyFormWindow:
         ttk.Label(sec_loc, text="Provincia:").grid(row=2, column=0, sticky=tk.W, pady=8)
         ttk.Entry(sec_loc, textvariable=self.fields["provincia"]).grid(row=2, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
 
-        # --- SECCIÓN 3: IMAGEN ---
+        # --- SECCIÓN 3: SERVICIOS ---
+        sec_services = ttk.LabelFrame(scrollable_frame, text=" Servicios / Amenities ", padding=15, style="FormSection.TLabelframe")
+        sec_services.pack(fill=tk.X, pady=10)
+
+        service_add_frame = tk.Frame(sec_services, bg="white")
+        service_add_frame.pack(fill=tk.X, pady=5)
+
+        self.service_var = tk.StringVar()
+        self.ent_service = ttk.Entry(service_add_frame, textvariable=self.service_var)
+        self.ent_service.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        self.ent_service.bind("<Return>", lambda e: self.add_service())
+
+        ttk.Button(service_add_frame, text="AGREGAR", command=self.add_service).pack(side=tk.RIGHT)
+
+        # Lista de servicios con scroll
+        list_frame = tk.Frame(sec_services, bg="white")
+        list_frame.pack(fill=tk.X, pady=10)
+
+        self.services_listbox = tk.Listbox(list_frame, height=5, font=("Segoe UI", 9))
+        self.services_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        list_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.services_listbox.yview)
+        list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.services_listbox.config(yscrollcommand=list_scroll.set)
+
+        ttk.Button(sec_services, text="ELIMINAR SELECCIONADO", command=self.remove_service).pack(fill=tk.X)
+
+        # --- SECCIÓN 4: IMAGEN ---
         sec_img = ttk.LabelFrame(scrollable_frame, text=" Multimedia ", padding=15, style="FormSection.TLabelframe")
         sec_img.pack(fill=tk.X, pady=10)
 
@@ -136,6 +163,23 @@ class PropertyFormWindow:
             except Exception as e:
                 print(f"Error al cargar imagen: {e}")
 
+    def add_service(self):
+        service = self.service_var.get().strip()
+        if service:
+            # Evitar duplicados visuales
+            current_services = self.services_listbox.get(0, tk.END)
+            if service not in current_services:
+                self.services_listbox.insert(tk.END, service)
+                self.service_var.set("")
+            else:
+                messagebox.showwarning("Atención", "El servicio ya está en la lista.")
+        self.ent_service.focus()
+
+    def remove_service(self):
+        selected = self.services_listbox.curselection()
+        if selected:
+            self.services_listbox.delete(selected)
+
     def save_property(self):
         if not all(v.get() for v in self.fields.values()):
             messagebox.showerror("Error", "Todos los campos son obligatorios", parent=self.window)
@@ -166,6 +210,10 @@ class PropertyFormWindow:
             cursor.execute(query, property_data)
             db.connection.commit()
             id_inmueble = cursor.lastrowid
+
+            # Guardar servicios
+            services = self.services_listbox.get(0, tk.END)
+            db.insert_property_services(id_inmueble, services)
 
             if self.imagen_path:
                 ext = os.path.splitext(self.imagen_path)[1]

@@ -83,6 +83,16 @@ class Database:
                 )
             """)
             
+            # 5. Crear tabla de servicios de inmuebles
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS servicios_inmuebles (
+                    id_servicio INT AUTO_INCREMENT PRIMARY KEY,
+                    id_inmueble INT NOT NULL,
+                    nombre_servicio VARCHAR(100) NOT NULL,
+                    FOREIGN KEY (id_inmueble) REFERENCES inmuebles(id_inmueble) ON DELETE CASCADE
+                )
+            """)
+            
             # Asegurar que la columna existe por si la tabla ya fue creada
             try:
                 cursor.execute("ALTER TABLE configuracion ADD COLUMN logo_path VARCHAR(255)")
@@ -214,6 +224,41 @@ class Database:
         except Exception as e:
             print(f"Error al obtener los inmuebles: {e}")
             return []
+        finally:
+            if cursor: cursor.close()
+
+    def get_property_services(self, id_inmueble):
+        """Retorna la lista de servicios de un inmueble."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "SELECT nombre_servicio FROM servicios_inmuebles WHERE id_inmueble = %s"
+            cursor.execute(query, (id_inmueble,))
+            return [s[0] for s in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error al obtener servicios del inmueble: {e}")
+            return []
+        finally:
+            if cursor: cursor.close()
+
+    def insert_property_services(self, id_inmueble, servicios):
+        """Guarda una lista de servicios para un inmueble."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            # Primero eliminamos los existentes para evitar duplicados en actualizaciones
+            cursor.execute("DELETE FROM servicios_inmuebles WHERE id_inmueble = %s", (id_inmueble,))
+            
+            if servicios:
+                query = "INSERT INTO servicios_inmuebles (id_inmueble, nombre_servicio) VALUES (%s, %s)"
+                data = [(id_inmueble, s) for s in servicios if s.strip()]
+                cursor.executemany(query, data)
+            
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error al guardar servicios del inmueble: {e}")
+            return False
         finally:
             if cursor: cursor.close()
 

@@ -369,8 +369,11 @@ class ReservationController:
 
         if not self.db.connection or not self.db.connection.is_connected():
             self.db.connect()
-        next_id = self.db.get_next_available_client_id()
-        client_fields["id_clientes"].set(str(next_id))
+            
+        # Solo buscar el próximo ID si no se cargó uno de la cotización
+        if not client_fields["id_clientes"].get():
+            next_id = self.db.get_next_available_client_id()
+            client_fields["id_clientes"].set(str(next_id))
 
         provincias = ["Buenos Aires", "Catamarca", "Chaco", "Chubut", "CABA", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"]
         properties = self.db.get_all_properties()
@@ -767,7 +770,8 @@ class ReservationController:
                     return
 
             inmueble_nombre = client_fields["inmueble"].get()
-            id_inmueble = self.property_map.get(inmueble_nombre, [None])[0]
+            prop_data = self.property_map.get(inmueble_nombre)
+            id_inmueble = prop_data[0] if prop_data else None
 
             if not id_cliente or not id_inmueble:
                 messagebox.showerror("Error", "Debe seleccionar un cliente y un inmueble", parent=reservation_window)
@@ -794,11 +798,16 @@ class ReservationController:
             if q_id:
                 self.db.delete_quotation(q_id)
 
+            # Obtener servicios para el email
+            servicios = self.db.get_property_services(id_inmueble)
+            
             client_email = client_fields["email"].get()
             client_name = f"{client_fields['nombre'].get()} {client_fields['apellido'].get()}"
             email_data = {
                 "id_reserva": reservation_id,
                 "inmueble": inmueble_nombre,
+                "ubicacion": prop_data[4] if prop_data else "Consultar",
+                "servicios": ", ".join(servicios) if servicios else "No especificados",
                 "fecha_ingreso": fecha_ingreso.strftime("%d/%m/%Y"),
                 "fecha_egreso": fecha_egreso.strftime("%d/%m/%Y"),
                 "noches": noches,

@@ -97,7 +97,34 @@ class EditPropertyWindow:
             tk.Label(sec_loc, text=label_text, bg="white", font=("Segoe UI", 8, "bold")).grid(row=i, column=0, sticky=tk.W, pady=10, padx=(0, 15))
             ttk.Entry(sec_loc, textvariable=self.fields[field_name], font=("Segoe UI", 10)).grid(row=i, column=1, sticky=tk.EW, pady=10)
 
-        # --- SECCIÓN 3: MULTIMEDIA ---
+        # --- SECCIÓN 3: SERVICIOS ---
+        sec_services = tk.LabelFrame(content_padding, text=" SERVICIOS / AMENITIES ", font=("Segoe UI", 9, "bold"), 
+                               bg="white", fg="#2c3e50", padx=25, pady=25, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+        sec_services.pack(fill=tk.X, pady=10)
+
+        service_add_frame = tk.Frame(sec_services, bg="white")
+        service_add_frame.pack(fill=tk.X, pady=5)
+
+        self.service_var = tk.StringVar()
+        self.ent_service = ttk.Entry(service_add_frame, textvariable=self.service_var, font=("Segoe UI", 10))
+        self.ent_service.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        self.ent_service.bind("<Return>", lambda e: self.add_service())
+
+        ttk.Button(service_add_frame, text="AGREGAR", command=self.add_service).pack(side=tk.RIGHT)
+
+        list_frame = tk.Frame(sec_services, bg="white")
+        list_frame.pack(fill=tk.X, pady=10)
+
+        self.services_listbox = tk.Listbox(list_frame, height=5, font=("Segoe UI", 10))
+        self.services_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        list_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.services_listbox.yview)
+        list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.services_listbox.config(yscrollcommand=list_scroll.set)
+
+        ttk.Button(sec_services, text="ELIMINAR SELECCIONADO", command=self.remove_service).pack(fill=tk.X)
+
+        # --- SECCIÓN 4: MULTIMEDIA ---
         sec_img = tk.LabelFrame(content_padding, text=" VISTA PREVIA Y MULTIMEDIA ", font=("Segoe UI", 9, "bold"), 
                                bg="white", fg="#2c3e50", padx=25, pady=25, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
         sec_img.pack(fill=tk.X, pady=10)
@@ -136,6 +163,22 @@ class EditPropertyWindow:
             m, d = formatted.split('.')
             return f"${m.replace(',', '.')},{d}"
         except: return str(value)
+
+    def add_service(self):
+        service = self.service_var.get().strip()
+        if service:
+            current = self.services_listbox.get(0, tk.END)
+            if service not in current:
+                self.services_listbox.insert(tk.END, service)
+                self.service_var.set("")
+            else:
+                messagebox.showwarning("Atención", "El servicio ya está en la lista.")
+        self.ent_service.focus()
+
+    def remove_service(self):
+        selected = self.services_listbox.curselection()
+        if selected:
+            self.services_listbox.delete(selected)
 
     def select_image(self):
         path = filedialog.askopenfilename(
@@ -180,6 +223,11 @@ class EditPropertyWindow:
                         self.img_preview.config(image=tk_img)
                         self.img_preview.image = tk_img
                     except: pass
+            
+            # Cargar servicios
+            servicios = db.get_property_services(self.property_id)
+            for s in servicios:
+                self.services_listbox.insert(tk.END, s)
         else:
             messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=self.window)
 
@@ -210,6 +258,10 @@ class EditPropertyWindow:
             cursor = db.connection.cursor()
             query = "UPDATE inmuebles SET nombre=%s, cantidad_personas=%s, direccion=%s, localidad=%s, provincia=%s, tipo=%s, valor_dia=%s WHERE id_inmueble=%s"
             cursor.execute(query, property_data + (self.property_id,))
+
+            # Guardar servicios
+            services = self.services_listbox.get(0, tk.END)
+            db.insert_property_services(self.property_id, services)
 
             if self.imagen_path and not self.imagen_path.startswith(ASSETS_DIR):
                 ext = os.path.splitext(self.imagen_path)[1]
