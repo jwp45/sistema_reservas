@@ -140,11 +140,15 @@ class QuotationListWindow:
         f_cot_str = q[7].strftime("%d/%m/%Y %H:%M") if hasattr(q[7], 'strftime') else str(q[7])
         tk.Label(time_f, text=f"Enviada: {f_cot_str}", font=("Segoe UI", 8), bg="white", fg="#95a5a6").pack(anchor="w", pady=(5,0))
 
-        # Derecha: Precios
+        # Derecha: Precios y Marketing
         price_f = tk.Frame(inner, bg="white", padx=10)
         price_f.pack(side=tk.RIGHT, fill=tk.Y)
         self.bind_select(price_f, quot_id)
 
+        # Verificar disponibilidad y si ya fue enviada
+        is_free = self.db.is_range_available(q[9], q[3], q[4])
+        mkt_enviado = q[14] if len(q) > 14 else 0
+        
         try:
             precio_orig = float(q[11])
             monto_desc = float(q[12])
@@ -156,11 +160,83 @@ class QuotationListWindow:
                 tk.Label(price_f, text=f"DESC. {pct}%: -{self._format_currency(monto_desc)}", font=("Segoe UI", 8, "bold"), bg="white", fg="#e74c3c").pack(anchor="e")
             
             tk.Label(price_f, text=self._format_currency(precio_final), font=("Segoe UI", 16, "bold"), bg="white", fg="#27ae60").pack(anchor="e", pady=(5, 0))
+            
+            # Botón de Marketing o Estado
+            if mkt_enviado:
+                tk.Label(price_f, text="✨ OFERTA ENVIADA", font=("Segoe UI", 8, "bold"), bg="#e8f8f5", fg="#16a085").pack(anchor="e", pady=(10, 0))
+            elif is_free:
+                btn_mkt = tk.Button(price_f, text="🎁 RE-OFERTAR", font=("Segoe UI", 8, "bold"), 
+                                    bg="#27ae60", fg="white", bd=0, padx=10, pady=5, cursor="hand2",
+                                    command=lambda i=quot_id: self.open_reoffer_dialog(i))
+                btn_mkt.pack(anchor="e", pady=(10, 0))
+            else:
+                tk.Label(price_f, text="⚠️ OCUPADO", font=("Segoe UI", 8, "bold"), bg="white", fg="#95a5a6").pack(anchor="e", pady=(10, 0))
+
         except: pass
 
         card.quot_id = quot_id
         card.search_data = f"{quot_code} {client_name} {property_name}".lower()
         self.cards.append(card)
+
+    def open_reoffer_dialog(self, quot_id):
+        """Abre un diálogo para proponer un nuevo descuento."""
+        # Obtener datos de la cotización
+        all_q = self.db.get_all_quotations()
+        q = next((x for x in all_q if x[0] == quot_id), None)
+        if not q: return
+
+        # Ventana emergente
+        dialog = tk.Toplevel(self.window)
+        dialog.title("Mejorar Oferta de Marketing")
+        dialog.geometry("400x350")
+        dialog.configure(bg="#f8f9fa")
+        dialog.transient(self.window)
+        dialog.grab_set()
+
+        main_d = ttk.Frame(dialog, padding=25)
+        main_d.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(main_d, text="🎁 NUEVA OFERTA ESPECIAL", font=("Segoe UI", 12, "bold"), fg="#27ae60").pack(pady=(0, 20))
+        
+        current_price = float(q[6])
+        tk.Label(main_d, text=f"Precio actual: {self._format_currency(current_price)}", font=("Segoe UI", 10)).pack(anchor="w")
+        
+        tk.Label(main_d, text="Nuevo Descuento Adicional (%):", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(15, 5))
+        discount_var = tk.StringVar(value="5")
+        ent = ttk.Entry(main_d, textvariable=discount_var, font=("Segoe UI", 12))
+        ent.pack(fill=tk.X)
+        ent.focus_set()
+
+        def confirm():
+            try:
+                extra_pct = float(discount_var.get())
+                new_price = current_price * (1 - (extra_pct / 100))
+                
+                # Obtener datos del cliente
+                client = self.db.get_client_by_id(q[8])
+                if not client: return
+
+                data = {
+                    "id": quot_id,
+                    "inmueble": q[2],
+                    "old_price": self._format_currency(current_price, show_decimals=False),
+                    "new_price": self._format_currency(new_price, show_decimals=False),
+                    "fecha_ingreso": q[3].strftime("%d/%m/%Y"),
+                    "fecha_egreso": q[4].strftime("%d/%m/%Y")
+                }
+
+                from utils.email_sender import send_marketing_offer_email
+                if send_marketing_offer_email(client[3], f"{client[1]} {client[2]}", data):
+                    self.db.mark_quotation_mkt_sent(quot_id)
+                    messagebox.showinfo("Éxito", f"¡Oferta especial enviada a {client[3]}!", parent=dialog)
+                    dialog.destroy()
+                    self.load_quotations()
+                else:
+                    messagebox.showerror("Error", "No se pudo enviar el correo de marketing.", parent=dialog)
+            except ValueError:
+                messagebox.showerror("Error", "Ingrese un porcentaje válido.", parent=dialog)
+
+        ttk.Button(main_d, text="ENVIAR REGALO POR EMAIL", style="QuotAction.TButton", command=confirm).pack(fill=tk.X, pady=25)
 
     def select_card(self, quot_id):
         self.selected_id = quot_id
@@ -204,12 +280,16 @@ class QuotationListWindow:
                 card.pack_forget()
         self.lbl_stats.config(text=f"MOSTRANDO: {visible_count} / TOTAL: {len(self.cards)}")
 
-    def _format_currency(self, value):
+    def _format_currency(self, value, show_decimals=True):
         try:
             val = float(value)
-            formatted = f"{val:,.2f}"
-            m, d = formatted.split('.')
-            return f"${m.replace(',', '.')},{d}"
+            if show_decimals:
+                formatted = f"{val:,.2f}"
+                m, d = formatted.split('.')
+                return f"${m.replace(',', '.')},{d}"
+            else:
+                formatted = f"{val:,.0f}"
+                return f"${formatted.replace(',', '.')}"
         except: return str(value)
 
     def delete_quotation(self):

@@ -117,6 +117,56 @@ def send_quotation_email(client_email, client_name, data):
     msg["To"] = client_email
     msg.attach(MIMEText(body, "html"))
 
+def send_marketing_offer_email(client_email, client_name, data):
+    """Envía un correo de marketing mejorando la oferta original."""
+    if not SMTP_USER or not SMTP_PASSWORD:
+        return False
+
+    quot_id = data.get('id', '—')
+    quot_code = f"Q-{str(quot_id).zfill(5)}" if str(quot_id).isdigit() else quot_id
+    
+    subject = f"🎁 ¡Última Oportunidad! Mejoramos tu oferta para {data.get('inmueble', '')}"
+
+    body = f"""
+    <html>
+    <body style="font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+        <div style="max-width: 600px; margin: auto; border: 2px solid #27ae60; border-radius: 8px; overflow: hidden;">
+            <div style="background-color: #27ae60; color: white; padding: 25px; text-align: center;">
+                <h1 style="margin: 0;">🎁 ¡Regalo Especial para ti!</h1>
+                <p style="margin: 5px 0; font-size: 16px;">Vemos que tu presupuesto {quot_code} está por vencer</p>
+            </div>
+            <div style="padding: 30px;">
+                <p>Hola <strong>{client_name}</strong>,</p>
+                <p>Te escribimos porque las fechas que consultaste para <strong>{data.get('inmueble', '')}</strong> siguen disponibles, ¡y no queremos que te las pierdas!</p>
+                
+                <p>Como tu presupuesto vence pronto, hemos decidido aplicarte un <strong>descuento adicional exclusivo</strong> si reservas en las próximas 24 horas:</p>
+
+                <div style="background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin: 25px 0; text-align: center; border: 1px dashed #27ae60;">
+                    <p style="font-size: 18px; margin-bottom: 5px; color: #7f8c8d; text-decoration: line-through;">Precio Anterior: {data.get('old_price', '$0,00')}</p>
+                    <p style="font-size: 32px; font-weight: bold; margin-top: 0; color: #27ae60;">NUEVO PRECIO: {data.get('new_price', '$0,00')}</p>
+                    <p style="font-size: 14px; color: #34495e;">(Válido únicamente para las fechas: {data.get('fecha_ingreso', '')} al {data.get('fecha_egreso', '')})</p>
+                </div>
+
+                <p style="text-align: center; margin-top: 30px;">
+                    <a href="https://wa.me/5492236689548?text=Hola!%20Recibí%20la%20oferta%20especial%20{quot_code}%20y%20quiero%20confirmar%20mi%20reserva%20de%20{data.get('inmueble', '').replace(' ', '%20')}" 
+                       style="background-color: #2c3e50; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">¡QUIERO EL DESCUENTO!</a>
+                </p>
+                
+                <p style="font-size: 13px; color: #95a5a6; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                    * Esta oferta es limitada y caducará automáticamente junto con tu presupuesto original.
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = FROM_EMAIL
+    msg["To"] = client_email
+    msg.attach(MIMEText(body, "html"))
+
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()

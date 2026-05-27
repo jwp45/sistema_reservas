@@ -56,23 +56,36 @@ class ConsultationWindow:
             self.db.connect()
 
         # 1. Verificar si el cliente ya existe
-        all_clients = self.db.get_all_clients()
+        existing_client = self.db.get_client_by_email(email)
         client_exists = False
         client_id = None
-        for c in all_clients:
-            # c = (id, doc, nom, ape, email, tel)
-            if (c[4] and c[4].lower() == email) or (c[5] and str(c[5]) == tel):
-                client_exists = True
-                client_id = c[0]
-                break
+        
+        if existing_client:
+            # existing_client = (id, doc, nom, ape, email, tel)
+            db_name = f"{existing_client[2]} {existing_client[3]}".strip()
+            
+            # Si el nombre proporcionado es muy diferente al de la DB, notificar
+            if nombre.lower() not in db_name.lower() and db_name.lower() not in nombre.lower():
+                msg = f"El email '{email}' ya está registrado a nombre de:\n\n👤 {db_name}\n\n¿Deseas enviar la cotización a nombre de este cliente existente?"
+                if not messagebox.askyesno("Email duplicado", msg, parent=self.window):
+                    return # Cancelar operación
+            
+            client_exists = True
+            client_id = existing_client[0]
+        else:
+            # Si no existe por email, verificar por teléfono
+            all_clients = self.db.get_all_clients()
+            for c in all_clients:
+                if c[5] and str(c[5]) == tel:
+                    client_exists = True
+                    client_id = c[0]
+                    break
         
         if not client_exists:
-            # Crear nuevo cliente básico - Dejamos que la DB maneje el ID (AUTO_INCREMENT)
+            # Crear nuevo cliente básico
             parts = nombre.split(" ", 1)
             nom = parts[0]
             ape = parts[1] if len(parts) > 1 else "—"
-            
-            # insert_client ahora devuelve el ID si tiene éxito
             client_id = self.db.insert_client(("S/D", nom, ape, email, tel))
 
         if not client_id:

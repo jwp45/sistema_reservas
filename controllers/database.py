@@ -55,10 +55,17 @@ class Database:
                     descuento DECIMAL(10, 2) DEFAULT 0,
                     costo_con_descuento DECIMAL(10, 2) NOT NULL,
                     fecha_cotizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    mkt_enviado TINYINT(1) DEFAULT 0,
                     FOREIGN KEY (id_cliente) REFERENCES clientes(id_clientes) ON DELETE CASCADE,
                     FOREIGN KEY (id_inmueble) REFERENCES inmuebles(id_inmueble) ON DELETE CASCADE
                 )
             """)
+            
+            # Asegurar que la columna existe por si la tabla ya fue creada
+            try:
+                cursor.execute("ALTER TABLE cotizaciones ADD COLUMN mkt_enviado TINYINT(1) DEFAULT 0")
+                self.connection.commit()
+            except: pass
             
             # 3. Sincronización inicial
             sync_query = """
@@ -308,6 +315,24 @@ class Database:
         finally:
             if cursor: cursor.close()
 
+    def is_range_available(self, id_inmueble, start_date, end_date, exclude_res_id=None):
+        """Verifica si un rango de fechas está libre para un inmueble."""
+        ranges = self.get_reserved_ranges(id_inmueble=id_inmueble, exclude_id=exclude_res_id)
+        from datetime import date
+        # Convertir a objetos date si vienen como string ISO
+        if isinstance(start_date, str):
+            from datetime import datetime
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        if isinstance(end_date, str):
+            from datetime import datetime
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            
+        for r_start, r_end, _ in ranges:
+            # r_start/r_end suelen venir como objetos date de MySQL
+            if (start_date < r_end) and (end_date > r_start):
+                return False
+        return True
+
     def get_upcoming_checkins(self, days=7):
         cursor = None
         try:
@@ -355,6 +380,20 @@ class Database:
             return cursor.fetchone()
         except Exception as e:
             print(f"Error al obtener el cliente: {e}")
+            return None
+        finally:
+            if cursor: cursor.close()
+
+    def get_client_by_email(self, email):
+        """Retorna los datos del cliente si el email ya existe."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor()
+            query = "SELECT id_clientes, documento, nombre, apellido, email, telefono FROM clientes WHERE email = %s"
+            cursor.execute(query, (email,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error al obtener cliente por email: {e}")
             return None
         finally:
             if cursor: cursor.close()
@@ -510,7 +549,7 @@ class Database:
                               i.nombre as inmueble, q.fecha_ingreso, q.fecha_egreso, 
                               q.noches, q.costo_con_descuento, q.fecha_cotizacion,
                               q.id_cliente, q.id_inmueble, q.valor_dia, q.costo_total, q.descuento,
-                              i.cantidad_personas
+                              i.cantidad_personas, q.mkt_enviado
                        FROM cotizaciones q
                        JOIN clientes c ON q.id_cliente = c.id_clientes
                        JOIN inmuebles i ON q.id_inmueble = i.id_inmueble
@@ -520,6 +559,20 @@ class Database:
         except Exception as e:
             print(f"Error al obtener cotizaciones: {e}")
             return []
+        finally:
+            if cursor: cursor.close()
+
+    def mark_quotation_mkt_sent(self, id_cotizacion):
+        """Marca una cotización indicando que ya se envió una oferta de marketing."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("UPDATE cotizaciones SET mkt_enviado = 1 WHERE id_cotizacion = %s", (id_cotizacion,))
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error al marcar mkt_enviado: {e}")
+            return False
         finally:
             if cursor: cursor.close()
 
