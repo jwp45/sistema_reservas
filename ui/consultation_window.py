@@ -4,6 +4,7 @@ import calendar
 from datetime import date, datetime, timedelta
 from controllers.database import Database
 from utils.email_sender import send_quotation_email
+from ui.advanced_search_window import AdvancedSearchWindow
 
 class ConsultationWindow:
     def __init__(self, master, reservation_controller):
@@ -296,6 +297,9 @@ class ConsultationWindow:
         self.combo_prop.pack(side=tk.LEFT, padx=5)
         self.combo_prop.bind("<<ComboboxSelected>>", self.on_property_selected)
 
+        # Botón de Búsqueda Avanzada
+        ttk.Button(fixed_f, text="🔍", width=3, command=self.open_advanced_search).pack(side=tk.LEFT, padx=15)
+
         # --- SECCIÓN DE DETALLES (Ahora arriba del calendario) ---
         self.info_card = tk.Frame(right_panel, bg="#f8f9fa", padx=20, pady=10, highlightbackground="#e0e0e0", highlightthickness=1)
         self.info_card.pack(fill=tk.X)
@@ -437,6 +441,37 @@ class ConsultationWindow:
             self.geo_frame.pack(side=tk.LEFT, after=self.btn_toggle_geo)
             self.btn_toggle_geo.config(text="📍 UBICACIÓN ▲")
             self.geo_visible = True
+
+    def open_advanced_search(self):
+        """Abre la ventana de búsqueda avanzada."""
+        AdvancedSearchWindow(self.window, self.on_advanced_search_selected)
+
+    def on_advanced_search_selected(self, prop_data, dates):
+        """Callback cuando se selecciona un inmueble en la búsqueda avanzada."""
+        # prop_data = (id, nombre, cap, dir, loc, prov, tipo, val, img)
+        self.selected_property = prop_data
+        self.prop_var.set(prop_data[1])
+        
+        # Sincronizar filtros por si acaso el inmueble no estaba visible
+        self.prov_var.set("Todas")
+        self.loc_var.set("Todas")
+        self.tipo_var.set("Todos")
+        self.apply_filters()
+        
+        # Forzar selección en el combo
+        self.prop_var.set(prop_data[1])
+        self.on_property_selected()
+        
+        # Cargar fechas seleccionadas
+        self.start_date = dates["desde"]
+        self.end_date = dates["hasta"]
+        
+        # Mover calendario al mes de inicio
+        self.month = self.start_date.month
+        self.year = self.start_date.year
+        
+        self.update_selection_display()
+        self.draw_calendar()
 
     def on_property_selected(self, event=None):
         name = self.prop_var.get()
