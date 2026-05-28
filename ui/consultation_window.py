@@ -239,7 +239,12 @@ class ConsultationWindow:
             nom = parts[0]
             ape = parts[1] if len(parts) > 1 else "—"
             prospect_id = self.db.insert_prospect(("S/D", nom, ape, email if email else "no-email@wa.com", tel))
-            print(f"Nuevo prospecto creado: {prospect_id}")
+            if prospect_id:
+                print(f"Nuevo prospecto creado: {prospect_id}")
+                messagebox.showinfo("Éxito", f"Se ha registrado a '{nombre}' como un nuevo prospecto.", parent=self.window)
+            else:
+                messagebox.showerror("Error", "No se pudo registrar el nuevo prospecto.", parent=self.window)
+                return
 
         if not client_id and not prospect_id:
             messagebox.showerror("Error", "No se pudo registrar ni encontrar el contacto.", parent=self.window)

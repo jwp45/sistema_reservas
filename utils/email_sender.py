@@ -292,8 +292,8 @@ def send_gallery_email(client_email, property_name, image_paths):
 
     return overall_success
 
-def send_marketing_offer_email(client_email, client_name, data):
-    """Envía un correo de marketing mejorando la oferta original."""
+def send_marketing_offer_email(client_email, client_name, data, contact_type='prospecto'):
+    """Envía un correo de marketing mejorando la oferta original, diferenciando por tipo de cliente."""
     config = get_smtp_config()
     smtp_user = config.get("smtp_user")
     smtp_password = config.get("smtp_password")
@@ -309,35 +309,45 @@ def send_marketing_offer_email(client_email, client_name, data):
     quot_id = data.get('id', '—')
     quot_code = f"Q-{str(quot_id).zfill(5)}" if str(quot_id).isdigit() else quot_id
     
-    subject = f"🎁 ¡Última Oportunidad! Mejoramos tu oferta para {data.get('inmueble', '')}"
+    # Personalización según tipo de contacto
+    if contact_type == 'cliente':
+        title_text = f"🎁 ¡Qué bueno verte de nuevo, {client_name.split()[0]}! Tenemos un beneficio para ti"
+        header_sub = "Valoramos que vuelvas a elegirnos"
+        intro_text = f"Es un placer saludarte nuevamente. Como ya eres parte de nuestra comunidad en <strong>{business_name}</strong>, queremos facilitarte el cierre de tu próxima estadía con una atención especial."
+    else:
+        title_text = f"🎁 ¡Bienvenido! Tenemos un regalo especial para ti"
+        header_sub = "Queremos que vivas tu primera experiencia con nosotros"
+        intro_text = f"Es un gusto saludarte. Notamos que consultaste por <strong>{data.get('inmueble', '')}</strong> y queremos que te sientas como en casa desde el primer momento."
+
+    subject = f"🎁 {title_text}"
 
     body = f"""
     <html>
     <body style="font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6;">
         <div style="max-width: 600px; margin: auto; border: 2px solid #27ae60; border-radius: 8px; overflow: hidden;">
             <div style="background-color: #27ae60; color: white; padding: 25px; text-align: center;">
-                <h1 style="margin: 0;">🎁 {business_name} - ¡Regalo Especial!</h1>
-                <p style="margin: 5px 0; font-size: 16px;">Vemos que tu presupuesto {quot_code} está por vencer</p>
+                <h1 style="margin: 0;">{title_text}</h1>
+                <p style="margin: 5px 0; font-size: 16px;">{header_sub}</p>
             </div>
             <div style="padding: 30px;">
                 <p>Hola <strong>{client_name}</strong>,</p>
-                <p>Te escribimos porque las fechas que consultaste para <strong>{data.get('inmueble', '')}</strong> siguen disponibles, ¡y no queremos que te las pierdas!</p>
+                <p>{intro_text}</p>
                 
-                <p>Como tu presupuesto vence pronto, hemos decidido aplicarte un <strong>descuento adicional exclusivo</strong> si reservas en las próximas 24 horas:</p>
+                <p>Tu presupuesto <strong>{quot_code}</strong> sigue activo, pero para asegurarnos de que no pierdas estas fechas, hemos aplicado un <strong>descuento adicional inmediato</strong>:</p>
 
                 <div style="background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin: 25px 0; text-align: center; border: 1px dashed #27ae60;">
-                    <p style="font-size: 18px; margin-bottom: 5px; color: #7f8c8d; text-decoration: line-through;">Precio Anterior: {data.get('old_price', '$0,00')}</p>
-                    <p style="font-size: 32px; font-weight: bold; margin-top: 0; color: #27ae60;">NUEVO PRECIO: {data.get('new_price', '$0,00')}</p>
-                    <p style="font-size: 14px; color: #34495e;">(Válido únicamente para las fechas: {data.get('fecha_ingreso', '')} al {data.get('fecha_egreso', '')})</p>
+                    <p style="font-size: 16px; margin-bottom: 5px; color: #7f8c8d; text-decoration: line-through;">Precio Cotizado: {data.get('old_price', '$0,00')}</p>
+                    <p style="font-size: 30px; font-weight: bold; margin-top: 0; color: #27ae60;">NUEVO PRECIO ESPECIAL: {data.get('new_price', '$0,00')}</p>
+                    <p style="font-size: 13px; color: #34495e;">(Válido para el periodo: {data.get('fecha_ingreso', '')} al {data.get('fecha_egreso', '')})</p>
                 </div>
 
                 <p style="text-align: center; margin-top: 30px;">
                     <a href="https://wa.me/{whatsapp}?text=Hola!%20Recibí%20la%20oferta%20especial%20{quot_code}%20y%20quiero%20confirmar%20mi%20reserva%20de%20{data.get('inmueble', '').replace(' ', '%20')}" 
-                       style="background-color: #2c3e50; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">¡QUIERO EL DESCUENTO!</a>
+                       style="background-color: #2c3e50; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">¡ACEPTAR OFERTA Y RESERVAR!</a>
                 </p>
                 
                 <p style="font-size: 13px; color: #95a5a6; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                    * Esta oferta es limitada y caducará automáticamente junto con tu presupuesto original.
+                    * Esta oferta es un beneficio único y caducará automáticamente si el inmueble es reservado por otro usuario.
                 </p>
             </div>
         </div>

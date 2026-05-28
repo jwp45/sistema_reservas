@@ -252,7 +252,7 @@ class QuotationListWindow:
                 }
 
                 from utils.email_sender import send_marketing_offer_email
-                if send_marketing_offer_email(contact[3], f"{contact[1]} {contact[2]}", data):
+                if send_marketing_offer_email(contact[3], f"{contact[1]} {contact[2]}", data, contact_type=tipo_contacto):
                     self.db.mark_quotation_mkt_sent(quot_id)
                     messagebox.showinfo("Éxito", f"¡Oferta especial enviada a {contact[3]}!", parent=dialog)
                     dialog.destroy()
