@@ -71,7 +71,10 @@ class EditPropertyWindow:
             "localidad": tk.StringVar(),
             "provincia": tk.StringVar(),
             "tipo": tk.StringVar(),
-            "valor_dia": tk.StringVar()
+            "valor_dia": tk.StringVar(),
+            "dormitorios": tk.IntVar(value=0),
+            "camas": tk.IntVar(value=0),
+            "baños": tk.IntVar(value=0)
         }
 
         fields_order = [
@@ -87,6 +90,25 @@ class EditPropertyWindow:
             ent.grid(row=i, column=1, sticky=tk.EW, pady=10)
             if field_name == "valor_dia":
                 ent.bind("<KeyRelease>", self._format_currency_input)
+
+        # --- Campos Detalle (Dormitorios, Camas, Baños) ---
+        details_f = tk.Frame(sec_info, bg="white")
+        details_f.grid(row=len(fields_order), column=0, columnspan=2, sticky=tk.EW, pady=15)
+        
+        def create_counter(parent, label_text, var):
+            container = tk.Frame(parent, bg="white")
+            container.pack(side=tk.LEFT, expand=True)
+            tk.Label(container, text=label_text, bg="white", font=("Segoe UI", 8, "bold")).pack()
+            
+            ctrl_f = tk.Frame(container, bg="white")
+            ctrl_f.pack(pady=2)
+            tk.Button(ctrl_f, text="-", width=2, command=lambda: var.set(max(0, var.get() - 1))).pack(side=tk.LEFT)
+            tk.Label(ctrl_f, textvariable=var, width=3, bg="white", font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT, padx=5)
+            tk.Button(ctrl_f, text="+", width=2, command=lambda: var.set(var.get() + 1)).pack(side=tk.LEFT)
+
+        create_counter(details_f, "DORMITORIOS", self.fields["dormitorios"])
+        create_counter(details_f, "CAMAS", self.fields["camas"])
+        create_counter(details_f, "BAÑOS", self.fields["baños"])
 
         # --- SECCIÓN 2: UBICACIÓN ---
         sec_loc = tk.LabelFrame(content_padding, text=" LOCALIZACIÓN ", font=("Segoe UI", 9, "bold"), 
@@ -289,7 +311,9 @@ class EditPropertyWindow:
     def load_property_data(self):
         db = Database()
         if db.connect():
-            query = "SELECT nombre, cantidad_personas, direccion, localidad, provincia, tipo, valor_dia, COALESCE(imagen, '') FROM inmuebles WHERE id_inmueble = %s"
+            query = """SELECT nombre, cantidad_personas, direccion, localidad, provincia, 
+                              tipo, valor_dia, COALESCE(imagen, ''), dormitorios, camas, baños 
+                       FROM inmuebles WHERE id_inmueble = %s"""
             cursor = db.connection.cursor()
             cursor.execute(query, (self.property_id,))
             result = cursor.fetchone()
@@ -312,6 +336,11 @@ class EditPropertyWindow:
                         self.img_preview.config(image=tk_img)
                         self.img_preview.image = tk_img
                     except: pass
+                
+                # Campos Detalle
+                self.fields["dormitorios"].set(result[8] if result[8] is not None else 0)
+                self.fields["camas"].set(result[9] if result[9] is not None else 0)
+                self.fields["baños"].set(result[10] if result[10] is not None else 0)
             
             # Cargar servicios
             servicios = db.get_property_services(self.property_id)
@@ -342,13 +371,20 @@ class EditPropertyWindow:
             self.fields["localidad"].get(),
             self.fields["provincia"].get(),
             self.fields["tipo"].get(),
-            valor_dia
+            valor_dia,
+            self.fields["dormitorios"].get(),
+            self.fields["camas"].get(),
+            self.fields["baños"].get()
         )
 
         db = Database()
         if db.connect():
             cursor = db.connection.cursor()
-            query = "UPDATE inmuebles SET nombre=%s, cantidad_personas=%s, direccion=%s, localidad=%s, provincia=%s, tipo=%s, valor_dia=%s WHERE id_inmueble=%s"
+            query = """UPDATE inmuebles SET 
+                       nombre=%s, cantidad_personas=%s, direccion=%s, localidad=%s, 
+                       provincia=%s, tipo=%s, valor_dia=%s, 
+                       dormitorios=%s, camas=%s, baños=%s 
+                       WHERE id_inmueble=%s"""
             cursor.execute(query, property_data + (self.property_id,))
 
             # Guardar servicios parseando icono y nombre
@@ -462,7 +498,7 @@ class PropertyListWindow:
             self.bind_select(child, id_inmueble)
 
     def create_card(self, prop):
-        id_inmueble, nombre, capacidad, direccion, localidad, provincia, tipo, valor_dia, img_path = prop
+        id_inmueble, nombre, capacidad, direccion, localidad, provincia, tipo, valor_dia, img_path, dorms, camas, banos = prop
 
         card = tk.Frame(self.scrollable, bg="white", bd=0, highlightbackground="#d1d8e0", highlightthickness=1)
         card.pack(fill=tk.X, padx=5, pady=8)
@@ -499,9 +535,21 @@ class PropertyListWindow:
 
         tk.Label(info_frame, text=nombre.upper(), font=("Segoe UI", 13, "bold"), bg="white", fg="#2c3e50").pack(anchor="w")
         
-        type_tag = tk.Frame(info_frame, bg="#e8f4fd", padx=8, pady=2)
-        type_tag.pack(anchor="w", pady=5)
+        tags_f = tk.Frame(info_frame, bg="white")
+        tags_f.pack(anchor="w", pady=5)
+        self.bind_select(tags_f, id_inmueble)
+        
+        type_tag = tk.Frame(tags_f, bg="#e8f4fd", padx=8, pady=2)
+        type_tag.pack(side=tk.LEFT)
         tk.Label(type_tag, text=tipo, font=("Segoe UI", 9, "bold"), bg="#e8f4fd", fg="#3498db").pack()
+        self.bind_select(type_tag, id_inmueble)
+        
+        # Nuevos iconos de detalle
+        details_str = f"🛏️ {dorms} | 🛌 {camas} | 🚿 {banos}"
+        details_tag = tk.Frame(tags_f, bg="#f5f6fa", padx=8, pady=2)
+        details_tag.pack(side=tk.LEFT, padx=10)
+        tk.Label(details_tag, text=details_str, font=("Segoe UI", 9, "bold"), bg="#f5f6fa", fg="#7f8c8d").pack()
+        self.bind_select(details_tag, id_inmueble)
         
         tk.Label(info_frame, text=f"👥 Capacidad: {capacidad} personas", font=("Segoe UI", 10), bg="white", fg="#7f8c8d").pack(anchor="w")
         tk.Label(info_frame, text=f"📍 {direccion}, {localidad} ({provincia})", font=("Segoe UI", 9), bg="white", fg="#57606f").pack(anchor="w", pady=(5, 0))

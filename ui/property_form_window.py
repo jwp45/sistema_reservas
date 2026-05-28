@@ -56,7 +56,10 @@ class PropertyFormWindow:
             "localidad": tk.StringVar(),
             "provincia": tk.StringVar(),
             "tipo": tk.StringVar(),
-            "valor_dia": tk.StringVar()
+            "valor_dia": tk.StringVar(),
+            "dormitorios": tk.IntVar(value=0),
+            "camas": tk.IntVar(value=0),
+            "baños": tk.IntVar(value=0)
         }
         
         self.fields["provincia"].set("Buenos Aires")
@@ -73,9 +76,28 @@ class PropertyFormWindow:
         ttk.Label(sec_info, text="Capacidad:").grid(row=2, column=0, sticky=tk.W, pady=8)
         ttk.Entry(sec_info, textvariable=self.fields["cantidad_personas"]).grid(row=2, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
 
-        ttk.Label(sec_info, text="Valor por Día:").grid(row=3, column=0, sticky=tk.W, pady=8)
+        # --- Campos Detalle (Dormitorios, Camas, Baños) ---
+        details_f = tk.Frame(sec_info, bg="white")
+        details_f.grid(row=3, column=0, columnspan=2, sticky=tk.EW, pady=10)
+        
+        def create_counter(parent, label_text, var):
+            container = tk.Frame(parent, bg="white")
+            container.pack(side=tk.LEFT, expand=True)
+            tk.Label(container, text=label_text, bg="white", font=("Segoe UI", 9)).pack()
+            
+            ctrl_f = tk.Frame(container, bg="white")
+            ctrl_f.pack(pady=2)
+            tk.Button(ctrl_f, text="-", width=2, command=lambda: var.set(max(0, var.get() - 1))).pack(side=tk.LEFT)
+            tk.Label(ctrl_f, textvariable=var, width=3, bg="white", font=("Segoe UI", 10, "bold")).pack(side=tk.LEFT, padx=5)
+            tk.Button(ctrl_f, text="+", width=2, command=lambda: var.set(var.get() + 1)).pack(side=tk.LEFT)
+
+        create_counter(details_f, "Dormitorios", self.fields["dormitorios"])
+        create_counter(details_f, "Camas", self.fields["camas"])
+        create_counter(details_f, "Baños", self.fields["baños"])
+
+        ttk.Label(sec_info, text="Valor por Día:").grid(row=4, column=0, sticky=tk.W, pady=8)
         ent_val = ttk.Entry(sec_info, textvariable=self.fields["valor_dia"])
-        ent_val.grid(row=3, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
+        ent_val.grid(row=4, column=1, sticky=tk.EW, pady=8, padx=(10, 0))
         ent_val.bind("<KeyRelease>", self._format_currency_input)
 
         # --- SECCIÓN 2: UBICACIÓN ---
@@ -234,13 +256,18 @@ class PropertyFormWindow:
             self.fields["localidad"].get(),
             self.fields["provincia"].get(),
             self.fields["tipo"].get(),
-            valor_dia
+            valor_dia,
+            self.fields["dormitorios"].get(),
+            self.fields["camas"].get(),
+            self.fields["baños"].get()
         )
 
         db = Database()
         if db.connect():
             cursor = db.connection.cursor()
-            query = "INSERT INTO inmuebles (nombre, cantidad_personas, direccion, localidad, provincia, tipo, valor_dia) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+            query = """INSERT INTO inmuebles 
+                       (nombre, cantidad_personas, direccion, localidad, provincia, tipo, valor_dia, dormitorios, camas, baños) 
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
             cursor.execute(query, property_data)
             db.connection.commit()
             id_inmueble = cursor.lastrowid

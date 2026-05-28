@@ -124,6 +124,14 @@ class Database:
                     VALUES (1, 'smtp.gmail.com', 587, 'wolf10dra@gmail.com', 'xsyy xbcl rkoq esud', 'wolf10dra@gmail.com', 'Sistema de Reservas', '5492236689548', '')
                 """)
 
+            # Asegurar columnas de detalle en inmuebles
+            try:
+                cursor.execute("ALTER TABLE inmuebles ADD COLUMN dormitorios INT DEFAULT 0")
+                cursor.execute("ALTER TABLE inmuebles ADD COLUMN camas INT DEFAULT 0")
+                cursor.execute("ALTER TABLE inmuebles ADD COLUMN baños INT DEFAULT 0")
+                self.connection.commit()
+            except: pass
+
             # 4. Sincronización inicial
             sync_query = """
                 INSERT INTO historial_pagos (id_reserva, monto, fecha_pago)
@@ -234,7 +242,10 @@ class Database:
         cursor = None
         try:
             cursor = self.connection.cursor(buffered=True)
-            query = "SELECT id_inmueble, nombre, cantidad_personas, direccion, localidad, provincia, tipo, valor_dia, COALESCE(imagen, '') FROM inmuebles"
+            query = """SELECT id_inmueble, nombre, cantidad_personas, direccion, localidad, 
+                              provincia, tipo, valor_dia, COALESCE(imagen, ''),
+                              dormitorios, camas, baños 
+                       FROM inmuebles"""
             cursor.execute(query)
             result = cursor.fetchall()
             return result
@@ -585,6 +596,24 @@ class Database:
         except Exception as e:
             print(f"Error en get_financial_summary: {e}")
             return [0.0, 0.0, 0.0]
+        finally:
+            if cursor: cursor.close()
+
+    def search_clients(self, query):
+        """Busca clientes por nombre, apellido, documento o email."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            sql = """SELECT id_clientes, documento, nombre, apellido, email, telefono 
+                     FROM clientes 
+                     WHERE nombre LIKE %s OR apellido LIKE %s OR email LIKE %s OR documento LIKE %s
+                     LIMIT 10"""
+            q = f"%{query}%"
+            cursor.execute(sql, (q, q, q, q))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error al buscar clientes: {e}")
+            return []
         finally:
             if cursor: cursor.close()
 

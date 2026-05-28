@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from controllers.database import Database
 from PIL import Image, ImageTk
 from utils.email_sender import send_quotation_email
+from utils.whatsapp_sender import send_whatsapp_quotation
 from ui.advanced_search_window import AdvancedSearchWindow
 from ui.gallery_window import GalleryWindow
 
@@ -72,21 +73,33 @@ class ConsultationWindow:
             self.lead_visible = True
 
     def send_quotation(self):
-        """Registra al cliente (si no existe) y envía el presupuesto por mail."""
+        """Prepara el envío de cotización por EMAIL."""
+        self._prepare_quotation(mode="email")
+
+    def send_quotation_whatsapp(self):
+        """Prepara el envío de cotización por WHATSAPP."""
+        self._prepare_quotation(mode="whatsapp")
+
+    def _prepare_quotation(self, mode="email"):
+        """Lógica común de validación y preparación antes de enviar."""
         nombre = self.lead_fields["nombre"].get().strip()
         email = self.lead_fields["email"].get().strip().lower()
         tel = self.lead_fields["telefono"].get().strip()
         
-        if not (nombre and email and tel):
-            messagebox.showerror("Error", "Por favor completa Nombre, Email y Teléfono para enviar la cotización.", parent=self.window)
+        if not (nombre and tel):
+            messagebox.showerror("Error", "Por favor completa Nombre y Teléfono para enviar la cotización.", parent=self.window)
             return
             
+        if mode == "email" and not email:
+            messagebox.showerror("Error", "Por favor completa el Email para enviar la cotización por correo.", parent=self.window)
+            return
+
         if not self.start_date or not self.end_date or not self.selected_property:
             messagebox.showwarning("Atención", "Selecciona fechas e inmueble antes de enviar una cotización.", parent=self.window)
             return
 
-        # Si quiere incluir fotos, abrir selector primero
-        if self.lead_fields["include_photos"].get():
+        # Si quiere incluir fotos (solo aplica a email por ahora), abrir selector
+        if self.lead_fields["include_photos"].get() and mode == "email":
             # Obtener imagen principal
             main_img = self.selected_property[8] if len(self.selected_property) > 8 else ""
             # Obtener galería
@@ -104,13 +117,13 @@ class ConsultationWindow:
             if not all_paths:
                 if not messagebox.askyesno("Sin fotos", "Este inmueble no tiene fotos disponibles. ¿Enviar cotización sin fotos?", parent=self.window):
                     return
-                self._proceed_send_quotation(nombre, email, tel, [])
+                self._proceed_send_quotation(nombre, email, tel, [], mode=mode)
             else:
-                self._open_quote_image_selector(nombre, email, tel, all_paths)
+                self._open_quote_image_selector(nombre, email, tel, all_paths, mode=mode)
         else:
-            self._proceed_send_quotation(nombre, email, tel, [])
+            self._proceed_send_quotation(nombre, email, tel, [], mode=mode)
 
-    def _open_quote_image_selector(self, nombre, email, tel, image_paths):
+    def _open_quote_image_selector(self, nombre, email, tel, image_paths, mode="email"):
         """Abre un selector de imágenes robusto para la cotización."""
         selection_win = tk.Toplevel(self.window)
         selection_win.title("Seleccionar Fotos para Cotización")
@@ -139,7 +152,7 @@ class ConsultationWindow:
                 return
             
             selection_win.destroy()
-            self._proceed_send_quotation(nombre, email, tel, selected)
+            self._proceed_send_quotation(nombre, email, tel, selected, mode=mode)
 
         btn_confirm = tk.Button(footer, text="📧 CONFIRMAR Y ENVIAR COTIZACIÓN", command=confirm,
                                font=("Segoe UI", 11, "bold"), bg="#27ae60", fg="white", 
@@ -201,14 +214,14 @@ class ConsultationWindow:
             
             vars_map.append((path, var))
 
-    def _proceed_send_quotation(self, nombre, email, tel, selected_images):
+    def _proceed_send_quotation(self, nombre, email, tel, selected_images, mode="email"):
         """Proceso final de guardado y envío de cotización."""
         # Asegurar conexión
         if not self.db.connection or not self.db.connection.is_connected():
             self.db.connect()
 
         # 1. Verificar si el cliente ya existe
-        existing_client = self.db.get_client_by_email(email)
+        existing_client = self.db.get_client_by_email(email) if email else None
         client_exists = False
         client_id = None
         
@@ -219,7 +232,7 @@ class ConsultationWindow:
             parts = nombre.split(" ", 1)
             nom = parts[0]
             ape = parts[1] if len(parts) > 1 else "—"
-            client_id = self.db.insert_client(("S/D", nom, ape, email, tel))
+            client_id = self.db.insert_client(("S/D", nom, ape, email if email else "no-email@wa.com", tel))
 
         if not client_id:
             messagebox.showerror("Error", "No se pudo registrar al cliente.", parent=self.window)
@@ -252,10 +265,15 @@ class ConsultationWindow:
         quot_id = self.db.insert_quotation(quotation_data)
         if not quot_id: return
 
-        # 2. Enviar Correo
+        # Obtener servicios y detalles para el envío
         servicios_raw = self.db.get_property_services(self.selected_property[0])
         servicios_str = ", ".join([f"{s[0]} {s[1]}" for s in servicios_raw]) if servicios_raw else "No especificados"
         
+        p = self.selected_property
+        dorms = p[9] if len(p) > 9 and p[9] is not None else 0
+        camas = p[10] if len(p) > 10 and p[10] is not None else 0
+        banos = p[11] if len(p) > 11 and p[11] is not None else 0
+
         data = {
             "id": quot_id, "inmueble": self.selected_property[1], "servicios": servicios_str,
             "fecha_ingreso": self.start_date.strftime("%d/%m/%Y"),
@@ -263,21 +281,81 @@ class ConsultationWindow:
             "noches": noches, "ubicacion": f"{self.selected_property[4]}, {self.selected_property[5]}",
             "costo_total": self.lbl_costo_total.cget("text").replace("Costo Total: ", ""),
             "final_price": self.lbl_final_price.cget("text").replace("Precio Final: ", ""),
-            "final_per_night": self.lbl_final_per_night.cget("text").replace("P/Noche Final: ", "")
+            "final_per_night": self.lbl_final_per_night.cget("text").replace("P/Noche Final: ", ""),
+            "dormitorios": dorms, "camas": camas, "baños": banos
         }
         
-        self.window.config(cursor="watch")
-        self.window.update()
+        if mode == "email":
+            self.window.config(cursor="watch")
+            self.window.update()
+            
+            if send_quotation_email(email, nombre, data, image_paths=selected_images):
+                messagebox.showinfo("Éxito", f"Cotización enviada correctamente a {email}.", parent=self.window)
+                self._clear_lead_fields()
+            else:
+                messagebox.showerror("Error", "Fallo al enviar correo.", parent=self.window)
+            self.window.config(cursor="")
         
-        if send_quotation_email(email, nombre, data, image_paths=selected_images):
-            messagebox.showinfo("Éxito", f"Cotización enviada correctamente a {email}.", parent=self.window)
-            for var in self.lead_fields.values():
-                if isinstance(var, tk.StringVar): var.set("")
-                elif isinstance(var, tk.BooleanVar): var.set(False)
-        else:
-            messagebox.showerror("Error", "Fallo al enviar correo.", parent=self.window)
+        elif mode == "whatsapp":
+            if send_whatsapp_quotation(tel, nombre, data):
+                messagebox.showinfo("Éxito", "WhatsApp abierto con la cotización.", parent=self.window)
+                self._clear_lead_fields()
+
+    def _clear_lead_fields(self):
+        """Limpia los campos del formulario de captación."""
+        for var in self.lead_fields.values():
+            if isinstance(var, tk.StringVar): var.set("")
+            elif isinstance(var, tk.BooleanVar): var.set(False)
+
+    def _on_name_key_release(self, event):
+        """Busca clientes mientras se escribe el nombre."""
+        if event.keysym in ("Up", "Down", "Return", "Escape"):
+            return
+
+        query = self.lead_fields["nombre"].get().strip()
+        if len(query) < 3:
+            self._hide_suggestions()
+            return
+
+        # Buscar en la base de datos
+        results = self.db.search_clients(query)
         
-        self.window.config(cursor="")
+        if not results:
+            self._hide_suggestions()
+            return
+
+        # Mostrar sugerencias
+        self.suggestion_list.delete(0, tk.END)
+        self.client_suggestions = results # Guardar referencia
+        
+        for res in results:
+            # id, doc, nombre, apellido, email, tel
+            display = f"{res[2]} {res[3]} ({res[4]})"
+            self.suggestion_list.insert(tk.END, display)
+
+        # Posicionar el listbox debajo del entry
+        self.suggestion_list.pack(fill=tk.X, after=self.ent_nombre)
+        self.suggestion_list.lift()
+
+    def _select_client_suggestion(self, event):
+        """Llena los campos con el cliente seleccionado de la lista."""
+        selection = self.suggestion_list.curselection()
+        if not selection:
+            return
+
+        idx = selection[0]
+        client = self.client_suggestions[idx]
+        
+        # Llenar campos: id, doc, nombre, apellido, email, tel
+        self.lead_fields["nombre"].set(f"{client[2]} {client[3]}")
+        self.lead_fields["email"].set(client[4])
+        self.lead_fields["telefono"].set(client[5])
+        
+        self._hide_suggestions()
+
+    def _hide_suggestions(self):
+        """Oculta la lista de sugerencias."""
+        self.suggestion_list.pack_forget()
 
     def setup_ui(self):
         # --- ESTILOS ---
@@ -411,7 +489,13 @@ class ConsultationWindow:
         # Inicia oculto por defecto
 
         tk.Label(self.lead_card, text="NOMBRE COMPLETO:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
-        ttk.Entry(self.lead_card, textvariable=self.lead_fields["nombre"], font=("Segoe UI", 9)).pack(fill=tk.X, pady=(2, 8))
+        self.ent_nombre = ttk.Entry(self.lead_card, textvariable=self.lead_fields["nombre"], font=("Segoe UI", 9))
+        self.ent_nombre.pack(fill=tk.X, pady=(2, 8))
+        self.ent_nombre.bind("<KeyRelease>", self._on_name_key_release)
+
+        # Listbox para sugerencias (inicialmente oculto)
+        self.suggestion_list = tk.Listbox(self.lead_card, height=4, font=("Segoe UI", 9), relief=tk.FLAT, bd=1, highlightthickness=1)
+        self.suggestion_list.bind("<<ListboxSelect>>", self._select_client_suggestion)
 
         tk.Label(self.lead_card, text="TELÉFONO:", font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
         ttk.Entry(self.lead_card, textvariable=self.lead_fields["telefono"], font=("Segoe UI", 9)).pack(fill=tk.X, pady=(2, 8))
@@ -422,7 +506,17 @@ class ConsultationWindow:
         tk.Checkbutton(self.lead_card, text="📸 Incluir fotos (max 10)", variable=self.lead_fields["include_photos"], 
                        bg="white", font=("Segoe UI", 9)).pack(anchor="w", pady=5)
 
-        ttk.Button(self.lead_card, text="📧 ENVIAR COTIZACIÓN", command=self.send_quotation).pack(fill=tk.X, pady=(5, 0))
+        # Contenedor de botones de envío
+        send_btn_f = tk.Frame(self.lead_card, bg="white")
+        send_btn_f.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(send_btn_f, text="📧 ENVIAR POR EMAIL", command=self.send_quotation).pack(fill=tk.X, pady=2)
+        
+        # Botón de WhatsApp con estilo personalizado
+        self.btn_wa = tk.Button(send_btn_f, text="✅ ENVIAR POR WHATSAPP", command=self.send_quotation_whatsapp,
+                               font=("Segoe UI", 9, "bold"), bg="#25D366", fg="white", 
+                               relief=tk.FLAT, pady=8, cursor="hand2")
+        self.btn_wa.pack(fill=tk.X, pady=2)
 
         self.btn_reservar = ttk.Button(left_panel, text="🚀 RESERVAR AHORA", state=tk.DISABLED, command=self.go_to_reservation)
         self.btn_reservar.pack(fill=tk.X, pady=10)
@@ -500,6 +594,7 @@ class ConsultationWindow:
         
         self.lbl_capacidad = tk.Label(self.info_card, text="Capacidad: —", bg="#f8f9fa", font=("Segoe UI", 10))
         self.lbl_capacidad.pack(side=tk.LEFT, padx=15)
+
         self.lbl_precio = tk.Label(self.info_card, text="Precio/Noche: —", bg="#f8f9fa", font=("Segoe UI", 10, "bold"), fg="#27ae60")
         self.lbl_precio.pack(side=tk.LEFT, padx=15)
 
@@ -691,28 +786,73 @@ class ConsultationWindow:
         scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = tk.Frame(canvas, bg="white")
         
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=340)
+        # Primero pack el scrollbar a la derecha
+        scrollbar.pack(side="right", fill="y")
+        # Luego el canvas ocupando el resto
+        canvas.pack(side="left", fill="both", expand=True)
+
         canvas.configure(yscrollcommand=scrollbar.set)
         
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Crear ventana dentro del canvas
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         
+        def on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        scrollable_frame.bind("<Configure>", on_frame_configure)
+        
+        def on_canvas_configure(event):
+            # Ajustar el ancho del frame interno al ancho del canvas
+            canvas.itemconfig(canvas_window, width=event.width)
+        
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        # Vincular rueda del ratón al scroll del popup
+        def _on_mousewheel_popup(event):
+            if canvas.winfo_exists():
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel_popup)
+        
+        # Asegurarse de desvincular al cerrar el popup
+        def on_close_popup():
+            canvas.unbind_all("<MouseWheel>")
+            popup.destroy()
+            
+        popup.protocol("WM_DELETE_WINDOW", on_close_popup)
+
+        # 1. Agregar Detalles del Inmueble (Dormitorios, Camas, Baños) al inicio
+        # self.selected_property = (id, nombre, cap, dir, loc, prov, tipo, val, img, dorms, camas, banos)
+        p = self.selected_property
+        dorms = p[9] if len(p) > 9 and p[9] is not None else 0
+        camas = p[10] if len(p) > 10 and p[10] is not None else 0
+        banos = p[11] if len(p) > 11 and p[11] is not None else 0
+
+        details = [
+            ("🛏️", f"{dorms} Dormitorios"),
+            ("🛌", f"{camas} Camas"),
+            ("🚿", f"{banos} Baños")
+        ]
+
+        for icon, name in details:
+            d_frame = tk.Frame(scrollable_frame, bg="#f8f9fa", padx=20, pady=5)
+            d_frame.pack(fill=tk.X, pady=2)
+            tk.Label(d_frame, text=icon, font=("Segoe UI", 12), bg="#f8f9fa").pack(side=tk.LEFT, padx=(0, 15))
+            tk.Label(d_frame, text=name.upper(), font=("Segoe UI", 10, "bold"), bg="#f8f9fa", fg="#2c3e50").pack(side=tk.LEFT)
+
+        tk.Frame(scrollable_frame, height=2, bg="#e0e0e0").pack(fill=tk.X, pady=10)
+
+        # 2. Agregar Servicios de la DB
         if not servicios:
-            tk.Label(scrollable_frame, text="No se especificaron servicios\npara este inmueble.", 
-                     font=("Segoe UI", 10, "italic"), bg="white", fg="#7f8c8d").pack(pady=100, fill=tk.X)
+            tk.Label(scrollable_frame, text="No se especificaron otros servicios.",
+                      font=("Segoe UI", 10, "italic"), bg="white", fg="#7f8c8d").pack(pady=20, fill=tk.X)
         else:
             for icon, name in servicios:
                 s_frame = tk.Frame(scrollable_frame, bg="white", padx=20)
                 s_frame.pack(fill=tk.X, pady=8)
                 tk.Label(s_frame, text=icon, font=("Segoe UI", 13), bg="white").pack(side=tk.LEFT, padx=(0, 15))
-                tk.Label(s_frame, text=name, font=("Segoe UI", 11), bg="white", fg="#2c3e50").pack(side=tk.LEFT)
-        
-        ttk.Button(popup, text="CERRAR", command=popup.destroy).pack(pady=15)
+                tk.Label(s_frame, text=name, font=("Segoe UI", 11), bg="white", fg="#2c3e50").pack(side=tk.LEFT)        
+        ttk.Button(popup, text="CERRAR", command=on_close_popup).pack(pady=15)
 
     def open_gallery(self):
         """Abre el visor de galería para el inmueble seleccionado."""

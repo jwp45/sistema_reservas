@@ -817,6 +817,9 @@ class ReservationController:
                 "costo_con_descuento": costo_con_descuento,
                 "adelanto": adelanto,
                 "pago_pendiente": pago_pendiente,
+                "dormitorios": prop_data[9] if prop_data and len(prop_data) > 9 else 0,
+                "camas": prop_data[10] if prop_data and len(prop_data) > 10 else 0,
+                "baños": prop_data[11] if prop_data and len(prop_data) > 11 else 0,
             }
             send_reservation_email(client_email, client_name, email_data)
             
