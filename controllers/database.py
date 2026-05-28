@@ -1,4 +1,5 @@
 import mysql.connector
+from datetime import date, timedelta
 
 class Database:
     def __init__(self):
@@ -233,14 +234,54 @@ class Database:
         finally:
             if cursor: cursor.close()
 
-    def get_contact_by_email_or_dni(self, email=None, dni=None):
-        """Busca un contacto (cliente o prospecto) por email o DNI."""
-        if not email and not dni: return None, None
+    def get_client_by_phone(self, phone):
+        """Retorna los datos del cliente si el teléfono ya existe."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "SELECT id_clientes, documento, nombre, apellido, email, telefono FROM clientes WHERE telefono = %s"
+            cursor.execute(query, (phone,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error al obtener cliente por teléfono: {e}")
+            return None
+        finally:
+            if cursor: cursor.close()
+
+    def get_prospect_by_phone(self, phone):
+        """Retorna los datos del prospecto si el teléfono ya existe."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "SELECT id_prospecto, documento, nombre, apellido, email, telefono FROM prospectos WHERE telefono = %s"
+            cursor.execute(query, (phone,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error al obtener prospecto por teléfono: {e}")
+            return None
+        finally:
+            if cursor: cursor.close()
+
+    def get_contact_by_any(self, email=None, dni=None, phone=None):
+        """Busca un contacto (cliente o prospecto) por email, DNI o teléfono de forma inteligente."""
+        # Limpiar y validar
+        email = email.strip().lower() if email else None
+        dni = dni.strip().upper() if dni else None
+        phone = phone.strip() if phone else None
+        
+        # Ignorar placeholders comunes
+        placeholders = ["S/D", "SD", "0", "NONE", "—", "", "NO-EMAIL@WA.COM"]
+        if email and email.upper() in placeholders: email = None
+        if dni and dni.upper() in placeholders: dni = None
+        if phone and phone.upper() in placeholders: phone = None
+
+        if not email and not dni and not phone: return None, None
         
         # 1. Buscar en Clientes
         client = None
         if dni: client = self.get_client_by_dni(dni)
         if not client and email: client = self.get_client_by_email(email)
+        if not client and phone: client = self.get_client_by_phone(phone)
         
         if client: return client, 'cliente'
         
@@ -248,10 +289,15 @@ class Database:
         prospect = None
         if dni: prospect = self.get_prospect_by_dni(dni)
         if not prospect and email: prospect = self.get_prospect_by_email(email)
+        if not prospect and phone: prospect = self.get_prospect_by_phone(phone)
         
         if prospect: return prospect, 'prospecto'
         
         return None, None
+
+    def get_contact_by_email_or_dni(self, email=None, dni=None):
+        """Compatibilidad con código anterior, redirige a get_contact_by_any."""
+        return self.get_contact_by_any(email=email, dni=dni)
 
     def insert_client(self, client_data):
         """client_data = (id, doc, nom, ape, email, tel) o (doc, nom, ape, email, tel)"""
@@ -834,15 +880,16 @@ class Database:
             if cursor: cursor.close()
 
     def insert_prospect(self, prospect_data):
+        """prospect_data = (doc, nom, ape, email, tel)"""
         cursor = None
         try:
-            # Verificar duplicados por DNI o Email antes de insertar
-            doc, email = prospect_data[0], prospect_data[3]
-            existing, tipo = self.get_contact_by_email_or_dni(email, doc)
+            # Verificar duplicados por DNI, Email o Teléfono antes de insertar
+            doc, email, tel = prospect_data[0], prospect_data[3], prospect_data[4]
+            existing, tipo = self.get_contact_by_any(email=email, dni=doc, phone=tel)
             
             if existing:
-                print(f"Error: Ya existe un {tipo} con DNI {doc} o Email {email}.")
-                return False
+                print(f"Aviso: Ya existe un {tipo} vinculado a estos datos. No se duplicará.")
+                return existing[0] # Retornamos el ID existente en lugar de fallar
 
             cursor = self.connection.cursor(buffered=True)
             query = "INSERT INTO prospectos (documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)"
@@ -1067,15 +1114,40 @@ class Database:
             # Total inmuebles
             cursor.execute("SELECT COUNT(*) FROM inmuebles")
             total = cursor.fetchone()[0]
-            
+
             # Ocupados hoy (fecha actual entre ingreso y egreso)
             cursor.execute("""SELECT COUNT(DISTINCT id_inmueble) FROM reservas 
-                            WHERE CURDATE() >= fecha_ingreso AND CURDATE() < fecha_egreso""")
+                           WHERE CURDATE() >= fecha_ingreso AND CURDATE() < fecha_egreso""")
             occupied = cursor.fetchone()[0]
-            
+
             return occupied, total
         except Exception as e:
             print(f"Error en get_today_occupancy_stats: {e}")
             return 0, 0
         finally:
             if cursor: cursor.close()
+
+    def get_weekly_occupancy_forecast(self):
+        """Retorna la ocupación prevista para los próximos 7 días."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            # Total inmuebles
+            cursor.execute("SELECT COUNT(*) FROM inmuebles")
+            total_properties = cursor.fetchone()[0]
+
+            forecast = []
+            for i in range(7):
+                target_date = date.today() + timedelta(days=i)
+                query = """SELECT COUNT(DISTINCT id_inmueble) FROM reservas 
+                           WHERE %s >= fecha_ingreso AND %s < fecha_egreso"""
+                cursor.execute(query, (target_date, target_date))
+                count = cursor.fetchone()[0]
+                forecast.append((target_date, count, total_properties))
+            return forecast
+        except Exception as e:
+            print(f"Error en get_weekly_occupancy_forecast: {e}")
+            return []
+        finally:
+            if cursor: cursor.close()
+

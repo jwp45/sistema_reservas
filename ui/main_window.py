@@ -106,6 +106,18 @@ class MainWindow:
             ("Configuración", self.show_config),
         ])
 
+        # ACCIONES RÁPIDAS (Botones directos)
+        tk.Label(self.sidebar, text="⚡ ACCIONES RÁPIDAS", font=("Segoe UI", 9, "bold"), 
+                 background="#2c3e50", foreground="#3498db").pack(fill=tk.X, padx=25, pady=(20, 5), anchor="w")
+        
+        btn_quick_quote = ttk.Button(self.sidebar, text="➕ Nueva Cotización", 
+                                   command=self.show_consultation_tool, style="Nav.TButton")
+        btn_quick_quote.pack(fill=tk.X, padx=20, pady=2)
+        
+        btn_quick_pay = ttk.Button(self.sidebar, text="💰 Cargar Pago", 
+                                 command=self.handle_my_reservations, style="Nav.TButton")
+        btn_quick_pay.pack(fill=tk.X, padx=20, pady=2)
+
         ttk.Label(self.sidebar, text="Admin Panel v2.5", font=("Segoe UI", 8), background="#2c3e50", foreground="#95a5a6").pack(side=tk.BOTTOM, pady=30)
 
         # --- CONTENIDO PRINCIPAL ---
@@ -125,10 +137,10 @@ class MainWindow:
         widgets_area.columnconfigure(3, weight=1)
 
         # --- FILA 1: KPIs ---
-        self.kpi_pending = self._create_kpi_card(widgets_area, 0, 0, "COBROS PENDIENTES", "#e74c3c")
-        self.kpi_expiring = self._create_kpi_card(widgets_area, 0, 1, "VENTAS EN RIESGO", "#f39c12")
-        self.kpi_occupancy = self._create_kpi_card(widgets_area, 0, 2, "OCUPACIÓN HOY", "#3498db")
-        self.kpi_revenue = self._create_kpi_card(widgets_area, 0, 3, "INGRESOS MES", "#27ae60")
+        self.kpi_pending = self._create_kpi_card(widgets_area, 0, 0, "COBROS PENDIENTES", "#e74c3c", command=self.show_finance_dashboard)
+        self.kpi_expiring = self._create_kpi_card(widgets_area, 0, 1, "VENTAS EN RIESGO", "#f39c12", command=self.show_quotation_list)
+        self.kpi_occupancy = self._create_kpi_card(widgets_area, 0, 2, "OCUPACIÓN HOY", "#3498db", command=self.handle_my_reservations)
+        self.kpi_revenue = self._create_kpi_card(widgets_area, 0, 3, "INGRESOS MES", "#27ae60", command=self.show_finance_dashboard)
 
         # --- FILA 2: PRÓXIMOS MOVIMIENTOS ---
         # Card: Próximos Ingresos
@@ -179,10 +191,39 @@ class MainWindow:
         self.lbl_checkout_prov = tk.Label(info_out, text="", font=("Segoe UI", 11, "italic"), bg="white", fg="#95a5a6")
         self.lbl_checkout_prov.pack(side=tk.RIGHT)
 
+        # --- FILA 3: GRÁFICOS ---
+        self.card_chart_occ = tk.Frame(widgets_area, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
+        self.card_chart_occ.grid(row=2, column=0, columnspan=2, padx=(0, 10), pady=(30, 0), sticky="nsew")
+        
+        self.card_chart_rev = tk.Frame(widgets_area, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
+        self.card_chart_rev.grid(row=2, column=2, columnspan=2, padx=(10, 0), pady=(30, 0), sticky="nsew")
+        
+        # Títulos de gráficos
+        tk.Label(self.card_chart_occ, text="📊 OCUPACIÓN PRÓXIMOS 7 DÍAS", font=("Segoe UI", 9, "bold"), bg="white", fg="#34495e").pack(anchor="w", padx=20, pady=(15, 0))
+        tk.Label(self.card_chart_rev, text="💰 INGRESOS MENSUALES (ÚLT. 6 MESES)", font=("Segoe UI", 9, "bold"), bg="white", fg="#34495e").pack(anchor="w", padx=20, pady=(15, 0))
+
+        self.canvas_occ = tk.Canvas(self.card_chart_occ, bg="white", height=180, highlightthickness=0)
+        self.canvas_occ.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 15))
+        
+        self.canvas_rev = tk.Canvas(self.card_chart_rev, bg="white", height=180, highlightthickness=0)
+        self.canvas_rev.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 15))
+
         self.refresh_dashboard()
 
-    def _create_kpi_card(self, parent, row, col, title, color):
-        card = tk.Frame(parent, bg="white", highlightbackground="#e0e0e0", highlightthickness=1)
+    def _create_quick_action(self, parent, text, color, command):
+        """Crea un botón de acción rápida estilizado."""
+        btn = tk.Button(parent, text=text, font=("Segoe UI", 9, "bold"), 
+                        bg="white", fg=color, activebackground=color, activeforeground="white",
+                        relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1,
+                        padx=20, pady=12, cursor="hand2", command=command)
+        btn.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
+        
+        # Efecto hover simple
+        btn.bind("<Enter>", lambda e: btn.config(bg="#f8f9fa"))
+        btn.bind("<Leave>", lambda e: btn.config(bg="white"))
+
+    def _create_kpi_card(self, parent, row, col, title, color, command=None):
+        card = tk.Frame(parent, bg="white", highlightbackground="#e0e0e0", highlightthickness=1, cursor="hand2")
         card.grid(row=row, column=col, padx=10, sticky="nsew")
         
         line = tk.Frame(card, bg=color, height=4)
@@ -191,9 +232,24 @@ class MainWindow:
         content = tk.Frame(card, bg="white", padx=20, pady=20)
         content.pack(fill=tk.BOTH)
         
-        tk.Label(content, text=title, font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d").pack(anchor="w")
-        lbl_val = tk.Label(content, text="—", font=("Segoe UI", 16, "bold"), bg="white", fg=color)
+        tk.Label(content, text=title, font=("Segoe UI", 8, "bold"), bg="white", fg="#7f8c8d", cursor="hand2").pack(anchor="w")
+        lbl_val = tk.Label(content, text="—", font=("Segoe UI", 16, "bold"), bg="white", fg=color, cursor="hand2")
         lbl_val.pack(anchor="w", pady=(5, 0))
+
+        # Hacer que toda la tarjeta sea clickable
+        if command:
+            for widget in [card, content, lbl_val]:
+                widget.bind("<Button-1>", lambda e: command())
+            
+            # Efecto hover
+            def on_enter(e):
+                card.config(highlightbackground=color, highlightthickness=2)
+            def on_leave(e):
+                card.config(highlightbackground="#e0e0e0", highlightthickness=1)
+            
+            card.bind("<Enter>", on_enter)
+            card.bind("<Leave>", on_leave)
+
         return lbl_val
 
     def _format_currency(self, value, decimals=True):
@@ -414,6 +470,91 @@ class MainWindow:
             btn = ttk.Button(sub_frame, text=text, command=cmd, style="SubNav.TButton")
             btn.pack(fill=tk.X, padx=(20, 0), pady=2)
 
+    def _draw_occupancy_chart(self, data):
+        """Dibuja un gráfico de barras de ocupación en el canvas."""
+        self.canvas_occ.delete("all")
+        if not data: return
+        
+        self.root.update_idletasks() # Asegurar que los tamaños estén actualizados
+        w = self.canvas_occ.winfo_width()
+        h = self.canvas_occ.winfo_height()
+        if w < 100: w = 450 # Fallbacks razonables
+        if h < 50: h = 180
+        
+        padding_x = 40
+        padding_y = 30
+        chart_w = w - (padding_x * 2)
+        chart_h = h - (padding_y * 2)
+        
+        # Valor máximo para escala (total de inmuebles)
+        max_val = data[0][2] if data[0][2] > 0 else 1
+        
+        bar_w = chart_w / len(data)
+        for i, (dt, count, total) in enumerate(data):
+            x0 = padding_x + (i * bar_w) + 10
+            x1 = padding_x + ((i + 1) * bar_w) - 10
+            
+            # Altura proporcional
+            val_h = (count / max_val) * chart_h
+            y0 = h - padding_y - val_h
+            y1 = h - padding_y
+            
+            # Color según ocupación
+            color = "#3498db" if count > 0 else "#f0f2f5"
+            self.canvas_occ.create_rectangle(x0, y0, x1, y1, fill=color, outline="", tags="bar")
+            
+            # Etiquetas
+            day_str = dt.strftime("%d/%m")
+            self.canvas_occ.create_text((x0+x1)/2, h - padding_y + 15, text=day_str, font=("Segoe UI", 8), fill="#7f8c8d")
+            if count > 0:
+                self.canvas_occ.create_text((x0+x1)/2, y0 - 10, text=str(count), font=("Segoe UI", 8, "bold"), fill="#2c3e50")
+
+    def _draw_revenue_chart(self, data):
+        """Dibuja un gráfico de barras de ingresos mensuales en el canvas."""
+        self.canvas_rev.delete("all")
+        if not data: return
+        
+        # Revertir para mostrar cronológicamente (venía DESC) y tomar últimos 6
+        data = data[:6][::-1]
+        
+        self.root.update_idletasks()
+        w = self.canvas_rev.winfo_width()
+        h = self.canvas_rev.winfo_height()
+        if w < 100: w = 450
+        if h < 50: h = 180
+        
+        padding_x = 50
+        padding_y = 30
+        chart_w = w - (padding_x * 2)
+        chart_h = h - (padding_y * 2)
+        
+        max_rev = max([float(row[1]) for row in data]) if data else 1
+        if max_rev == 0: max_rev = 1
+        
+        bar_w = chart_w / len(data)
+        for i, (mes, total) in enumerate(data):
+            x0 = padding_x + (i * bar_w) + 15
+            x1 = padding_x + ((i + 1) * bar_w) - 15
+            
+            val_h = (float(total) / max_rev) * chart_h
+            y0 = h - padding_y - val_h
+            y1 = h - padding_y
+            
+            self.canvas_rev.create_rectangle(x0, y0, x1, y1, fill="#27ae60", outline="", tags="bar")
+            
+            # Formatear mes (YYYY-MM -> MM/YY)
+            try:
+                y, m = mes.split('-')
+                label_mes = f"{m}/{y[2:]}"
+            except: label_mes = mes
+                
+            self.canvas_rev.create_text((x0+x1)/2, h - padding_y + 15, text=label_mes, font=("Segoe UI", 8), fill="#7f8c8d")
+            
+            # Valor abreviado (K)
+            val_k = float(total) / 1000
+            label_val = f"{val_k:.1f}k" if val_k >= 1 else str(int(total))
+            self.canvas_rev.create_text((x0+x1)/2, y0 - 10, text=label_val, font=("Segoe UI", 7, "bold"), fill="#27ae60")
+
     def refresh_dashboard(self):
         self._display_sidebar_header()
         from datetime import datetime
@@ -481,6 +622,11 @@ class MainWindow:
                 self.lbl_checkout.config(text="Sin egresos")
                 self.lbl_checkout_name.config(text="")
                 self.lbl_checkout_inmueble.config(text="Todo al día")
+
+            # 3. ACTUALIZAR GRÁFICOS
+            occ_forecast = db.get_weekly_occupancy_forecast()
+            self._draw_occupancy_chart(occ_forecast)
+            self._draw_revenue_chart(rev_month)
 
     def run(self):
         self.setup_ui()

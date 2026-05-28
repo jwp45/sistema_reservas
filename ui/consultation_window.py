@@ -221,7 +221,8 @@ class ConsultationWindow:
             self.db.connect()
 
         # 1. Verificar si el contacto ya existe (en clientes o prospectos) de forma robusta
-        existing, tipo = self.db.get_contact_by_email_or_dni(email, None) # Aquí buscamos por email
+        # Buscamos por Email O Teléfono
+        existing, tipo = self.db.get_contact_by_any(email=email, phone=tel)
 
         client_id = None
         prospect_id = None
@@ -276,7 +277,9 @@ class ConsultationWindow:
         }
 
         quot_id = self.db.insert_quotation(quotation_data)
-        if not quot_id: return
+        if not quot_id:
+            messagebox.showerror("Error", "No se pudo guardar la cotización en la base de datos.", parent=self.window)
+            return
         # Obtener servicios y detalles para el envío
         servicios_raw = self.db.get_property_services(self.selected_property[0])
         servicios_str = ", ".join([f"{s[0]} {s[1]}" for s in servicios_raw]) if servicios_raw else "No especificados"
