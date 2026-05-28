@@ -84,11 +84,13 @@ class QuotationListWindow:
             self.bind_select(child, quot_id)
 
     def create_card(self, q):
-        # q = (0:id, 1:cliente, 2:inmueble, 3:f_ing, 4:f_eg, 5:noches, 6:final, 7:f_cot, 8:id_cliente, 9:id_inmueble, 10:val_d, 11:total, 12:desc, 13:capacidad)
+        # q = (0:id, 1:cliente, 2:inmueble, 3:f_ing, 4:f_eg, 5:noches, 6:final, 7:f_cot, 
+        #      8:id_contacto, 9:id_inmueble, 10:val_d, 11:total, 12:desc, 13:capacidad, 14:mkt_enviado, 15:tipo_contacto)
         quot_id = q[0]
         quot_code = f"Q-{str(quot_id).zfill(5)}"
         client_name = q[1]
         property_name = q[2]
+        tipo_contacto = q[15]
         now = datetime.now()
 
         # Calcular Vigencia
@@ -117,9 +119,22 @@ class QuotationListWindow:
         info_f.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.bind_select(info_f, quot_id)
 
-        code_f = tk.Frame(info_f, bg="#ebf5fb", padx=8, pady=2)
-        code_f.pack(anchor="w")
+        # Header con código y tipo de cliente
+        header_f = tk.Frame(info_f, bg="white")
+        header_f.pack(anchor="w")
+        
+        code_f = tk.Frame(header_f, bg="#ebf5fb", padx=8, pady=2)
+        code_f.pack(side=tk.LEFT)
         tk.Label(code_f, text=quot_code, font=("Segoe UI", 10, "bold"), bg="#ebf5fb", fg="#2980b9").pack()
+        
+        # Badge de tipo
+        tipo_bg = "#fef9e7" if tipo_contacto == "prospecto" else "#e8f8f5"
+        tipo_fg = "#f39c12" if tipo_contacto == "prospecto" else "#16a085"
+        tipo_text = "PROSPECTO" if tipo_contacto == "prospecto" else "CLIENTE VIP"
+        
+        badge_f = tk.Frame(header_f, bg=tipo_bg, padx=6, pady=2)
+        badge_f.pack(side=tk.LEFT, padx=10)
+        tk.Label(badge_f, text=tipo_text, font=("Segoe UI", 8, "bold"), bg=tipo_bg, fg=tipo_fg).pack()
         
         tk.Label(info_f, text=client_name.upper(), font=("Segoe UI", 13, "bold"), bg="white", fg="#2c3e50").pack(anchor="w", pady=(5,0))
         tk.Label(info_f, text=f"🏠 {property_name}", font=("Segoe UI", 11), bg="white", fg="#34495e").pack(anchor="w")
@@ -147,7 +162,7 @@ class QuotationListWindow:
 
         # Verificar disponibilidad y si ya fue enviada
         is_free = self.db.is_range_available(q[9], q[3], q[4])
-        mkt_enviado = q[14] if len(q) > 14 else 0
+        mkt_enviado = q[14]
         
         try:
             precio_orig = float(q[11])
@@ -212,10 +227,21 @@ class QuotationListWindow:
                 extra_pct = float(discount_var.get())
                 new_price = current_price * (1 - (extra_pct / 100))
                 
-                # Obtener datos del cliente
-                client = self.db.get_client_by_id(q[8])
-                if not client: return
+                # Obtener datos del contacto (cliente o prospecto)
+                contact_id = q[8]
+                tipo_contacto = q[15]
+                
+                contact = None
+                if tipo_contacto == 'cliente':
+                    contact = self.db.get_client_by_id(contact_id)
+                else:
+                    contact = self.db.get_prospect_by_id(contact_id)
+                
+                if not contact: 
+                    messagebox.showerror("Error", "No se encontró el contacto asociado.")
+                    return
 
+                # contact = (id, nombre, apellido, email, tel, doc)
                 data = {
                     "id": quot_id,
                     "inmueble": q[2],
@@ -226,9 +252,9 @@ class QuotationListWindow:
                 }
 
                 from utils.email_sender import send_marketing_offer_email
-                if send_marketing_offer_email(client[3], f"{client[1]} {client[2]}", data):
+                if send_marketing_offer_email(contact[3], f"{contact[1]} {contact[2]}", data):
                     self.db.mark_quotation_mkt_sent(quot_id)
-                    messagebox.showinfo("Éxito", f"¡Oferta especial enviada a {client[3]}!", parent=dialog)
+                    messagebox.showinfo("Éxito", f"¡Oferta especial enviada a {contact[3]}!", parent=dialog)
                     dialog.destroy()
                     self.load_quotations()
                 else:
@@ -308,24 +334,46 @@ class QuotationListWindow:
             messagebox.showwarning("Atención", "Seleccione una cotización para convertir.")
             return
             
-        # Obtener datos completos de la DB
-        all_q = self.db.get_all_quotations()
-        q_data = next((x for x in all_q if x[0] == self.selected_id), None)
-        
-        if not q_data: return
+        try:
+            # Obtener datos completos de la DB
+            all_q = self.db.get_all_quotations()
+            q_data = next((x for x in all_q if x[0] == self.selected_id), None)
+            
+            if not q_data: 
+                messagebox.showerror("Error", "No se encontraron los datos de la cotización.")
+                return
 
-        initial_data = {
-            "quotation_id": self.selected_id,
-            "id_cliente": q_data[8],
-            "inmueble": q_data[2],
-            "fecha_ingreso": q_data[3].strftime("%d/%m/%Y") if hasattr(q_data[3], 'strftime') else q_data[3],
-            "fecha_egreso": q_data[4].strftime("%d/%m/%Y") if hasattr(q_data[4], 'strftime') else q_data[4],
-            "descuento": str(int(q_data[12])),
-            "discount_is_percentage": False, 
-            "cantidad_personas": q_data[13]
-        }
-        
-        quot_code = f"Q-{str(self.selected_id).zfill(5)}"
-        if messagebox.askyesno("Convertir", f"¿Desea crear la reserva para {q_data[1]} basada en la cotización {quot_code}?", parent=self.window):
-            self.window.destroy()
-            self.controller.create_reservation(initial_data=initial_data)
+            # Preparar datos iniciales de forma segura
+            try:
+                monto_desc = q_data[12] if q_data[12] is not None else 0
+                descuento_str = str(int(float(monto_desc)))
+            except:
+                descuento_str = "0"
+
+            initial_data = {
+                "quotation_id": self.selected_id,
+                "id_cliente": q_data[8],
+                "is_prospect": q_data[15] == "prospecto",
+                "inmueble": q_data[2],
+                "fecha_ingreso": q_data[3].strftime("%d/%m/%Y") if hasattr(q_data[3], 'strftime') else q_data[3],
+                "fecha_egreso": q_data[4].strftime("%d/%m/%Y") if hasattr(q_data[4], 'strftime') else q_data[4],
+                "descuento": descuento_str,
+                "discount_is_percentage": False, 
+                "cantidad_personas": q_data[13]
+            }
+            
+            quot_code = f"Q-{str(self.selected_id).zfill(5)}"
+            if messagebox.askyesno("Convertir", f"¿Desea crear la reserva para {q_data[1]} basada en la cotización {quot_code}?", parent=self.window):
+                # Guardamos la referencia antes de destruir
+                ctrl = self.controller
+                data = initial_data
+                
+                # Cerramos la ventana de cotizaciones PRIMERO para liberar el grab_set si lo hubiera
+                self.window.destroy()
+                
+                # Iniciamos la reserva
+                ctrl.create_reservation(initial_data=data)
+                
+        except Exception as e:
+            messagebox.showerror("Error Crítico", f"No se pudo iniciar la conversión: {str(e)}")
+            print(f"Error en convert_to_reservation: {e}")

@@ -26,26 +26,31 @@ class Database:
 
     def _init_db(self):
         """Inicializa las tablas necesarias si no existen y sincroniza datos."""
+        if hasattr(self, '_db_initialized') and self._db_initialized:
+            return
+            
         try:
-            # Usar cursor buffered para evitar errores de resultados no leídos
             cursor = self.connection.cursor(buffered=True)
             
-            # 1. Crear tabla de historial de pagos
+            # 1. Crear tabla de prospectos si no existe
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS historial_pagos (
-                    id_pago INT AUTO_INCREMENT PRIMARY KEY,
-                    id_reserva INT NOT NULL,
-                    fecha_pago DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    monto DECIMAL(10, 2) NOT NULL,
-                    FOREIGN KEY (id_reserva) REFERENCES reservas(id_reserva) ON DELETE CASCADE
+                CREATE TABLE IF NOT EXISTS prospectos (
+                    id_prospecto INT AUTO_INCREMENT PRIMARY KEY,
+                    documento VARCHAR(20) DEFAULT 'S/D',
+                    nombre VARCHAR(100) NOT NULL,
+                    apellido VARCHAR(100) NOT NULL,
+                    email VARCHAR(100),
+                    telefono VARCHAR(50) NOT NULL,
+                    fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
 
-            # 2. Crear tabla de cotizaciones
+            # 2. Crear tabla de cotizaciones si no existe
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS cotizaciones (
                     id_cotizacion INT AUTO_INCREMENT PRIMARY KEY,
-                    id_cliente INT NOT NULL,
+                    id_cliente INT NULL,
+                    id_prospecto INT NULL,
                     id_inmueble INT NOT NULL,
                     fecha_ingreso DATE NOT NULL,
                     fecha_egreso DATE NOT NULL,
@@ -57,15 +62,34 @@ class Database:
                     fecha_cotizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
                     mkt_enviado TINYINT(1) DEFAULT 0,
                     FOREIGN KEY (id_cliente) REFERENCES clientes(id_clientes) ON DELETE CASCADE,
+                    FOREIGN KEY (id_prospecto) REFERENCES prospectos(id_prospecto) ON DELETE CASCADE,
                     FOREIGN KEY (id_inmueble) REFERENCES inmuebles(id_inmueble) ON DELETE CASCADE
                 )
             """)
             
-            # Asegurar que la columna existe por si la tabla ya fue creada
-            try:
+            # 3. Sincronización quirúrgica (SOLO si las columnas no están)
+            cursor.execute("DESCRIBE cotizaciones")
+            cols = {c[0]: c for c in cursor.fetchall()}
+            
+            if 'id_prospecto' not in cols:
+                cursor.execute("SET FOREIGN_KEY_CHECKS=0")
+                cursor.execute("ALTER TABLE cotizaciones ADD COLUMN id_prospecto INT NULL AFTER id_cliente")
+                cursor.execute("ALTER TABLE cotizaciones ADD CONSTRAINT fk_cot_prospecto FOREIGN KEY (id_prospecto) REFERENCES prospectos(id_prospecto) ON DELETE CASCADE")
+                cursor.execute("SET FOREIGN_KEY_CHECKS=1")
+                
+            if 'mkt_enviado' not in cols:
                 cursor.execute("ALTER TABLE cotizaciones ADD COLUMN mkt_enviado TINYINT(1) DEFAULT 0")
-                self.connection.commit()
-            except: pass
+
+            if cols.get('id_cliente') and cols['id_cliente'][2] == 'NO':
+                cursor.execute("SET FOREIGN_KEY_CHECKS=0")
+                cursor.execute("ALTER TABLE cotizaciones MODIFY COLUMN id_cliente INT NULL")
+                cursor.execute("SET FOREIGN_KEY_CHECKS=1")
+
+            self.connection.commit()
+            self._db_initialized = True
+            cursor.close()
+        except Exception as e:
+            print(f"Error al inicializar la base de datos: {e}")
             
             # 3. Crear tabla de configuración
             cursor.execute("""
@@ -745,13 +769,85 @@ class Database:
         finally:
             if cursor: cursor.close()
 
+    def insert_prospect(self, prospect_data):
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "INSERT INTO prospectos (documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)"
+            cursor.execute(query, prospect_data)
+            prospect_id = cursor.lastrowid
+            self.connection.commit()
+            print(f"Prospecto guardado exitosamente con ID: {prospect_id}")
+            return prospect_id
+        except Exception as e:
+            print(f"Error al guardar el prospecto: {e}")
+            return False
+        finally:
+            if cursor: cursor.close()
+
+    def get_prospect_by_id(self, prospect_id):
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "SELECT id_prospecto, nombre, apellido, email, telefono, documento FROM prospectos WHERE id_prospecto = %s"
+            cursor.execute(query, (prospect_id,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error al obtener el prospecto: {e}")
+            return None
+        finally:
+            if cursor: cursor.close()
+
+    def get_prospect_by_email(self, email):
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "SELECT id_prospecto, documento, nombre, apellido, email, telefono FROM prospectos WHERE email = %s"
+            cursor.execute(query, (email,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error al obtener prospecto por email: {e}")
+            return None
+        finally:
+            if cursor: cursor.close()
+
+    def convert_prospect_to_client(self, prospect_id):
+        """Mueve un prospecto a la tabla clientes y actualiza sus cotizaciones."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            
+            # 1. Obtener datos del prospecto
+            cursor.execute("SELECT documento, nombre, apellido, email, telefono FROM prospectos WHERE id_prospecto = %s", (prospect_id,))
+            prospect = cursor.fetchone()
+            if not prospect:
+                return False, "Prospecto no encontrado"
+            
+            # 2. Insertar en clientes
+            cursor.execute("INSERT INTO clientes (documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)", prospect)
+            new_client_id = cursor.lastrowid
+            
+            # 3. Actualizar cotizaciones
+            cursor.execute("UPDATE cotizaciones SET id_cliente = %s, id_prospecto = NULL WHERE id_prospecto = %s", (new_client_id, prospect_id))
+            
+            # 4. Eliminar del prospectos
+            cursor.execute("DELETE FROM prospectos WHERE id_prospecto = %s", (prospect_id,))
+            
+            self.connection.commit()
+            return new_client_id, "Conversión exitosa"
+        except Exception as e:
+            print(f"Error al convertir prospecto a cliente: {e}")
+            return False, str(e)
+        finally:
+            if cursor: cursor.close()
+
     def insert_quotation(self, data):
         cursor = None
         try:
             cursor = self.connection.cursor(buffered=True)
             query = """INSERT INTO cotizaciones 
-                (id_cliente, id_inmueble, fecha_ingreso, fecha_egreso, noches, valor_dia, costo_total, descuento, costo_con_descuento)
-                VALUES (%(id_cliente)s, %(id_inmueble)s, %(fecha_ingreso)s, %(fecha_egreso)s, %(noches)s, %(valor_dia)s, %(costo_total)s, %(descuento)s, %(costo_con_descuento)s)"""
+                (id_cliente, id_prospecto, id_inmueble, fecha_ingreso, fecha_egreso, noches, valor_dia, costo_total, descuento, costo_con_descuento)
+                VALUES (%(id_cliente)s, %(id_prospecto)s, %(id_inmueble)s, %(fecha_ingreso)s, %(fecha_egreso)s, %(noches)s, %(valor_dia)s, %(costo_total)s, %(descuento)s, %(costo_con_descuento)s)"""
             cursor.execute(query, data)
             quot_id = cursor.lastrowid
             self.connection.commit()
@@ -766,13 +862,17 @@ class Database:
         cursor = None
         try:
             cursor = self.connection.cursor(buffered=True)
-            query = """SELECT q.id_cotizacion, CONCAT(c.nombre, ' ', c.apellido) as cliente,
+            query = """SELECT q.id_cotizacion, 
+                              COALESCE(CONCAT(c.nombre, ' ', c.apellido), CONCAT(p.nombre, ' ', p.apellido)) as cliente,
                               i.nombre as inmueble, q.fecha_ingreso, q.fecha_egreso, 
                               q.noches, q.costo_con_descuento, q.fecha_cotizacion,
-                              q.id_cliente, q.id_inmueble, q.valor_dia, q.costo_total, q.descuento,
-                              i.cantidad_personas, q.mkt_enviado
+                              COALESCE(q.id_cliente, q.id_prospecto) as id_contacto, 
+                              q.id_inmueble, q.valor_dia, q.costo_total, q.descuento,
+                              i.cantidad_personas, q.mkt_enviado,
+                              CASE WHEN q.id_cliente IS NOT NULL THEN 'cliente' ELSE 'prospecto' END as tipo_contacto
                        FROM cotizaciones q
-                       JOIN clientes c ON q.id_cliente = c.id_clientes
+                       LEFT JOIN clientes c ON q.id_cliente = c.id_clientes
+                       LEFT JOIN prospectos p ON q.id_prospecto = p.id_prospecto
                        JOIN inmuebles i ON q.id_inmueble = i.id_inmueble
                        ORDER BY q.fecha_cotizacion DESC"""
             cursor.execute(query)
@@ -780,6 +880,33 @@ class Database:
         except Exception as e:
             print(f"Error al obtener cotizaciones: {e}")
             return []
+        finally:
+            if cursor: cursor.close()
+
+    def get_all_prospects(self):
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "SELECT id_prospecto, documento, nombre, apellido, email, telefono, fecha_registro FROM prospectos ORDER BY fecha_registro DESC"
+            cursor.execute(query)
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error al obtener prospectos: {e}")
+            return []
+        finally:
+            if cursor: cursor.close()
+
+    def delete_prospect(self, prospect_id):
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "DELETE FROM prospectos WHERE id_prospecto = %s"
+            cursor.execute(query, (prospect_id,))
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error al eliminar prospecto: {e}")
+            return False
         finally:
             if cursor: cursor.close()
 

@@ -308,307 +308,301 @@ class ReservationController:
         ClientListWindow(reservation_window, select_callback=on_client_selected)
 
     def create_reservation(self, initial_data=None):
-        print("Crear Reserva")
-
-        reservation_window = tk.Toplevel(self.master)
-        reservation_window.title("Nueva Reserva - Panel de Gestión")
-        reservation_window.geometry("950x850")
-        reservation_window.configure(bg="#f0f2f5")
-        reservation_window.transient(self.master)
-
-        # --- ESTILOS LOCALES ---
-        style = ttk.Style(reservation_window)
-        style.configure("ResHeader.TFrame", background="#2c3e50")
-        style.configure("ResContent.TFrame", background="#f0f2f5")
-        style.configure("ResCard.TLabelframe", font=("Segoe UI", 10, "bold"), background="white")
-        style.configure("ResHeader.TLabel", font=("Segoe UI", 18, "bold"), foreground="white", background="#2c3e50")
-        style.configure("ResAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
-
-        # --- ENCABEZADO TIPO DASHBOARD ---
-        header_frame = tk.Frame(reservation_window, bg="#2c3e50", height=80)
-        header_frame.pack(fill=tk.X)
-        header_frame.pack_propagate(False)
-        
-        tk.Label(header_frame, text="📋 REGISTRO DE NUEVA RESERVA", font=("Segoe UI", 16, "bold"), 
-                 bg="#2c3e50", fg="#ecf0f1").pack(side=tk.LEFT, padx=30, pady=20)
-        
-        tk.Label(header_frame, text=f"ID OPERACIÓN: {datetime.now().strftime('%H%M%S')}", 
-                 font=("Segoe UI", 9), bg="#2c3e50", fg="#95a5a6").pack(side=tk.RIGHT, padx=30)
-
-        # --- CONTENEDOR DESPLAZABLE ---
-        main_container = ttk.Frame(reservation_window, style="ResContent.TFrame")
-        main_container.pack(fill=tk.BOTH, expand=True)
-
-        canvas = tk.Canvas(main_container, bg="#f0f2f5", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg="#f0f2f5")
-
-        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=920)
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        content_padding = tk.Frame(scrollable_frame, bg="#f0f2f5", padx=30, pady=20)
-        content_padding.pack(fill=tk.BOTH, expand=True)
-
-        client_fields = {
-            "id_clientes": tk.StringVar(),
-            "documento": tk.StringVar(),
-            "nombre": tk.StringVar(),
-            "apellido": tk.StringVar(),
-            "email": tk.StringVar(),
-            "telefono": tk.StringVar(),
-            "provincia": tk.StringVar(),
-            "fecha_registro": tk.StringVar(),
-            "cantidad_personas": tk.StringVar(),
-            "adelanto": tk.StringVar(),
-            "descuento": tk.StringVar(),
-            "inmueble": tk.StringVar(),
-            "valor_dia": tk.StringVar(),
-            "fecha_ingreso": tk.StringVar(),
-            "fecha_egreso": tk.StringVar(),
-            "noches": tk.StringVar(),
-            "costo_total": tk.StringVar(),
-            "costo_con_descuento": tk.StringVar(),
-            "pago_pendiente": tk.StringVar(),
-            "discount_is_percentage": tk.BooleanVar(),
-            "display_adelanto": tk.StringVar(),
-            "display_descuento": tk.StringVar(),
-            "quotation_id": tk.StringVar()
-        }
-
-        client_fields["fecha_registro"].set(date.today().strftime("%d/%m/%Y"))
-        client_fields["provincia"].set("Buenos Aires")
-
-        # Aplicar datos iniciales si existen
-        if initial_data:
-            if "quotation_id" in initial_data:
-                client_fields["quotation_id"].set(str(initial_data["quotation_id"]))
-            if "inmueble" in initial_data:
-                client_fields["inmueble"].set(initial_data["inmueble"])
-            if "fecha_ingreso" in initial_data:
-                client_fields["fecha_ingreso"].set(initial_data["fecha_ingreso"])
-            if "fecha_egreso" in initial_data:
-                client_fields["fecha_egreso"].set(initial_data["fecha_egreso"])
-            if "cantidad_personas" in initial_data:
-                client_fields["cantidad_personas"].set(str(initial_data["cantidad_personas"]))
-            if "descuento" in initial_data:
-                client_fields["descuento"].set(initial_data["descuento"])
-            if "discount_is_percentage" in initial_data:
-                client_fields["discount_is_percentage"].set(initial_data["discount_is_percentage"])
-            if "id_cliente" in initial_data:
-                client_fields["id_clientes"].set(str(initial_data["id_cliente"]))
-                # Trigger autofill
-                self.autofill_client_data(client_fields, parent=reservation_window)
-
-        if not self.db.connection or not self.db.connection.is_connected():
-            self.db.connect()
+        try:
+            reservation_window = tk.Toplevel(self.master)
+            reservation_window.title("Nueva Reserva - Panel de Gestión")
+            reservation_window.geometry("950x850")
+            reservation_window.configure(bg="#f0f2f5")
             
-        # Solo buscar el próximo ID si no se cargó uno de la cotización
-        if not client_fields["id_clientes"].get():
-            next_id = self.db.get_next_available_client_id()
-            client_fields["id_clientes"].set(str(next_id))
+            # --- ESTILOS LOCALES ---
+            style = ttk.Style(reservation_window)
+            style.configure("ResHeader.TFrame", background="#2c3e50")
+            style.configure("ResContent.TFrame", background="#f0f2f5")
+            style.configure("ResCard.TLabelframe", font=("Segoe UI", 10, "bold"), background="white")
+            style.configure("ResHeader.TLabel", font=("Segoe UI", 18, "bold"), foreground="white", background="#2c3e50")
+            style.configure("ResAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
 
-        provincias = ["Buenos Aires", "Catamarca", "Chaco", "Chubut", "CABA", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"]
-        properties = self.db.get_all_properties()
-        self.property_map = {p[1]: p for p in properties}
-        property_names = list(self.property_map.keys())
+            # --- ENCABEZADO TIPO DASHBOARD ---
+            header_frame = tk.Frame(reservation_window, bg="#2c3e50", height=80)
+            header_frame.pack(fill=tk.X)
+            header_frame.pack_propagate(False)
+            
+            tk.Label(header_frame, text="📋 REGISTRO DE NUEVA RESERVA", font=("Segoe UI", 16, "bold"), 
+                     bg="#2c3e50", fg="#ecf0f1").pack(side=tk.LEFT, padx=30, pady=20)
+            
+            tk.Label(header_frame, text=f"ID OPERACIÓN: {datetime.now().strftime('%H%M%S')}", 
+                     font=("Segoe UI", 9), bg="#2c3e50", fg="#95a5a6").pack(side=tk.RIGHT, padx=30)
 
-        # Si tenemos datos iniciales, actualizar el valor por día y recalcular
-        if initial_data and "inmueble" in initial_data:
-            name = initial_data["inmueble"]
-            if name in self.property_map:
-                valor = self.property_map[name][7]
-                client_fields["valor_dia"].set(self._format_currency(valor))
-                self.update_cost_total(client_fields)
+            # --- CONTENEDOR DESPLAZABLE ---
+            main_container = ttk.Frame(reservation_window, style="ResContent.TFrame")
+            main_container.pack(fill=tk.BOTH, expand=True)
 
-                # Cargar imagen si viene en initial_data
-                img_path = initial_data.get("imagen")
-                if img_path and os.path.exists(img_path):
-                    try:
-                        img = Image.open(img_path)
-                        img.thumbnail((220, 140))
-                        tk_img = ImageTk.PhotoImage(img)
-                        self.inmueble_preview.config(image=tk_img, text="")
-                        self.inmueble_preview.image = tk_img
-                        self.lbl_prev_info.config(text=f"{name.upper()}\nCapacidad: {initial_data.get('cantidad_personas')} pers.", fg="#2c3e50", font=("Segoe UI", 9, "bold"))
-                    except: pass
+            canvas = tk.Canvas(main_container, bg="#f0f2f5", highlightthickness=0)
+            scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
+            scrollable_frame = tk.Frame(canvas, bg="#f0f2f5")
 
-        # --- SECCIÓN 3: FINANZAS (RESUMEN) ---
-        sec1 = tk.LabelFrame(content_padding, text=" 👤 DATOS DEL HUÉSPED ", font=("Segoe UI", 10, "bold"), 
-                            bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
-        sec1.pack(fill=tk.X, pady=10)
-        sec1.columnconfigure(1, weight=1)
-        sec1.columnconfigure(3, weight=1)
+            scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=920)
+            canvas.configure(yscrollcommand=scrollbar.set)
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
 
-        # Fila 0: ID y Búsqueda
-        tk.Label(sec1, text="ID CLIENTE:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=8)
-        id_f = tk.Frame(sec1, bg="white")
-        id_f.grid(row=0, column=1, sticky=tk.EW, padx=10)
-        ent_id = ttk.Entry(id_f, textvariable=client_fields["id_clientes"])
-        ent_id.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ent_id.bind("<Return>", lambda e: self.autofill_client_data(client_fields, parent=reservation_window))
-        ttk.Button(id_f, text="🔍", width=3, command=lambda: self.open_client_search(client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
-        
-        tk.Label(sec1, text="DOCUMENTO:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=2, sticky=tk.W, padx=10)
-        ttk.Entry(sec1, textvariable=client_fields["documento"]).grid(row=0, column=3, sticky=tk.EW)
+            content_padding = tk.Frame(scrollable_frame, bg="#f0f2f5", padx=30, pady=20)
+            content_padding.pack(fill=tk.BOTH, expand=True)
 
-        # Fila 1: Nombre y Apellido
-        tk.Label(sec1, text="NOMBRE:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=8)
-        ttk.Entry(sec1, textvariable=client_fields["nombre"]).grid(row=1, column=1, sticky=tk.EW, padx=10)
-        tk.Label(sec1, text="APELLIDO:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=2, sticky=tk.W, padx=10)
-        ttk.Entry(sec1, textvariable=client_fields["apellido"]).grid(row=1, column=3, sticky=tk.EW)
+            client_fields = {
+                "id_clientes": tk.StringVar(),
+                "documento": tk.StringVar(),
+                "nombre": tk.StringVar(),
+                "apellido": tk.StringVar(),
+                "email": tk.StringVar(),
+                "telefono": tk.StringVar(),
+                "provincia": tk.StringVar(),
+                "fecha_registro": tk.StringVar(),
+                "cantidad_personas": tk.StringVar(),
+                "adelanto": tk.StringVar(),
+                "descuento": tk.StringVar(),
+                "inmueble": tk.StringVar(),
+                "valor_dia": tk.StringVar(),
+                "fecha_ingreso": tk.StringVar(),
+                "fecha_egreso": tk.StringVar(),
+                "noches": tk.StringVar(),
+                "costo_total": tk.StringVar(),
+                "costo_con_descuento": tk.StringVar(),
+                "pago_pendiente": tk.StringVar(),
+                "discount_is_percentage": tk.BooleanVar(),
+                "display_adelanto": tk.StringVar(),
+                "display_descuento": tk.StringVar(),
+                "quotation_id": tk.StringVar(),
+                "is_prospect": tk.BooleanVar(value=False)
+            }
 
-        # Fila 2: Email y Teléfono
-        tk.Label(sec1, text="EMAIL:", bg="white", font=("Segoe UI", 9)).grid(row=2, column=0, sticky=tk.W, pady=8)
-        ttk.Entry(sec1, textvariable=client_fields["email"]).grid(row=2, column=1, sticky=tk.EW, padx=10)
-        tk.Label(sec1, text="TELÉFONO:", bg="white", font=("Segoe UI", 9)).grid(row=2, column=2, sticky=tk.W, padx=10)
-        ttk.Entry(sec1, textvariable=client_fields["telefono"]).grid(row=2, column=3, sticky=tk.EW)
+            client_fields["fecha_registro"].set(date.today().strftime("%d/%m/%Y"))
+            client_fields["provincia"].set("Buenos Aires")
 
-        # --- SECCIÓN 2: RESERVA Y VISTA PREVIA ---
-        sec2 = tk.LabelFrame(content_padding, text=" 🏠 DETALLES DE ESTADÍA ", font=("Segoe UI", 10, "bold"), 
-                            bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
-        sec2.pack(fill=tk.X, pady=10)
-        
-        # Grid Principal de la sección (Izquierda: Form, Derecha: Card Inmueble)
-        sec2.columnconfigure(0, weight=2)
-        sec2.columnconfigure(1, weight=1)
+            # Aplicar datos iniciales si existen
+            if initial_data:
+                if "quotation_id" in initial_data:
+                    client_fields["quotation_id"].set(str(initial_data["quotation_id"]))
+                if "inmueble" in initial_data:
+                    client_fields["inmueble"].set(initial_data["inmueble"])
+                if "fecha_ingreso" in initial_data:
+                    client_fields["fecha_ingreso"].set(initial_data["fecha_ingreso"])
+                if "fecha_egreso" in initial_data:
+                    client_fields["fecha_egreso"].set(initial_data["fecha_egreso"])
+                if "cantidad_personas" in initial_data:
+                    client_fields["cantidad_personas"].set(str(initial_data["cantidad_personas"]))
+                if "descuento" in initial_data:
+                    client_fields["descuento"].set(initial_data["descuento"])
+                if "discount_is_percentage" in initial_data:
+                    client_fields["discount_is_percentage"].set(initial_data["discount_is_percentage"])
+                if "is_prospect" in initial_data:
+                    client_fields["is_prospect"].set(initial_data["is_prospect"])
+                if "id_cliente" in initial_data:
+                    client_fields["id_clientes"].set(str(initial_data["id_cliente"]))
+                    self.autofill_client_data(client_fields, parent=reservation_window)
 
-        left_form = tk.Frame(sec2, bg="white")
-        left_form.grid(row=0, column=0, sticky=tk.NSEW)
-        left_form.columnconfigure(1, weight=1)
-
-        # Inmueble
-        tk.Label(left_form, text="INMUEBLE:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=10)
-        cb_inm = ttk.Combobox(left_form, textvariable=client_fields["inmueble"], values=property_names, state="readonly")
-        cb_inm.grid(row=0, column=1, sticky=tk.EW, padx=15)
-
-        # Capacidad y Valor
-        tk.Label(left_form, text="CAPACIDAD:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=8)
-        ttk.Entry(left_form, textvariable=client_fields["cantidad_personas"], width=10).grid(row=1, column=1, sticky=tk.W, padx=15)
-
-        tk.Label(left_form, text="VALOR/DÍA:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=2, column=0, sticky=tk.W, pady=8)
-        val_e = ttk.Entry(left_form, textvariable=client_fields["valor_dia"], font=("Segoe UI", 10, "bold"))
-        val_e.grid(row=2, column=1, sticky=tk.EW, padx=15)
-        val_e.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
-
-        # Fechas
-        tk.Label(left_form, text="INGRESO:", bg="white", font=("Segoe UI", 9)).grid(row=3, column=0, sticky=tk.W, pady=8)
-        f_in_f = tk.Frame(left_form, bg="white")
-        f_in_f.grid(row=3, column=1, sticky=tk.EW, padx=15)
-        ttk.Entry(f_in_f, textvariable=client_fields["fecha_ingreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(f_in_f, text="📅", width=3, command=lambda: self.select_date("fecha_ingreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
-
-        tk.Label(left_form, text="EGRESO:", bg="white", font=("Segoe UI", 9)).grid(row=4, column=0, sticky=tk.W, pady=8)
-        f_out_f = tk.Frame(left_form, bg="white")
-        f_out_f.grid(row=4, column=1, sticky=tk.EW, padx=15)
-        ttk.Entry(f_out_f, textvariable=client_fields["fecha_egreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(f_out_f, text="📅", width=3, command=lambda: self.select_date("fecha_egreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
-
-        # Vista Previa Estilo Dashboard
-        right_preview = tk.Frame(sec2, bg="#f8f9fa", bd=0, highlightbackground="#d1d8e0", highlightthickness=1)
-        right_preview.grid(row=0, column=1, sticky=tk.NSEW, padx=(20, 0))
-        
-        prev_top = tk.Frame(right_preview, bg="#3498db", height=4)
-        prev_top.pack(fill=tk.X)
-        
-        self.img_container = tk.Frame(right_preview, width=220, height=140, bg="#ecf0f1")
-        self.img_container.pack_propagate(False)
-        self.img_container.pack(pady=10, padx=10)
-        
-        self.inmueble_preview = tk.Label(self.img_container, text="SÍMBOLO INMUEBLE", fg="#bdc3c7", bg="#ecf0f1", font=("Segoe UI", 8, "italic"))
-        self.inmueble_preview.pack(fill=tk.BOTH, expand=True)
-        
-        self.lbl_prev_info = tk.Label(right_preview, text="Seleccione un inmueble", font=("Segoe UI", 9), bg="#f8f9fa", fg="#7f8c8d")
-        self.lbl_prev_info.pack(pady=5)
-
-        def on_inmueble_select(event):
-            selected = client_fields["inmueble"].get()
-            if selected in self.property_map:
-                pd = self.property_map[selected]
-                client_fields["valor_dia"].set(self._format_currency(pd[7]))
-                client_fields["cantidad_personas"].set(str(pd[2]))
-                self.lbl_prev_info.config(text=f"{selected.upper()}\nCapacidad: {pd[2]} pers.", fg="#2c3e50", font=("Segoe UI", 9, "bold"))
-                self.update_cost_total(client_fields)
-                img_path = pd[8]
-                if img_path and os.path.exists(img_path):
-                    try:
-                        img = Image.open(img_path)
-                        img.thumbnail((220, 140))
-                        tk_img = ImageTk.PhotoImage(img)
-                        self.inmueble_preview.config(image=tk_img, text="")
-                        self.inmueble_preview.image = tk_img
-                    except: self.inmueble_preview.config(image="", text="Error carga")
-                else: self.inmueble_preview.config(image="", text="Sin imagen")
-        cb_inm.bind("<<ComboboxSelected>>", on_inmueble_select)
-
-        # Si tenemos datos iniciales, actualizar el valor por día, imagen y recalcular
-        if initial_data and "inmueble" in initial_data:
-            name = initial_data["inmueble"]
-            if name in self.property_map:
-                valor = self.property_map[name][7]
-                client_fields["valor_dia"].set(self._format_currency(valor))
-                self.update_cost_total(client_fields)
+            if not self.db.connection or not self.db.connection.is_connected():
+                self.db.connect()
                 
-                # Cargar imagen y actualizar info de vista previa
-                img_path = initial_data.get("imagen")
-                if img_path and os.path.exists(img_path):
-                    try:
-                        img = Image.open(img_path)
-                        img.thumbnail((220, 140))
-                        tk_img = ImageTk.PhotoImage(img)
-                        self.inmueble_preview.config(image=tk_img, text="")
-                        self.inmueble_preview.image = tk_img
-                        self.lbl_prev_info.config(text=f"{name.upper()}\nCapacidad: {initial_data.get('cantidad_personas')} pers.", fg="#2c3e50", font=("Segoe UI", 9, "bold"))
-                    except: pass
+            # Solo buscar el próximo ID si no se cargó uno de la cotización
+            if not client_fields["id_clientes"].get():
+                next_id = self.db.get_next_available_client_id()
+                client_fields["id_clientes"].set(str(next_id))
 
-        # --- SECCIÓN 3: FINANZAS (RESUMEN) ---
-        sec3 = tk.LabelFrame(content_padding, text=" 💰 RESUMEN FINANCIERO ", font=("Segoe UI", 10, "bold"), 
-                            bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
-        sec3.pack(fill=tk.X, pady=10)
-        sec3.columnconfigure(1, weight=1)
-        sec3.columnconfigure(3, weight=1)
+            provincias = ["Buenos Aires", "Catamarca", "Chaco", "Chubut", "CABA", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"]
+            properties = self.db.get_all_properties()
+            self.property_map = {p[1]: p for p in properties}
+            property_names = list(self.property_map.keys())
 
-        # Adelanto y Descuento
-        tk.Label(sec3, text="ADELANTO:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=8)
-        ent_ade = ttk.Entry(sec3, textvariable=client_fields["adelanto"], font=("Segoe UI", 10))
-        ent_ade.grid(row=0, column=1, sticky=tk.EW, padx=10)
-        ent_ade.bind("<KeyRelease>", lambda e: self.format_down_payment_input(e, client_fields))
+            # Si tenemos datos iniciales, actualizar el valor por día y recalcular
+            if initial_data and "inmueble" in initial_data:
+                name = initial_data["inmueble"]
+                if name in self.property_map:
+                    valor = self.property_map[name][7]
+                    client_fields["valor_dia"].set(self._format_currency(valor))
 
-        tk.Label(sec3, text="DESCUENTO:", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky=tk.W, padx=10)
-        des_f = tk.Frame(sec3, bg="white")
-        des_f.grid(row=0, column=3, sticky=tk.EW)
-        ent_des = ttk.Entry(des_f, textvariable=client_fields["descuento"])
-        ent_des.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ent_des.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
-        
-        sym_l = tk.Label(des_f, text="$", bg="white", font=("Segoe UI", 10, "bold"), width=2)
-        sym_l.pack(side=tk.RIGHT)
-        ttk.Checkbutton(sec3, text="%", variable=client_fields["discount_is_percentage"], 
-                        command=lambda: self._toggle_discount_symbol(sym_l, client_fields)).grid(row=0, column=4, padx=5)
+            # --- SECCIÓN 3: FINANZAS (RESUMEN) ---
+            sec1 = tk.LabelFrame(content_padding, text=" 👤 DATOS DEL HUÉSPED ", font=("Segoe UI", 10, "bold"), 
+                                bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+            sec1.pack(fill=tk.X, pady=10)
+            sec1.columnconfigure(1, weight=1)
+            sec1.columnconfigure(3, weight=1)
 
-        # Totales
-        tk.Label(sec3, text="NOCHES:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=15)
-        tk.Label(sec3, textvariable=client_fields["noches"], bg="white", font=("Segoe UI", 11, "bold"), fg="#2980b9").grid(row=1, column=1, sticky=tk.W, padx=10)
+            # Fila 0: ID y Búsqueda
+            tk.Label(sec1, text="ID CLIENTE:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=8)
+            id_f = tk.Frame(sec1, bg="white")
+            id_f.grid(row=0, column=1, sticky=tk.EW, padx=10)
+            ent_id = ttk.Entry(id_f, textvariable=client_fields["id_clientes"])
+            ent_id.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            ent_id.bind("<Return>", lambda e: self.autofill_client_data(client_fields, parent=reservation_window))
+            ttk.Button(id_f, text="🔍", width=3, command=lambda: self.open_client_search(client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
 
-        tk.Label(sec3, text="COSTO TOTAL:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=2, sticky=tk.W, padx=10)
-        tk.Label(sec3, textvariable=client_fields["costo_total"], bg="white", font=("Segoe UI", 11, "bold")).grid(row=1, column=3, sticky=tk.W)
+            tk.Label(sec1, text="DOCUMENTO:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=2, sticky=tk.W, padx=10)
+            ttk.Entry(sec1, textvariable=client_fields["documento"]).grid(row=0, column=3, sticky=tk.EW)
 
-        # Destacados
-        tk.Label(sec3, text="A PAGAR FINAL:", bg="white", font=("Segoe UI", 10, "bold"), fg="#27ae60").grid(row=2, column=0, sticky=tk.W, pady=10)
-        tk.Label(sec3, textvariable=client_fields["costo_con_descuento"], bg="white", font=("Segoe UI", 14, "bold"), fg="#27ae60").grid(row=2, column=1, sticky=tk.W, padx=10)
+            # Fila 1: Nombre y Apellido
+            tk.Label(sec1, text="NOMBRE:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=8)
+            ttk.Entry(sec1, textvariable=client_fields["nombre"]).grid(row=1, column=1, sticky=tk.EW, padx=10)
+            tk.Label(sec1, text="APELLIDO:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=2, sticky=tk.W, padx=10)
+            ttk.Entry(sec1, textvariable=client_fields["apellido"]).grid(row=1, column=3, sticky=tk.EW)
 
-        tk.Label(sec3, text="SALDO PENDIENTE:", bg="white", font=("Segoe UI", 10, "bold"), fg="#e74c3c").grid(row=2, column=2, sticky=tk.W, padx=10)
-        tk.Label(sec3, textvariable=client_fields["pago_pendiente"], bg="white", font=("Segoe UI", 16, "bold"), fg="#e74c3c").grid(row=2, column=3, sticky=tk.W)
+            # Fila 2: Email y Teléfono
+            tk.Label(sec1, text="EMAIL:", bg="white", font=("Segoe UI", 9)).grid(row=2, column=0, sticky=tk.W, pady=8)
+            ttk.Entry(sec1, textvariable=client_fields["email"]).grid(row=2, column=1, sticky=tk.EW, padx=10)
+            tk.Label(sec1, text="TELÉFONO:", bg="white", font=("Segoe UI", 9)).grid(row=2, column=2, sticky=tk.W, padx=10)
+            ttk.Entry(sec1, textvariable=client_fields["telefono"]).grid(row=2, column=3, sticky=tk.EW)
 
-        # --- BOTONES DE ACCIÓN (INFERIOR) ---
-        btn_container = tk.Frame(reservation_window, bg="#f0f2f5", pady=20, padx=30)
-        btn_container.pack(fill=tk.X)
-        
-        ttk.Button(btn_container, text="CANCELAR", command=reservation_window.destroy).pack(side=tk.LEFT)
-        ttk.Button(btn_container, text="CONFIRMAR Y REGISTRAR RESERVA", style="ResAction.TButton", 
-                   command=lambda: self.save_reservation(reservation_window, client_fields)).pack(side=tk.RIGHT)
+            # --- SECCIÓN 2: RESERVA Y VISTA PREVIA ---
+            sec2 = tk.LabelFrame(content_padding, text=" 🏠 DETALLES DE ESTADÍA ", font=("Segoe UI", 10, "bold"), 
+                                bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+            sec2.pack(fill=tk.X, pady=10)
+
+            # Grid Principal de la sección (Izquierda: Form, Derecha: Card Inmueble)
+            sec2.columnconfigure(0, weight=2)
+            sec2.columnconfigure(1, weight=1)
+
+            left_form = tk.Frame(sec2, bg="white")
+            left_form.grid(row=0, column=0, sticky=tk.NSEW)
+            left_form.columnconfigure(1, weight=1)
+
+            # Inmueble
+            tk.Label(left_form, text="INMUEBLE:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=10)
+            cb_inm = ttk.Combobox(left_form, textvariable=client_fields["inmueble"], values=property_names, state="readonly")
+            cb_inm.grid(row=0, column=1, sticky=tk.EW, padx=15)
+
+            # Capacidad y Valor
+            tk.Label(left_form, text="CAPACIDAD:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=8)
+            ttk.Entry(left_form, textvariable=client_fields["cantidad_personas"], width=10).grid(row=1, column=1, sticky=tk.W, padx=15)
+
+            tk.Label(left_form, text="VALOR/DÍA:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=2, column=0, sticky=tk.W, pady=8)
+            val_e = ttk.Entry(left_form, textvariable=client_fields["valor_dia"], font=("Segoe UI", 10, "bold"))
+            val_e.grid(row=2, column=1, sticky=tk.EW, padx=15)
+            val_e.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
+
+            # Fechas
+            tk.Label(left_form, text="INGRESO:", bg="white", font=("Segoe UI", 9)).grid(row=3, column=0, sticky=tk.W, pady=8)
+            f_in_f = tk.Frame(left_form, bg="white")
+            f_in_f.grid(row=3, column=1, sticky=tk.EW, padx=15)
+            ttk.Entry(f_in_f, textvariable=client_fields["fecha_ingreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
+            ttk.Button(f_in_f, text="📅", width=3, command=lambda: self.select_date("fecha_ingreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
+
+            tk.Label(left_form, text="EGRESO:", bg="white", font=("Segoe UI", 9)).grid(row=4, column=0, sticky=tk.W, pady=8)
+            f_out_f = tk.Frame(left_form, bg="white")
+            f_out_f.grid(row=4, column=1, sticky=tk.EW, padx=15)
+            ttk.Entry(f_out_f, textvariable=client_fields["fecha_egreso"]).pack(side=tk.LEFT, fill=tk.X, expand=True)
+            ttk.Button(f_out_f, text="📅", width=3, command=lambda: self.select_date("fecha_egreso", client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
+
+            # Vista Previa Estilo Dashboard
+            right_preview = tk.Frame(sec2, bg="#f8f9fa", bd=0, highlightbackground="#d1d8e0", highlightthickness=1)
+            right_preview.grid(row=0, column=1, sticky=tk.NSEW, padx=(20, 0))
+
+            prev_top = tk.Frame(right_preview, bg="#3498db", height=4)
+            prev_top.pack(fill=tk.X)
+
+            self.img_container = tk.Frame(right_preview, width=220, height=140, bg="#ecf0f1")
+            self.img_container.pack_propagate(False)
+            self.img_container.pack(pady=10, padx=10)
+
+            self.inmueble_preview = tk.Label(self.img_container, text="SÍMBOLO INMUEBLE", fg="#bdc3c7", bg="#ecf0f1", font=("Segoe UI", 8, "italic"))
+            self.inmueble_preview.pack(fill=tk.BOTH, expand=True)
+
+            self.lbl_prev_info = tk.Label(right_preview, text="Seleccione un inmueble", font=("Segoe UI", 9), bg="#f8f9fa", fg="#7f8c8d")
+            self.lbl_prev_info.pack(pady=5)
+
+            def on_inmueble_select(event):
+                selected = client_fields["inmueble"].get()
+                if selected in self.property_map:
+                    pd = self.property_map[selected]
+                    client_fields["valor_dia"].set(self._format_currency(pd[7]))
+                    client_fields["cantidad_personas"].set(str(pd[2]))
+                    self.lbl_prev_info.config(text=f"{selected.upper()}\nCapacidad: {pd[2]} pers.", fg="#2c3e50", font=("Segoe UI", 9, "bold"))
+                    self.update_cost_total(client_fields)
+                    img_path = pd[8]
+                    if img_path and os.path.exists(img_path):
+                        try:
+                            img = Image.open(img_path)
+                            img.thumbnail((220, 140))
+                            tk_img = ImageTk.PhotoImage(img)
+                            self.inmueble_preview.config(image=tk_img, text="")
+                            self.inmueble_preview.image = tk_img
+                        except: self.inmueble_preview.config(image="", text="Error carga")
+                    else: self.inmueble_preview.config(image="", text="Sin imagen")
+            cb_inm.bind("<<ComboboxSelected>>", on_inmueble_select)
+
+            # Si tenemos datos iniciales, actualizar el valor por día, imagen y recalcular
+            if initial_data and "inmueble" in initial_data:
+                name = initial_data["inmueble"]
+                if name in self.property_map:
+                    valor = self.property_map[name][7]
+                    client_fields["valor_dia"].set(self._format_currency(valor))
+
+                    # Cargar imagen y actualizar info de vista previa
+                    img_path = initial_data.get("imagen")
+                    if img_path and os.path.exists(img_path):
+                        try:
+                            img = Image.open(img_path)
+                            img.thumbnail((220, 140))
+                            tk_img = ImageTk.PhotoImage(img)
+                            self.inmueble_preview.config(image=tk_img, text="")
+                            self.inmueble_preview.image = tk_img
+                            self.lbl_prev_info.config(text=f"{name.upper()}\nCapacidad: {initial_data.get('cantidad_personas')} pers.", fg="#2c3e50", font=("Segoe UI", 9, "bold"))
+                        except: pass
+
+                    self.update_cost_total(client_fields)
+
+            # --- SECCIÓN 3: FINANZAS (RESUMEN) ---
+            sec3 = tk.LabelFrame(content_padding, text=" 💰 RESUMEN FINANCIERO ", font=("Segoe UI", 10, "bold"), 
+                                bg="white", fg="#2c3e50", padx=20, pady=20, relief=tk.FLAT, highlightbackground="#e0e0e0", highlightthickness=1)
+            sec3.pack(fill=tk.X, pady=10)
+            sec3.columnconfigure(1, weight=1)
+            sec3.columnconfigure(3, weight=1)
+
+            # Adelanto y Descuento
+            tk.Label(sec3, text="ADELANTO:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=8)
+            ent_ade = ttk.Entry(sec3, textvariable=client_fields["adelanto"], font=("Segoe UI", 10))
+            ent_ade.grid(row=0, column=1, sticky=tk.EW, padx=10)
+            ent_ade.bind("<KeyRelease>", lambda e: self.format_down_payment_input(e, client_fields))
+
+            tk.Label(sec3, text="DESCUENTO:", bg="white", font=("Segoe UI", 9)).grid(row=0, column=2, sticky=tk.W, padx=10)
+            des_f = tk.Frame(sec3, bg="white")
+            des_f.grid(row=0, column=3, sticky=tk.EW)
+            ent_des = ttk.Entry(des_f, textvariable=client_fields["descuento"])
+            ent_des.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            ent_des.bind("<KeyRelease>", lambda e: self.format_discount_input(e, client_fields))
+
+            sym_l = tk.Label(des_f, text="$", bg="white", font=("Segoe UI", 10, "bold"), width=2)
+            sym_l.pack(side=tk.RIGHT)
+            ttk.Checkbutton(sec3, text="%", variable=client_fields["discount_is_percentage"], 
+                            command=lambda: self._toggle_discount_symbol(sym_l, client_fields)).grid(row=0, column=4, padx=5)
+
+            # Totales
+            tk.Label(sec3, text="NOCHES:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=15)
+            tk.Label(sec3, textvariable=client_fields["noches"], bg="white", font=("Segoe UI", 11, "bold"), fg="#2980b9").grid(row=1, column=1, sticky=tk.W, padx=10)
+
+            tk.Label(sec3, text="COSTO TOTAL:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=2, sticky=tk.W, padx=10)
+            tk.Label(sec3, textvariable=client_fields["costo_total"], bg="white", font=("Segoe UI", 11, "bold")).grid(row=1, column=3, sticky=tk.W)
+
+            # Destacados
+            tk.Label(sec3, text="A PAGAR FINAL:", bg="white", font=("Segoe UI", 10, "bold"), fg="#27ae60").grid(row=2, column=0, sticky=tk.W, pady=10)
+            tk.Label(sec3, textvariable=client_fields["costo_con_descuento"], bg="white", font=("Segoe UI", 14, "bold"), fg="#27ae60").grid(row=2, column=1, sticky=tk.W, padx=10)
+
+            tk.Label(sec3, text="SALDO PENDIENTE:", bg="white", font=("Segoe UI", 10, "bold"), fg="#e74c3c").grid(row=2, column=2, sticky=tk.W, padx=10)
+            tk.Label(sec3, textvariable=client_fields["pago_pendiente"], bg="white", font=("Segoe UI", 16, "bold"), fg="#e74c3c").grid(row=2, column=3, sticky=tk.W)
+
+            # --- BOTONES DE ACCIÓN (INFERIOR) ---
+            btn_container = tk.Frame(reservation_window, bg="#f0f2f5", pady=20, padx=30)
+            btn_container.pack(fill=tk.X)
+
+            ttk.Button(btn_container, text="CANCELAR", command=reservation_window.destroy).pack(side=tk.LEFT)
+            ttk.Button(btn_container, text="CONFIRMAR Y REGISTRAR RESERVA", style="ResAction.TButton", 
+                    command=lambda: self.save_reservation(reservation_window, client_fields)).pack(side=tk.RIGHT)
+
+        except Exception as e:
+            messagebox.showerror("Error Crítico", f"Error al construir la ventana de reserva: {str(e)}")
+            print(f"Error detallado en create_reservation: {e}")
+            if 'reservation_window' in locals():
+                reservation_window.destroy()
 
     def _toggle_discount_symbol(self, label, fields):
         if fields["discount_is_percentage"].get():
@@ -658,18 +652,28 @@ class ReservationController:
                 messagebox.showerror("Error", "No se pudo conectar a la base de datos", parent=parent)
                 return
 
-        # Buscar el cliente en la base de datos
+        # Buscar el cliente en la base de datos (primero clientes, luego prospectos)
         client_data = self.db.get_client_by_id(client_id)
+        is_prospect = False
+        
+        if not client_data:
+            client_data = self.db.get_prospect_by_id(client_id)
+            if client_data:
+                is_prospect = True
 
         if client_data:
+            # Ambos tienen misma estructura básica: id, nombre, ape, email, tel, doc
             client_fields["nombre"].set(client_data[1])
             client_fields["apellido"].set(client_data[2])
             client_fields["email"].set(client_data[3])
             client_fields["telefono"].set(client_data[4])
             if len(client_data) > 5:
                 client_fields["documento"].set(client_data[5] if client_data[5] else "")
+            
+            # Guardar si es prospecto para el momento del guardado
+            client_fields["is_prospect"].set(is_prospect)
         else:
-            messagebox.showerror("Error", "Cliente no encontrado", parent=parent)
+            messagebox.showerror("Error", "Contacto no encontrado en Clientes ni en Prospectos", parent=parent)
 
         # Recalcular costos después de autocompletar
         self.update_cost_total(client_fields)
@@ -785,35 +789,49 @@ class ReservationController:
             adelanto = self._parse_currency(adelanto_str)
             pago_pendiente = costo_con_descuento - adelanto
             
-            # Verificar si el cliente existe, si no, crearlo
+            # Verificar si el cliente existe, si no, crearlo o convertirlo
             id_cliente = client_fields["id_clientes"].get()
             if not id_cliente:
                 messagebox.showerror("Error", "Debe ingresar un ID de cliente", parent=reservation_window)
                 return
             
-            existing_client = self.db.get_client_by_id(id_cliente)
-            if not existing_client:
-                # Validar datos mínimos para nuevo cliente
-                nombre = client_fields["nombre"].get()
-                apellido = client_fields["apellido"].get()
-                documento = client_fields["documento"].get()
-                if not (nombre and apellido and documento):
-                    messagebox.showerror("Error", "Para crear un nuevo cliente debe ingresar al menos Nombre, Apellido y Documento", parent=reservation_window)
-                    return
-                
-                new_client_data = (
-                    int(id_cliente),
-                    documento,
-                    nombre,
-                    apellido,
-                    client_fields["email"].get(),
-                    client_fields["telefono"].get()
-                )
-                if self.db.insert_client(new_client_data):
-                    messagebox.showinfo("Nuevo Cliente", f"Se ha creado automáticamente el nuevo cliente: {nombre} {apellido} (ID: {id_cliente})", parent=reservation_window)
+            # Verificar si es un prospecto que debe ser convertido
+            is_prospect = client_fields.get("is_prospect", tk.BooleanVar(value=False)).get()
+            
+            if is_prospect:
+                # Convertir prospecto a cliente real
+                new_id, msg = self.db.convert_prospect_to_client(id_cliente)
+                if new_id:
+                    print(f"Prospecto {id_cliente} convertido a cliente {new_id}")
+                    id_cliente = new_id
+                    messagebox.showinfo("Lead Convertido", "El prospecto ha sido promovido a Cliente Real exitosamente.", parent=reservation_window)
                 else:
-                    messagebox.showerror("Error", "No se pudo crear el nuevo cliente", parent=reservation_window)
+                    messagebox.showerror("Error", f"No se pudo convertir el prospecto: {msg}", parent=reservation_window)
                     return
+            else:
+                existing_client = self.db.get_client_by_id(id_cliente)
+                if not existing_client:
+                    # Validar datos mínimos para nuevo cliente
+                    nombre = client_fields["nombre"].get()
+                    apellido = client_fields["apellido"].get()
+                    documento = client_fields["documento"].get()
+                    if not (nombre and apellido and documento):
+                        messagebox.showerror("Error", "Para crear un nuevo cliente debe ingresar al menos Nombre, Apellido y Documento", parent=reservation_window)
+                        return
+                    
+                    new_client_data = (
+                        int(id_cliente),
+                        documento,
+                        nombre,
+                        apellido,
+                        client_fields["email"].get(),
+                        client_fields["telefono"].get()
+                    )
+                    if self.db.insert_client(new_client_data):
+                        messagebox.showinfo("Nuevo Cliente", f"Se ha creado automáticamente el nuevo cliente: {nombre} {apellido} (ID: {id_cliente})", parent=reservation_window)
+                    else:
+                        messagebox.showerror("Error", "No se pudo crear el nuevo cliente", parent=reservation_window)
+                        return
 
             inmueble_nombre = client_fields["inmueble"].get()
             prop_data = self.property_map.get(inmueble_nombre)

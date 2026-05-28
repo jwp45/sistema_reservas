@@ -94,6 +94,7 @@ class MainWindow:
         # Grupo: GESTIÓN
         self._create_nav_group("🏨 GESTIÓN", [
             ("Ver Clientes", self.show_client_list),
+            ("Ver Prospectos (Leads)", self.show_prospect_list),
             ("Ver Inmuebles", self.show_property_list),
             ("Registrar Cliente", self.handle_clients),
             ("Registrar Inmueble", self.handle_properties),
@@ -329,6 +330,11 @@ class MainWindow:
         """Mostrar la ventana de lista de clientes"""
         client_list_window = ClientListWindow(self.root)
         client_list_window.show()
+
+    def show_prospect_list(self):
+        """Mostrar la ventana de lista de prospectos"""
+        from ui.prospect_list_window import ProspectListWindow
+        ProspectListWindow(self.root)
 
     def show_property_list(self):
         """Mostrar la ventana de lista de inmuebles"""

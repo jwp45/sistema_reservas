@@ -220,29 +220,35 @@ class ConsultationWindow:
         if not self.db.connection or not self.db.connection.is_connected():
             self.db.connect()
 
-        # 1. Verificar si el cliente ya existe
+        # 1. Verificar si el contacto ya existe (en clientes o prospectos)
         existing_client = self.db.get_client_by_email(email) if email else None
-        client_exists = False
+        existing_prospect = None
+        if not existing_client and email:
+            existing_prospect = self.db.get_prospect_by_email(email)
+
         client_id = None
-        
+        prospect_id = None
+
         if existing_client:
-            client_exists = True
             client_id = existing_client[0]
+        elif existing_prospect:
+            prospect_id = existing_prospect[0]
         else:
+            # Es un nuevo contacto -> Guardar como prospecto
             parts = nombre.split(" ", 1)
             nom = parts[0]
             ape = parts[1] if len(parts) > 1 else "—"
-            client_id = self.db.insert_client(("S/D", nom, ape, email if email else "no-email@wa.com", tel))
+            prospect_id = self.db.insert_prospect(("S/D", nom, ape, email if email else "no-email@wa.com", tel))
 
-        if not client_id:
-            messagebox.showerror("Error", "No se pudo registrar al cliente.", parent=self.window)
+        if not client_id and not prospect_id:
+            messagebox.showerror("Error", "No se pudo registrar el contacto.", parent=self.window)
             return
 
         # 1.5 Datos de cotización
         noches = (self.end_date - self.start_date).days
         valor_dia = float(self.selected_property[7])
         costo_total = noches * valor_dia
-        
+
         discount_val_str = self.discount_var.get()
         descuento_monto = 0
         try:
@@ -252,19 +258,20 @@ class ConsultationWindow:
             else:
                 descuento_monto = float(discount_val_str.replace("$", "").replace(".", "")) if discount_val_str else 0.0
         except: pass
-        
+
         costo_con_desc = costo_total - descuento_monto
 
         quotation_data = {
-            "id_cliente": client_id, "id_inmueble": self.selected_property[0],
+            "id_cliente": client_id, 
+            "id_prospecto": prospect_id,
+            "id_inmueble": self.selected_property[0],
             "fecha_ingreso": self.start_date, "fecha_egreso": self.end_date,
             "noches": noches, "valor_dia": valor_dia, "costo_total": costo_total,
             "descuento": descuento_monto, "costo_con_descuento": costo_con_desc
         }
-        
+
         quot_id = self.db.insert_quotation(quotation_data)
         if not quot_id: return
-
         # Obtener servicios y detalles para el envío
         servicios_raw = self.db.get_property_services(self.selected_property[0])
         servicios_str = ", ".join([f"{s[0]} {s[1]}" for s in servicios_raw]) if servicios_raw else "No especificados"
@@ -308,7 +315,7 @@ class ConsultationWindow:
             elif isinstance(var, tk.BooleanVar): var.set(False)
 
     def _on_name_key_release(self, event):
-        """Busca clientes mientras se escribe el nombre."""
+        """Busca contactos mientras se escribe el nombre."""
         if event.keysym in ("Up", "Down", "Return", "Escape"):
             return
 
@@ -317,8 +324,8 @@ class ConsultationWindow:
             self._hide_suggestions()
             return
 
-        # Buscar en la base de datos
-        results = self.db.search_clients(query)
+        # Buscar en la base de datos (clientes y prospectos)
+        results = self.db.search_contacts(query)
         
         if not results:
             self._hide_suggestions()
@@ -329,8 +336,8 @@ class ConsultationWindow:
         self.client_suggestions = results # Guardar referencia
         
         for res in results:
-            # id, doc, nombre, apellido, email, tel
-            display = f"{res[2]} {res[3]} ({res[4]})"
+            # id, doc, nombre, apellido, email, tel, tipo
+            display = f"{res[2]} {res[3]} ({res[4]}) - {'VIP' if res[6] == 'cliente' else 'PROSPECTO'}"
             self.suggestion_list.insert(tk.END, display)
 
         # Posicionar el listbox debajo del entry
