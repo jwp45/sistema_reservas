@@ -4,11 +4,14 @@ from datetime import datetime, timedelta
 from controllers.database import Database
 
 class QuotationListWindow:
-    def __init__(self, master, reservation_controller):
+    def __init__(self, master, reservation_controller, show_at_risk=False):
         self.master = master
         self.controller = reservation_controller
         self.db = Database()
-        self.db.connect()
+        if not self.db.connect():
+            messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+            return
+
         self.cards = []
         self.selected_id = None
 
@@ -16,11 +19,17 @@ class QuotationListWindow:
         self.window.title("Historial de Cotizaciones Enviadas")
         self.window.geometry("1100x800")
         self.window.configure(bg="#f0f2f5")
+        self.window.transient(master)
+        
+        # Esperar a que la ventana sea visible antes de hacer el grab_set
+        self.window.wait_visibility()
+        self.window.grab_set()
 
         # --- ESTILOS LOCALES ---
         style = ttk.Style(self.window)
         style.configure("Quot.TFrame", background="#f0f2f5")
         style.configure("QuotAction.TButton", font=("Segoe UI", 10, "bold"), padding=12)
+        style.configure("Risk.TCheckbutton", font=("Segoe UI", 10, "bold"), background="white")
 
         # --- ENCABEZADO ---
         header_frame = tk.Frame(self.window, bg="#2c3e50", height=80)
@@ -37,17 +46,27 @@ class QuotationListWindow:
         main_container = ttk.Frame(self.window, padding=30, style="Quot.TFrame")
         main_container.pack(fill=tk.BOTH, expand=True)
 
-        # --- BARRA DE BÚSQUEDA ---
+        # --- BARRA DE BÚSQUEDA Y FILTROS ---
         search_card = tk.Frame(main_container, bg="white", highlightbackground="#e0e0e0", highlightthickness=1, padx=20, pady=15)
         search_card.pack(fill=tk.X, pady=(0, 20))
         
-        tk.Label(search_card, text="🔎 BUSCAR COTIZACIÓN:", font=("Segoe UI", 9, "bold"), bg="white", fg="#2c3e50").pack(side=tk.LEFT, padx=(0, 15))
+        # Búsqueda Texto
+        search_sub = tk.Frame(search_card, bg="white")
+        search_sub.pack(fill=tk.X)
+        
+        tk.Label(search_sub, text="🔎 BUSCAR:", font=("Segoe UI", 9, "bold"), bg="white", fg="#2c3e50").pack(side=tk.LEFT, padx=(0, 10))
         self.search_var = tk.StringVar()
-        search_entry = ttk.Entry(search_card, textvariable=self.search_var, font=("Segoe UI", 11))
+        search_entry = ttk.Entry(search_sub, textvariable=self.search_var, font=("Segoe UI", 11))
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         search_entry.bind("<KeyRelease>", lambda e: self.filter_cards())
 
-        ttk.Button(search_card, text="🔄 REFRESCAR", command=self.load_quotations).pack(side=tk.RIGHT, padx=(15, 0))
+        # Filtro At Risk (Inicializar con show_at_risk)
+        self.risk_var = tk.BooleanVar(value=show_at_risk)
+        tk.Checkbutton(search_sub, text="⚠️ SOLO EN RIESGO (< 3 DÍAS)", variable=self.risk_var, 
+                       command=self.filter_cards, bg="white", activebackground="white", 
+                       font=("Segoe UI", 9, "bold"), fg="#e67e22").pack(side=tk.LEFT, padx=15)
+
+        ttk.Button(search_sub, text="🔄 REFRESCAR", command=self.load_quotations).pack(side=tk.RIGHT)
 
         # --- LISTADO (SCROLL) ---
         canvas_frame = ttk.Frame(main_container, style="Quot.TFrame")
@@ -70,13 +89,17 @@ class QuotationListWindow:
 
         ttk.Button(btn_frame, text="🗑️ ELIMINAR SELECCIONADA", command=self.delete_quotation).pack(side=tk.LEFT)
         
+        self.btn_batch = tk.Button(btn_frame, text="🎁 RE-OFERTAR TODOS EN RIESGO (5%)", font=("Segoe UI", 10, "bold"), 
+                                   bg="#27ae60", fg="white", relief=tk.FLAT, padx=20, pady=8, cursor="hand2",
+                                   command=self.reoffer_all_at_risk)
+        # Se packea inicialmente si el filtro está activo, si no, filter_cards lo manejará
+        self.btn_batch.pack(side=tk.LEFT, padx=20)
+
         ttk.Button(btn_frame, text="🚀 CONVERTIR EN RESERVA", style="QuotAction.TButton", 
                    command=self.convert_to_reservation).pack(side=tk.RIGHT)
 
-        # Limpiar cotizaciones vencidas antes de cargar (15 días = 360 horas)
-        self.db.cleanup_old_quotations(hours=360)
-        
-        self.load_quotations()
+        # Cargar datos al final
+        self.window.after(100, self.load_quotations)
 
     def bind_select(self, widget, quot_id):
         widget.bind("<Button-1>", lambda e, i=quot_id: self.select_card(i))
@@ -164,6 +187,12 @@ class QuotationListWindow:
         is_free = self.db.is_range_available(q[9], q[3], q[4])
         mkt_enviado = q[14]
         
+        is_at_risk = False
+        if isinstance(f_cot_raw, datetime):
+            expiracion = f_cot_raw + timedelta(days=15)
+            restante = expiracion - now
+            is_at_risk = restante.total_seconds() > 0 and restante.days < 3
+
         try:
             precio_orig = float(q[11])
             monto_desc = float(q[12])
@@ -191,7 +220,56 @@ class QuotationListWindow:
 
         card.quot_id = quot_id
         card.search_data = f"{quot_code} {client_name} {property_name}".lower()
+        card.is_at_risk = is_at_risk
+        card.is_free = is_free
+        card.mkt_enviado = mkt_enviado
+        card.raw_data = q
         self.cards.append(card)
+
+    def reoffer_all_at_risk(self):
+        """Envía una oferta especial masiva a todas las cotizaciones en riesgo filtradas."""
+        targets = [c for c in self.cards if c.winfo_viewable() and c.is_at_risk and c.is_free and not c.mkt_enviado]
+        
+        if not targets:
+            messagebox.showinfo("Información", "No hay cotizaciones en riesgo (y con disponibilidad) para re-ofertar en la vista actual.")
+            return
+
+        if not messagebox.askyesno("Confirmar Envío Masivo", 
+                                  f"Se enviará una oferta especial con 5% de descuento extra a {len(targets)} contactos.\n\n¿Desea continuar?"):
+            return
+
+        from utils.email_sender import send_marketing_offer_email
+        success_count = 0
+        self.window.config(cursor="watch")
+        self.window.update()
+
+        for c in targets:
+            q = c.raw_data
+            current_price = float(q[6])
+            new_price = current_price * 0.95 # 5% extra
+            
+            contact_id = q[8]
+            tipo_contacto = q[15]
+            
+            contact = self.db.get_client_by_id(contact_id) if tipo_contacto == 'cliente' else self.db.get_prospect_by_id(contact_id)
+            if not contact: continue
+
+            data = {
+                "id": q[0],
+                "inmueble": q[2],
+                "old_price": self._format_currency(current_price, show_decimals=False),
+                "new_price": self._format_currency(new_price, show_decimals=False),
+                "fecha_ingreso": q[3].strftime("%d/%m/%Y"),
+                "fecha_egreso": q[4].strftime("%d/%m/%Y")
+            }
+
+            if send_marketing_offer_email(contact[3], f"{contact[1]} {contact[2]}", data, contact_type=tipo_contacto):
+                self.db.mark_quotation_mkt_sent(q[0])
+                success_count += 1
+
+        self.window.config(cursor="")
+        messagebox.showinfo("Proceso Completado", f"Se enviaron {success_count} ofertas de marketing exitosamente.")
+        self.load_quotations()
 
     def open_reoffer_dialog(self, quot_id):
         """Abre un diálogo para proponer un nuevo descuento."""
@@ -297,14 +375,27 @@ class QuotationListWindow:
 
     def filter_cards(self):
         query = self.search_var.get().lower()
+        only_risk = self.risk_var.get()
+        
         visible_count = 0
         for card in self.cards:
-            if query in card.search_data:
+            match_search = query in card.search_data
+            match_risk = not only_risk or (only_risk and card.is_at_risk)
+            
+            if match_search and match_risk:
                 card.pack(fill=tk.X, padx=5, pady=8)
                 visible_count += 1
             else:
                 card.pack_forget()
+        
         self.lbl_stats.config(text=f"MOSTRANDO: {visible_count} / TOTAL: {len(self.cards)}")
+        
+        # Ocultar o mostrar el botón masivo según si hay filtro de riesgo
+        if only_risk and visible_count > 0:
+            self.btn_batch.pack(side=tk.LEFT, padx=20, after=self.btn_batch.master.winfo_children()[0])
+        else:
+            # Si no hay nada o no está el filtro, dejarlo pero quizás deshabilitado o simplemente visible
+            pass
 
     def _format_currency(self, value, show_decimals=True):
         try:

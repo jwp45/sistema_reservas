@@ -138,7 +138,7 @@ class MainWindow:
 
         # --- FILA 1: KPIs ---
         self.kpi_pending = self._create_kpi_card(widgets_area, 0, 0, "COBROS PENDIENTES", "#e74c3c", command=self.show_finance_dashboard)
-        self.kpi_expiring = self._create_kpi_card(widgets_area, 0, 1, "VENTAS EN RIESGO", "#f39c12", command=self.show_quotation_list)
+        self.kpi_expiring = self._create_kpi_card(widgets_area, 0, 1, "VENTAS EN RIESGO", "#f39c12", command=lambda: self.show_quotation_list(show_at_risk=True))
         self.kpi_occupancy = self._create_kpi_card(widgets_area, 0, 2, "OCUPACIÓN HOY", "#3498db", command=self.handle_my_reservations)
         self.kpi_revenue = self._create_kpi_card(widgets_area, 0, 3, "INGRESOS MES", "#27ae60", command=self.show_finance_dashboard)
 
@@ -276,10 +276,10 @@ class MainWindow:
     def handle_my_reservations(self):
         ReservationListWindow(self.root, self.reservation_controller)
 
-    def show_quotation_list(self):
+    def show_quotation_list(self, show_at_risk=False):
         """Mostrar la ventana de lista de cotizaciones"""
         from ui.quotation_list_window import QuotationListWindow
-        QuotationListWindow(self.root, self.reservation_controller)
+        QuotationListWindow(self.root, self.reservation_controller, show_at_risk=show_at_risk)
 
     def handle_contact(self):
         """Manejar la sección de contacto y soporte"""

@@ -22,6 +22,9 @@ class ConsultationWindow:
         self.window.geometry("1200x900")
         self.window.configure(bg="#f0f2f5")
         self.window.transient(master)
+        
+        # Esperar visibilidad para evitar TclError en grab_set
+        self.window.wait_visibility()
         self.window.grab_set()
 
         self.selected_property = None
