@@ -134,7 +134,12 @@ class AdvancedSearchWindow:
                 self.ent_hasta.insert(0, date_str)
                 self.end_date = datetime.strptime(date_str, "%d/%m/%Y").date()
 
-        CalendarDialog(self.window, callback)
+        # Si estamos seleccionando el "hasta", pasar el "desde" como fecha inicial si existe
+        init_d = None
+        if field == "hasta" and self.start_date:
+            init_d = self.start_date
+            
+        CalendarDialog(self.window, callback, initial_date=init_d, highlight_date=init_d)
 
     def perform_search(self):
         # Validar fechas
@@ -174,8 +179,14 @@ class AdvancedSearchWindow:
         results = []
 
         for p in all_props:
-            # p = (id, nombre, cap, dir, loc, prov, tipo, val, img)
-            p_id, p_nom, p_cap, p_dir, p_loc, p_prov, p_tipo, p_val, _ = p
+            # p = (id, nombre, cap, dir, loc, prov, tipo, val, img, dorms, camas, banos)
+            p_id = p[0]
+            p_nom = p[1]
+            p_cap = p[2]
+            p_loc = p[4]
+            p_prov = p[5]
+            p_tipo = p[6]
+            p_val = p[7]
 
             # Filtro Capacidad
             if p_cap < min_personas:

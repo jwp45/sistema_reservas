@@ -9,15 +9,34 @@ from PIL import Image, ImageTk
 import calendar
 
 class CalendarDialog(tk.Toplevel):
-    def __init__(self, parent, callback, reserved_ranges=None):
+    def __init__(self, parent, callback, reserved_ranges=None, initial_date=None, highlight_date=None):
         super().__init__(parent)
         self.title("Seleccionar Fecha")
-        self.geometry("400x500")
+        self.geometry("400x520") # Un poco más de altura
         self.callback = callback
         self.reserved_ranges = reserved_ranges or []
         self.now = date.today()
-        self.year = self.now.year
-        self.month = self.now.month
+        
+        # Determinar mes y año inicial
+        if initial_date:
+            if isinstance(initial_date, str):
+                try:
+                    initial_date = datetime.strptime(initial_date, "%d/%m/%Y").date()
+                except:
+                    initial_date = self.now
+            self.year = initial_date.year
+            self.month = initial_date.month
+        else:
+            self.year = self.now.year
+            self.month = self.now.month
+
+        # Fecha para resaltar (referencia visual)
+        self.highlight_date = highlight_date
+        if isinstance(self.highlight_date, str):
+            try:
+                self.highlight_date = datetime.strptime(self.highlight_date, "%d/%m/%Y").date()
+            except:
+                self.highlight_date = None
 
         self.setup_ui()
         self.draw_calendar()
@@ -95,11 +114,22 @@ class CalendarDialog(tk.Toplevel):
         # Leyenda rápida
         legend = tk.Frame(self, bg="#f0f0f0")
         legend.pack(fill=tk.X, side=tk.BOTTOM, pady=5)
-        for c, t in [("#27ae60", "Disp"), ("#3498db", "Entra"), ("#e74c3c", "Ocup"), ("#9b59b6", "Sale"), ("#f1c40f", "Trans")]:
+        
+        items = [
+            ("#27ae60", "Disp"), 
+            ("#3498db", "Entra"), 
+            ("#e74c3c", "Ocup"), 
+            ("#9b59b6", "Sale"), 
+            ("#f1c40f", "Trans"),
+            ("#2c3e50", "INICIO")
+        ]
+        
+        for c, t in items:
             f = tk.Frame(legend, bg="#f0f0f0")
             f.pack(side=tk.LEFT, expand=True)
             tk.Frame(f, bg=c, width=10, height=10).pack(side=tk.LEFT, padx=2)
-            tk.Label(f, text=t, font=("Arial", 7), bg="#f0f0f0").pack(side=tk.LEFT)
+            lbl_font = ("Arial", 7, "bold" if t == "INICIO" else "normal")
+            tk.Label(f, text=t, font=lbl_font, bg="#f0f0f0").pack(side=tk.LEFT)
 
     def draw_calendar(self):
         for widget in self.days_frame.winfo_children():
@@ -123,7 +153,12 @@ class CalendarDialog(tk.Toplevel):
                     
                     color = day_info["color"]
                     fg = "white"
-                    if is_past:
+                    
+                    # Prioridad: Si es la fecha resaltada (Inicio)
+                    if self.highlight_date and d == self.highlight_date:
+                        color = "#2c3e50" # Azul oscuro para resaltar inicio
+                        fg = "#f1c40f"    # Dorado
+                    elif is_past:
                         fg = "#d1d8e0"
                         color = "white"
                     elif day_info["status"] == "disponible":
@@ -593,8 +628,19 @@ class ReservationController:
         if nombre and hasattr(self, "property_map") and nombre in self.property_map:
             id_inmueble = self.property_map[nombre][0]
 
+        # Lógica de apertura inteligente para "EGRESO"
+        init_d = None
+        high_d = None
+        if field_name == "fecha_egreso":
+            ingreso_str = client_fields["fecha_ingreso"].get()
+            if ingreso_str:
+                try:
+                    init_d = datetime.strptime(ingreso_str, "%d/%m/%Y").date()
+                    high_d = init_d
+                except: pass
+
         ranges = self.db.get_reserved_ranges(id_inmueble=id_inmueble)
-        CalendarDialog(parent, update_date_field, reserved_ranges=ranges)
+        CalendarDialog(parent, update_date_field, reserved_ranges=ranges, initial_date=init_d, highlight_date=high_d)
 
     def autofill_client_data(self, client_fields, parent=None):
         # Usar self.master si no se proporciona parent

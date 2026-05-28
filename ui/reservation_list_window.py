@@ -159,8 +159,20 @@ class EditReservationWindow:
             self.fields[field_name].set(self._fmt_date(d))
 
         id_inmueble = self._get_id_inmueble()
+        
+        # Lógica de apertura inteligente
+        init_d = None
+        high_d = None
+        if field_name == "fecha_fin":
+            ingreso_str = self.fields["fecha_inicio"].get()
+            if ingreso_str:
+                try:
+                    init_d = self._parse_date(ingreso_str)
+                    high_d = init_d
+                except: pass
+
         ranges = self.db.get_reserved_ranges(id_inmueble=id_inmueble, exclude_id=self.reservation_id)
-        CalendarDialog(self.window, callback, reserved_ranges=ranges)
+        CalendarDialog(self.window, callback, reserved_ranges=ranges, initial_date=init_d, highlight_date=high_d)
 
     def _get_valor_dia(self):
         name = self.fields["inmueble"].get()

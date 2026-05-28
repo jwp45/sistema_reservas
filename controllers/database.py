@@ -617,6 +617,26 @@ class Database:
         finally:
             if cursor: cursor.close()
 
+    def reassign_client_data(self, old_client_id, new_client_id):
+        """Transfiere todas las reservas y cotizaciones de un cliente a otro."""
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            
+            # 1. Transferir Reservas
+            cursor.execute("UPDATE reservas SET id_cliente = %s WHERE id_cliente = %s", (new_client_id, old_client_id))
+            
+            # 2. Transferir Cotizaciones
+            cursor.execute("UPDATE cotizaciones SET id_cliente = %s WHERE id_cliente = %s", (new_client_id, old_client_id))
+            
+            self.connection.commit()
+            return True
+        except Exception as e:
+            print(f"Error al reasignar datos del cliente: {e}")
+            return False
+        finally:
+            if cursor: cursor.close()
+
     def get_revenue_by_month(self):
         cursor = None
         try:

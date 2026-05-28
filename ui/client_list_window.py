@@ -313,11 +313,57 @@ class ClientListWindow:
 
         if messagebox.askyesno("Confirmación", f"¿Está seguro de eliminar a {client_name}?", parent=self.window):
             client_controller = ClientController()
-            if client_controller.delete_client(self.selected_id):
+            success = client_controller.delete_client(self.selected_id)
+            
+            if success:
                 messagebox.showinfo("Éxito", "Cliente eliminado correctamente", parent=self.window)
                 self.refresh_clients()
             else:
-                messagebox.showerror("Error", "No se pudo eliminar el cliente", parent=self.window)
+                # Si falló, probablemente sea por integridad referencial (reservas activas)
+                self._handle_deletion_error(client_name)
+
+    def _handle_deletion_error(self, client_name):
+        """Maneja el error de eliminación ofreciendo fusionar con otro cliente."""
+        msg = f"No se puede eliminar a '{client_name}' porque tiene reservas o cotizaciones asociadas.\n\n"
+        msg += "¿Desea transferir sus datos a otro cliente (Fusionar) antes de borrarlo?"
+        
+        if messagebox.askyesno("Conflicto de Datos", msg, parent=self.window):
+            # Pedir ID del cliente destino
+            from tkinter import simpledialog
+            target_id = simpledialog.askstring("Fusionar Clientes", 
+                                             f"Ingrese el ID del cliente que desea CONSERVAR\n(Donde se enviarán las reservas de {client_name}):",
+                                             parent=self.window)
+            
+            if target_id and target_id.isdigit():
+                target_id = int(target_id)
+                if target_id == self.selected_id:
+                    messagebox.showerror("Error", "El ID de destino no puede ser el mismo que el de origen.")
+                    return
+                
+                db = Database()
+                if db.connect():
+                    # Verificar que el destino existe
+                    dest_client = db.get_client_by_id(target_id)
+                    if not dest_client:
+                        messagebox.showerror("Error", f"No se encontró el cliente con ID #{target_id}")
+                        return
+                    
+                    # Confirmar fusión
+                    dest_name = f"{dest_client[1]} {dest_client[2]}"
+                    confirm_msg = f"¿Confirmar transferencia de todas las reservas de {client_name} hacia {dest_name}?\n\nAl terminar, {client_name} será ELIMINADO."
+                    
+                    if messagebox.askyesno("Confirmar Fusión", confirm_msg, parent=self.window):
+                        if db.reassign_client_data(self.selected_id, target_id):
+                            # Ahora intentar borrar de nuevo
+                            if db.delete_client(self.selected_id):
+                                messagebox.showinfo("Éxito", "Fusión completada. El cliente duplicado ha sido eliminado.")
+                                self.refresh_clients()
+                            else:
+                                messagebox.showerror("Error", "Los datos fueron transferidos pero no se pudo eliminar el perfil original.")
+                        else:
+                            messagebox.showerror("Error", "Fallo al transferir los datos entre clientes.")
+            elif target_id:
+                messagebox.showerror("Error", "ID inválido.")
 
     def edit_client(self):
         """Editar el cliente seleccionado"""
