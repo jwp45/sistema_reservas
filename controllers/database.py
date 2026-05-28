@@ -207,21 +207,77 @@ class Database:
         finally:
             if cursor: cursor.close()
 
-    def insert_client(self, client_data):
+    def get_client_by_dni(self, dni):
         cursor = None
         try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "SELECT id_clientes, documento, nombre, apellido, email, telefono FROM clientes WHERE documento = %s"
+            cursor.execute(query, (dni,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error al obtener cliente por DNI: {e}")
+            return None
+        finally:
+            if cursor: cursor.close()
+
+    def get_prospect_by_dni(self, dni):
+        cursor = None
+        try:
+            cursor = self.connection.cursor(buffered=True)
+            query = "SELECT id_prospecto, documento, nombre, apellido, email, telefono FROM prospectos WHERE documento = %s"
+            cursor.execute(query, (dni,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error al obtener prospecto por DNI: {e}")
+            return None
+        finally:
+            if cursor: cursor.close()
+
+    def get_contact_by_email_or_dni(self, email=None, dni=None):
+        """Busca un contacto (cliente o prospecto) por email o DNI."""
+        if not email and not dni: return None, None
+        
+        # 1. Buscar en Clientes
+        client = None
+        if dni: client = self.get_client_by_dni(dni)
+        if not client and email: client = self.get_client_by_email(email)
+        
+        if client: return client, 'cliente'
+        
+        # 2. Buscar en Prospectos
+        prospect = None
+        if dni: prospect = self.get_prospect_by_dni(dni)
+        if not prospect and email: prospect = self.get_prospect_by_email(email)
+        
+        if prospect: return prospect, 'prospecto'
+        
+        return None, None
+
+    def insert_client(self, client_data):
+        """client_data = (id, doc, nom, ape, email, tel) o (doc, nom, ape, email, tel)"""
+        cursor = None
+        try:
+            # Verificar duplicados por DNI o Email antes de insertar
+            doc = client_data[1] if len(client_data) == 6 else client_data[0]
+            email = client_data[4] if len(client_data) == 6 else client_data[3]
+            
+            existing, tipo = self.get_contact_by_email_or_dni(email, doc)
+            if existing and tipo == 'cliente':
+                print(f"Error: El cliente con DNI {doc} o Email {email} ya existe.")
+                return False
+
             cursor = self.connection.cursor(buffered=True)
             if len(client_data) == 6:
                 query = "INSERT INTO clientes (id_clientes, documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s, %s)"
             else:
                 query = "INSERT INTO clientes (documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(query, client_data)
-            client_id = cursor.lastrowid
+            client_id = cursor.lastrowid if len(client_data) != 6 else client_data[0]
             self.connection.commit()
             print(f"Cliente guardado exitosamente con ID: {client_id}")
             return client_id
         except Exception as e:
-            print(f"Error al guardar the cliente: {e}")
+            print(f"Error al guardar el cliente: {e}")
             return False
         finally:
             if cursor: cursor.close()
@@ -623,24 +679,32 @@ class Database:
         finally:
             if cursor: cursor.close()
 
-    def search_clients(self, query):
-        """Busca clientes por nombre, apellido, documento o email."""
+    def search_contacts(self, query):
+        """Busca en clientes y prospectos por nombre, apellido, DNI o email."""
         cursor = None
         try:
             cursor = self.connection.cursor(buffered=True)
-            sql = """SELECT id_clientes, documento, nombre, apellido, email, telefono 
+            # Buscar en Clientes
+            sql_c = """SELECT id_clientes, documento, nombre, apellido, email, telefono, 'cliente' as tipo 
                      FROM clientes 
                      WHERE nombre LIKE %s OR apellido LIKE %s OR email LIKE %s OR documento LIKE %s
-                     LIMIT 10"""
+                     LIMIT 5"""
+            # Buscar en Prospectos
+            sql_p = """SELECT id_prospecto, documento, nombre, apellido, email, telefono, 'prospecto' as tipo 
+                     FROM prospectos 
+                     WHERE nombre LIKE %s OR apellido LIKE %s OR email LIKE %s OR documento LIKE %s
+                     LIMIT 5"""
             q = f"%{query}%"
-            cursor.execute(sql, (q, q, q, q))
-            return cursor.fetchall()
+            cursor.execute(sql_c, (q, q, q, q))
+            res_c = cursor.fetchall()
+            cursor.execute(sql_p, (q, q, q, q))
+            res_p = cursor.fetchall()
+            return res_c + res_p
         except Exception as e:
-            print(f"Error al buscar clientes: {e}")
+            print(f"Error al buscar contactos: {e}")
             return []
         finally:
             if cursor: cursor.close()
-
     def reassign_client_data(self, old_client_id, new_client_id):
         """Transfiere todas las reservas y cotizaciones de un cliente a otro."""
         cursor = None
@@ -772,6 +836,14 @@ class Database:
     def insert_prospect(self, prospect_data):
         cursor = None
         try:
+            # Verificar duplicados por DNI o Email antes de insertar
+            doc, email = prospect_data[0], prospect_data[3]
+            existing, tipo = self.get_contact_by_email_or_dni(email, doc)
+            
+            if existing:
+                print(f"Error: Ya existe un {tipo} con DNI {doc} o Email {email}.")
+                return False
+
             cursor = self.connection.cursor(buffered=True)
             query = "INSERT INTO prospectos (documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)"
             cursor.execute(query, prospect_data)
@@ -811,28 +883,42 @@ class Database:
         finally:
             if cursor: cursor.close()
 
-    def convert_prospect_to_client(self, prospect_id):
+    def convert_prospect_to_client(self, prospect_id, updated_data=None):
         """Mueve un prospecto a la tabla clientes y actualiza sus cotizaciones."""
         cursor = None
         try:
             cursor = self.connection.cursor(buffered=True)
-            
-            # 1. Obtener datos del prospecto
-            cursor.execute("SELECT documento, nombre, apellido, email, telefono FROM prospectos WHERE id_prospecto = %s", (prospect_id,))
-            prospect = cursor.fetchone()
-            if not prospect:
-                return False, "Prospecto no encontrado"
-            
-            # 2. Insertar en clientes
-            cursor.execute("INSERT INTO clientes (documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)", prospect)
-            new_client_id = cursor.lastrowid
-            
-            # 3. Actualizar cotizaciones
+
+            if updated_data:
+                # Usar datos frescos del formulario (doc, nom, ape, email, tel)
+                doc, nom, ape, email, tel = updated_data
+            else:
+                # 1. Obtener datos originales del prospecto si no se pasan nuevos
+                cursor.execute("SELECT documento, nombre, apellido, email, telefono FROM prospectos WHERE id_prospecto = %s", (prospect_id,))
+                prospect = cursor.fetchone()
+                if not prospect:
+                    return False, "Prospecto no encontrado"
+                doc, nom, ape, email, tel = prospect
+
+            # 2. Verificar si ya existe un cliente con ese DNI o Email (excluyendo este prospecto que aún no es cliente)
+            existing_client, _ = self.get_contact_by_email_or_dni(email, doc)
+
+            if existing_client and _ == 'cliente':
+                # El cliente ya existe -> Solo actualizar las cotizaciones
+                new_client_id = existing_client[0]
+                print(f"El cliente ya existía (ID: {new_client_id}). Vinculando cotizaciones...")
+            else:
+                # El cliente no existe -> Insertar nuevo
+                cursor.execute("INSERT INTO clientes (documento, nombre, apellido, email, telefono) VALUES (%s, %s, %s, %s, %s)", (doc, nom, ape, email, tel))
+                new_client_id = cursor.lastrowid
+                print(f"Nuevo cliente creado con ID: {new_client_id}")
+
+            # 3. Actualizar cotizaciones (del prospecto al cliente encontrado o nuevo)
             cursor.execute("UPDATE cotizaciones SET id_cliente = %s, id_prospecto = NULL WHERE id_prospecto = %s", (new_client_id, prospect_id))
-            
+
             # 4. Eliminar del prospectos
             cursor.execute("DELETE FROM prospectos WHERE id_prospecto = %s", (prospect_id,))
-            
+
             self.connection.commit()
             return new_client_id, "Conversión exitosa"
         except Exception as e:
@@ -840,7 +926,6 @@ class Database:
             return False, str(e)
         finally:
             if cursor: cursor.close()
-
     def insert_quotation(self, data):
         cursor = None
         try:

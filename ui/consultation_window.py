@@ -220,30 +220,30 @@ class ConsultationWindow:
         if not self.db.connection or not self.db.connection.is_connected():
             self.db.connect()
 
-        # 1. Verificar si el contacto ya existe (en clientes o prospectos)
-        existing_client = self.db.get_client_by_email(email) if email else None
-        existing_prospect = None
-        if not existing_client and email:
-            existing_prospect = self.db.get_prospect_by_email(email)
+        # 1. Verificar si el contacto ya existe (en clientes o prospectos) de forma robusta
+        existing, tipo = self.db.get_contact_by_email_or_dni(email, None) # Aquí buscamos por email
 
         client_id = None
         prospect_id = None
 
-        if existing_client:
-            client_id = existing_client[0]
-        elif existing_prospect:
-            prospect_id = existing_prospect[0]
+        if existing:
+            if tipo == 'cliente':
+                client_id = existing[0]
+                print(f"Vinculando a cliente existente: {client_id}")
+            else:
+                prospect_id = existing[0]
+                print(f"Vinculando a prospecto existente: {prospect_id}")
         else:
             # Es un nuevo contacto -> Guardar como prospecto
             parts = nombre.split(" ", 1)
             nom = parts[0]
             ape = parts[1] if len(parts) > 1 else "—"
             prospect_id = self.db.insert_prospect(("S/D", nom, ape, email if email else "no-email@wa.com", tel))
+            print(f"Nuevo prospecto creado: {prospect_id}")
 
         if not client_id and not prospect_id:
-            messagebox.showerror("Error", "No se pudo registrar el contacto.", parent=self.window)
+            messagebox.showerror("Error", "No se pudo registrar ni encontrar el contacto.", parent=self.window)
             return
-
         # 1.5 Datos de cotización
         noches = (self.end_date - self.start_date).days
         valor_dia = float(self.selected_property[7])

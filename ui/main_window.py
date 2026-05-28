@@ -309,11 +309,17 @@ class MainWindow:
 
         db = Database()
         if db.connect():
+            # Verificar duplicados manualmente para dar un mensaje específico
+            existing, tipo = db.get_contact_by_email_or_dni(email, documento)
+            if existing:
+                messagebox.showerror("Error de Duplicado", f"Ya existe un {tipo} registrado con ese DNI o Email.\n\nNombre: {existing[2]} {existing[3]}\nTipo: {tipo.upper()}", parent=client_window)
+                return
+
             if db.insert_client(client_data):
                 messagebox.showinfo("Éxito", f"Cliente {nombre} {apellido} registrado exitosamente con ID #{id_cliente}", parent=client_window)
                 client_window.destroy()
             else:
-                messagebox.showerror("Error", "No se pudo guardar el cliente en la base de datos", parent=client_window)
+                messagebox.showerror("Error", "No se pudo guardar el cliente en la base de datos.", parent=client_window)
         else:
             messagebox.showerror("Error", "Error de conexión a la base de datos", parent=client_window)
 

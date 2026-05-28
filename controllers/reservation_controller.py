@@ -438,10 +438,15 @@ class ReservationController:
             ent_id.bind("<Return>", lambda e: self.autofill_client_data(client_fields, parent=reservation_window))
             ttk.Button(id_f, text="🔍", width=3, command=lambda: self.open_client_search(client_fields, reservation_window)).pack(side=tk.RIGHT, padx=(5,0))
 
-            tk.Label(sec1, text="DOCUMENTO:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=2, sticky=tk.W, padx=10)
-            ttk.Entry(sec1, textvariable=client_fields["documento"]).grid(row=0, column=3, sticky=tk.EW)
+            tk.Label(sec1, text="DOCUMENTO (Obligatorio):", bg="white", font=("Segoe UI", 8, "bold"), fg="#e74c3c").grid(row=0, column=2, sticky=tk.W, padx=10)
+            # Campo resaltado en ROJO (Obligatorio)
+            ent_doc = tk.Entry(sec1, textvariable=client_fields["documento"], bg="#ffe6e6", fg="#c0392b", 
+                              font=("Segoe UI", 9, "bold"), relief=tk.FLAT, highlightbackground="#f5b7b1", highlightthickness=1)
+
+            ent_doc.grid(row=0, column=3, sticky=tk.EW)
 
             # Fila 1: Nombre y Apellido
+
             tk.Label(sec1, text="NOMBRE:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=0, sticky=tk.W, pady=8)
             ttk.Entry(sec1, textvariable=client_fields["nombre"]).grid(row=1, column=1, sticky=tk.EW, padx=10)
             tk.Label(sec1, text="APELLIDO:", bg="white", font=("Segoe UI", 9)).grid(row=1, column=2, sticky=tk.W, padx=10)
@@ -559,8 +564,10 @@ class ReservationController:
             sec3.columnconfigure(3, weight=1)
 
             # Adelanto y Descuento
-            tk.Label(sec3, text="ADELANTO:", bg="white", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky=tk.W, pady=8)
-            ent_ade = ttk.Entry(sec3, textvariable=client_fields["adelanto"], font=("Segoe UI", 10))
+            tk.Label(sec3, text="ADELANTO (Opcional):", bg="white", font=("Segoe UI", 8, "bold"), fg="#27ae60").grid(row=0, column=0, sticky=tk.W, pady=8)
+            # Campo resaltado en VERDE (Opcional)
+            ent_ade = tk.Entry(sec3, textvariable=client_fields["adelanto"], bg="#e8f8f5", fg="#16a085",
+                              font=("Segoe UI", 10, "bold"), relief=tk.FLAT, highlightbackground="#a3e4d7", highlightthickness=1)
             ent_ade.grid(row=0, column=1, sticky=tk.EW, padx=10)
             ent_ade.bind("<KeyRelease>", lambda e: self.format_down_payment_input(e, client_fields))
 
@@ -799,8 +806,23 @@ class ReservationController:
             is_prospect = client_fields.get("is_prospect", tk.BooleanVar(value=False)).get()
             
             if is_prospect:
-                # Convertir prospecto a cliente real
-                new_id, msg = self.db.convert_prospect_to_client(id_cliente)
+                # EXIGIR DNI PARA CREAR CLIENTE REAL
+                documento = client_fields["documento"].get().strip()
+                if not documento or documento == "S/D":
+                    messagebox.showerror("DNI Requerido", "Para promover un prospecto a CLIENTE REAL debe ingresar un número de documento válido.", parent=reservation_window)
+                    return
+
+                # Preparar datos frescos del formulario para la conversión
+                updated_prospect_data = (
+                    documento,
+                    client_fields["nombre"].get(),
+                    client_fields["apellido"].get(),
+                    client_fields["email"].get(),
+                    client_fields["telefono"].get()
+                )
+
+                # Convertir prospecto a cliente real (usando datos actualizados del form)
+                new_id, msg = self.db.convert_prospect_to_client(id_cliente, updated_data=updated_prospect_data)
                 if new_id:
                     print(f"Prospecto {id_cliente} convertido a cliente {new_id}")
                     id_cliente = new_id
@@ -811,26 +833,35 @@ class ReservationController:
             else:
                 existing_client = self.db.get_client_by_id(id_cliente)
                 if not existing_client:
-                    # Validar datos mínimos para nuevo cliente
+                    # Antes de crear uno nuevo, verificar si los datos (DNI/Email) ya existen en otro ID
                     nombre = client_fields["nombre"].get()
                     apellido = client_fields["apellido"].get()
                     documento = client_fields["documento"].get()
+                    email = client_fields["email"].get()
+                    
                     if not (nombre and apellido and documento):
                         messagebox.showerror("Error", "Para crear un nuevo cliente debe ingresar al menos Nombre, Apellido y Documento", parent=reservation_window)
                         return
                     
+                    # Verificar si ya existe ese DNI o Email en otro cliente
+                    existing, tipo = self.db.get_contact_by_email_or_dni(email, documento)
+                    if existing and tipo == 'cliente':
+                        msg = f"No se puede crear el cliente. El DNI o Email ya pertenecen al Cliente ID #{existing[0]} ({existing[2]} {existing[3]}).\n\nPor favor, use el buscador (🔍) para seleccionar al cliente correcto."
+                        messagebox.showwarning("Cliente Duplicado", msg, parent=reservation_window)
+                        return
+
                     new_client_data = (
                         int(id_cliente),
                         documento,
                         nombre,
                         apellido,
-                        client_fields["email"].get(),
+                        email,
                         client_fields["telefono"].get()
                     )
                     if self.db.insert_client(new_client_data):
                         messagebox.showinfo("Nuevo Cliente", f"Se ha creado automáticamente el nuevo cliente: {nombre} {apellido} (ID: {id_cliente})", parent=reservation_window)
                     else:
-                        messagebox.showerror("Error", "No se pudo crear el nuevo cliente", parent=reservation_window)
+                        messagebox.showerror("Error", "No se pudo crear el nuevo cliente. Verifique que los datos no estén duplicados.", parent=reservation_window)
                         return
 
             inmueble_nombre = client_fields["inmueble"].get()
